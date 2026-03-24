@@ -1,6 +1,5 @@
 import uuid
 import enum
-from datetime import datetime
 
 from sqlalchemy import (
     Column, String, Boolean, Integer, DateTime, ForeignKey, Enum, Text, func
@@ -103,13 +102,13 @@ class Check(Base):
     __tablename__ = "checks"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    monitor_id = Column(UUID(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False)
+    monitor_id = Column(UUID(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False, index=True)
     region = Column(Enum(CheckRegion), nullable=False)
     status = Column(Enum(CheckStatus), nullable=False)
     response_time_ms = Column(Integer, nullable=True)
     status_code = Column(Integer, nullable=True)
     error = Column(Text, nullable=True)
-    checked_at = Column(DateTime(timezone=True), server_default=func.now())
+    checked_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     monitor = relationship("Monitor", back_populates="checks")
 
