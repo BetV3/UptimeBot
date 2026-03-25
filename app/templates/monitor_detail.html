@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}{{ monitor.name }} — UptimeBot{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/dashboard/projects/{{ monitor.project_id }}" class="text-sm text-gray-500 hover:text-gray-700">← Back to project</a>
+    <div class="flex items-center justify-between mt-2">
+        <div class="flex items-center gap-3">
+            {% if monitor.current_status == 'up' %}
+            <span class="w-3 h-3 rounded-full bg-green-500"></span>
+            {% elif monitor.current_status == 'down' %}
+            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+            {% else %}
+            <span class="w-3 h-3 rounded-full bg-gray-400"></span>
+            {% endif %}
+            <h1 class="text-xl font-bold">{{ monitor.name }}</h1>
+        </div>
+        <div class="flex gap-2">
+            {% if monitor.is_active %}
+            <form method="post" action="/dashboard/monitors/{{ monitor.id }}/pause" class="inline">
+                <button type="submit" class="text-sm px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50">Pause</button>
+            </form>
+            {% else %}
+            <form method="post" action="/dashboard/monitors/{{ monitor.id }}/resume" class="inline">
+                <button type="submit" class="text-sm px-3 py-1.5 bg-green-50 border border-green-300 text-green-700 rounded-md hover:bg-green-100">Resume</button>
+            </form>
+            {% endif %}
+            <form method="post" action="/dashboard/monitors/{{ monitor.id }}/delete"
+                onsubmit="return confirm('Delete this monitor?')" class="inline">
+                <button type="submit" class="text-sm px-3 py-1.5 text-red-600 border border-red-200 rounded-md hover:bg-red-50">Delete</button>
+            </form>
+        </div>
+    </div>
+    <p class="text-sm text-gray-500 mt-1">{{ monitor.url }} · {{ monitor.method }} · every {{ monitor.interval_seconds }}s</p>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    {% for label, data in summary.items() %}
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">{{ label }} uptime</div>
+        <div class="text-2xl font-bold {% if data.uptime_pct is not none and data.uptime_pct >= 99.9 %}text-green-600{% elif data.uptime_pct is not none and data.uptime_pct >= 99 %}text-yellow-600{% elif data.uptime_pct is not none %}text-red-600{% else %}text-gray-400{% endif %}">
+            {% if data.uptime_pct is not none %}{{ data.uptime_pct }}%{% else %}—{% endif %}
+        </div>
+        <div class="text-xs text-gray-400">{{ data.total_checks }} checks</div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Response Time Chart -->
+<div class="bg-white rounded-lg shadow p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">Response Time (last 24h)</h2>
+    <canvas id="chart" height="120"></canvas>
+</div>
+
+<!-- Recent Checks -->
+<div class="mb-4">
+    <h2 class="text-lg font-semibold">Recent Checks</h2>
+</div>
+
+{% if checks %}
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-gray-500">
+            <tr>
+                <th class="px-4 py-2.5 text-left font-medium">Time</th>
+                <th class="px-4 py-2.5 text-left font-medium">Region</th>
+                <th class="px-4 py-2.5 text-left font-medium">Status</th>
+                <th class="px-4 py-2.5 text-left font-medium">Code</th>
+                <th class="px-4 py-2.5 text-left font-medium">Response</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for c in checks %}
+            <tr>
+                <td class="px-4 py-2.5 text-gray-600">{{ c.checked_at[:19] }}</td>
+                <td class="px-4 py-2.5">
+                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ c.region | upper }}</span>
+                </td>
+                <td class="px-4 py-2.5">
+                    {% if c.status == 'up' %}
+                    <span class="text-green-600 font-medium">UP</span>
+                    {% else %}
+                    <span class="text-red-600 font-medium">DOWN</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2.5 text-gray-600">{{ c.status_code or '—' }}</td>
+                <td class="px-4 py-2.5 text-gray-600">{{ c.response_time_ms or '—' }}{% if c.response_time_ms %}ms{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="bg-white rounded-lg shadow p-6 text-center">
+    <p class="text-gray-500">No checks yet.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartData = {{ chart_data | tojson }};
+const canvas = document.getElementById('chart');
+if (canvas && chartData.length > 0) {
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = rect.height * 2;
+    ctx.scale(2, 2);
+    const w = rect.width, h = rect.height;
+    const pad = { top: 10, right: 10, bottom: 25, left: 45 };
+    const pw = w - pad.left - pad.right, ph = h - pad.top - pad.bottom;
+
+    const vals = chartData.map(d => d.ms).filter(v => v !== null);
+    const maxVal = Math.max(...vals, 1);
+    const minVal = Math.min(...vals, 0);
+    const range = maxVal - minVal || 1;
+
+    // Grid lines
+    ctx.strokeStyle = '#E5E7EB';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 4; i++) {
+        const y = pad.top + (ph / 4) * i;
+        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+        ctx.fillStyle = '#9CA3AF'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText(Math.round(maxVal - (range / 4) * i) + 'ms', pad.left - 5, y + 3);
+    }
+
+    // Line
+    ctx.beginPath();
+    ctx.strokeStyle = '#7C3AED';
+    ctx.lineWidth = 1.5;
+    let first = true;
+    chartData.forEach((d, i) => {
+        if (d.ms === null) return;
+        const x = pad.left + (i / (chartData.length - 1)) * pw;
+        const y = pad.top + (1 - (d.ms - minVal) / range) * ph;
+        if (first) { ctx.moveTo(x, y); first = false; } else { ctx.lineTo(x, y); }
+    });
+    ctx.stroke();
+
+    // X labels
+    ctx.fillStyle = '#9CA3AF'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    const step = Math.max(1, Math.floor(chartData.length / 6));
+    for (let i = 0; i < chartData.length; i += step) {
+        const x = pad.left + (i / (chartData.length - 1)) * pw;
+        ctx.fillText(chartData[i].time, x, h - 5);
+    }
+}
+</script>
+{% endblock %}

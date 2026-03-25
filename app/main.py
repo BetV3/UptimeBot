@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.core.config import get_settings
-from app.api.routes import alerts, auth, health, incidents, internal, monitors, projects, status
+from app.api.routes import alerts, auth, dashboard, health, incidents, internal, monitors, projects, status
 
 settings = get_settings()
 
@@ -20,3 +20,4 @@ app.include_router(internal.router, prefix="/internal", tags=["Internal"])
 app.include_router(incidents.router, tags=["Incidents"])
 app.include_router(alerts.router, tags=["Alerts"])
 app.include_router(status.router, tags=["Status Page"])
+app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
