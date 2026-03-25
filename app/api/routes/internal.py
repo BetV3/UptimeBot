@@ -6,8 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models.models import Check, CheckRegion, CheckStatus, Monitor, MonitorStatus, PendingCheck
+from app.models.models import Check, CheckRegion, CheckStatus, Incident, Monitor, MonitorStatus, PendingCheck
 from app.schemas.internal import CheckResultsBatch
+from app.services.alerts import dispatch_alerts
 
 router = APIRouter()
 settings = get_settings()
@@ -121,7 +122,18 @@ async def _update_monitor_status(monitor_id: str, db: AsyncSession):
 
     Consensus logic: look at the latest check from each region.
     If 2+ regions report DOWN, the monitor is DOWN. Otherwise UP.
+    Also handles incident detection and alert dispatch on transitions.
     """
+    # Get current monitor state
+    monitor_result = await db.execute(
+        select(Monitor).where(Monitor.id == monitor_id)
+    )
+    monitor = monitor_result.scalar_one_or_none()
+    if not monitor:
+        return
+
+    old_status = monitor.current_status
+
     # Get the most recent check per region for this monitor
     regions = [CheckRegion.US, CheckRegion.EU, CheckRegion.ASIA]
     down_count = 0
@@ -144,8 +156,30 @@ async def _update_monitor_status(monitor_id: str, db: AsyncSession):
         return
 
     new_status = MonitorStatus.DOWN if down_count >= 2 else MonitorStatus.UP
-    await db.execute(
-        update(Monitor)
-        .where(Monitor.id == monitor_id)
-        .values(current_status=new_status)
-    )
+    monitor.current_status = new_status
+
+    # Detect status transitions and manage incidents
+    now = datetime.now(timezone.utc)
+
+    if old_status != MonitorStatus.DOWN and new_status == MonitorStatus.DOWN:
+        # UP/UNKNOWN -> DOWN: create incident
+        incident = Incident(monitor_id=monitor.id, started_at=now)
+        db.add(incident)
+        await db.flush()
+        await dispatch_alerts(monitor, incident, "down", db)
+
+    elif old_status == MonitorStatus.DOWN and new_status == MonitorStatus.UP:
+        # DOWN -> UP: resolve open incident
+        result = await db.execute(
+            select(Incident)
+            .where(
+                Incident.monitor_id == monitor.id,
+                Incident.resolved_at.is_(None),
+            )
+            .order_by(Incident.started_at.desc())
+            .limit(1)
+        )
+        incident = result.scalar_one_or_none()
+        if incident:
+            incident.resolved_at = now
+            await dispatch_alerts(monitor, incident, "resolved", db)
