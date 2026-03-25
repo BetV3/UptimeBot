@@ -1,0 +1,112 @@
+"""
+Standalone check worker — runs on VPS, polls for jobs, executes HTTP checks,
+and reports results back to the API.
+
+Usage:
+    python run.py --region us --api-url http://your-api:8000 --secret your-worker-secret
+    # or via env vars: REGION, API_URL, WORKER_SECRET
+"""
+
+import argparse
+import os
+import time
+
+import httpx
+
+
+def get_config():
+    parser = argparse.ArgumentParser(description="UptimeBot check worker")
+    parser.add_argument("--region", default=os.getenv("REGION", "us"))
+    parser.add_argument("--api-url", default=os.getenv("API_URL", "http://localhost:8000"))
+    parser.add_argument("--secret", default=os.getenv("WORKER_SECRET", "change-me-worker-secret"))
+    parser.add_argument("--poll-interval", type=int, default=int(os.getenv("POLL_INTERVAL", "10")))
+    return parser.parse_args()
+
+
+def fetch_jobs(client: httpx.Client, api_url: str, region: str, secret: str) -> list[dict]:
+    resp = client.get(
+        f"{api_url}/internal/jobs",
+        params={"region": region},
+        headers={"X-Worker-Secret": secret},
+    )
+    resp.raise_for_status()
+    return resp.json().get("jobs", [])
+
+
+def execute_check(client: httpx.Client, job: dict) -> dict:
+    url = job["url"]
+    method = job.get("method", "GET")
+    timeout = job.get("timeout_seconds", 10)
+    headers = job.get("headers") or {}
+    body = job.get("body")
+
+    result = {
+        "pending_check_id": job["pending_check_id"],
+        "monitor_id": job["monitor_id"],
+        "region": job["region"],
+    }
+
+    try:
+        start = time.monotonic()
+        resp = client.request(
+            method=method,
+            url=url,
+            headers=headers,
+            content=body,
+            timeout=timeout,
+            follow_redirects=True,
+        )
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        expected = job.get("expected_status", 200)
+        is_up = resp.status_code == expected
+
+        result["status"] = "up" if is_up else "down"
+        result["status_code"] = resp.status_code
+        result["response_time_ms"] = elapsed_ms
+        if not is_up:
+            result["error"] = f"Expected {expected}, got {resp.status_code}"
+    except httpx.TimeoutException:
+        result["status"] = "down"
+        result["error"] = f"Timeout after {timeout}s"
+    except Exception as e:
+        result["status"] = "down"
+        result["error"] = str(e)[:500]
+
+    return result
+
+
+def post_results(client: httpx.Client, api_url: str, secret: str, results: list[dict]):
+    resp = client.post(
+        f"{api_url}/internal/results",
+        json={"results": results},
+        headers={"X-Worker-Secret": secret},
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def main():
+    config = get_config()
+    print(f"Worker starting: region={config.region} api={config.api_url} poll={config.poll_interval}s")
+
+    with httpx.Client() as client:
+        while True:
+            try:
+                jobs = fetch_jobs(client, config.api_url, config.region, config.secret)
+                if jobs:
+                    print(f"Got {len(jobs)} job(s)")
+                    results = [execute_check(client, job) for job in jobs]
+                    resp = post_results(client, config.api_url, config.secret, results)
+                    print(f"Posted {resp.get('saved', 0)} result(s)")
+                    for r in results:
+                        status_icon = "+" if r["status"] == "up" else "!"
+                        print(f"  [{status_icon}] {r['monitor_id'][:8]}... {r['status']} {r.get('response_time_ms', '-')}ms")
+            except Exception as e:
+                print(f"Error: {e}")
+
+            time.sleep(config.poll_interval)
+
+
+if __name__ == "__main__":
+    main()

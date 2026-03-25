@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, status
-from sqlalchemy import select, update
+from sqlalchemy import select, update, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models.models import PendingCheck, CheckRegion, Monitor
+from app.models.models import Check, CheckRegion, CheckStatus, Monitor, MonitorStatus, PendingCheck
+from app.schemas.internal import CheckResultsBatch
 
 router = APIRouter()
 settings = get_settings()
@@ -73,3 +74,78 @@ async def get_jobs(
         })
 
     return {"jobs": jobs}
+
+
+@router.post("/results", dependencies=[Depends(verify_worker_secret)])
+async def post_results(
+    body: CheckResultsBatch,
+    db: AsyncSession = Depends(get_db),
+):
+    if not body.results:
+        return {"saved": 0}
+
+    # Save check results
+    for r in body.results:
+        check = Check(
+            monitor_id=r.monitor_id,
+            region=CheckRegion(r.region.lower()),
+            status=CheckStatus(r.status.lower()),
+            status_code=r.status_code,
+            response_time_ms=r.response_time_ms,
+            error=r.error,
+        )
+        db.add(check)
+
+    # Delete the claimed pending checks
+    pending_ids = [r.pending_check_id for r in body.results]
+    await db.execute(
+        update(PendingCheck)
+        .where(PendingCheck.id.in_(pending_ids))
+        .values(claimed_at=datetime.now(timezone.utc))
+    )
+
+    await db.flush()
+
+    # Update monitor statuses using consensus logic
+    # Group results by monitor to determine status
+    monitor_ids = list({r.monitor_id for r in body.results})
+    for monitor_id in monitor_ids:
+        await _update_monitor_status(monitor_id, db)
+
+    await db.commit()
+    return {"saved": len(body.results)}
+
+
+async def _update_monitor_status(monitor_id: str, db: AsyncSession):
+    """Update monitor status based on the most recent check round.
+
+    Consensus logic: look at the latest check from each region.
+    If 2+ regions report DOWN, the monitor is DOWN. Otherwise UP.
+    """
+    # Get the most recent check per region for this monitor
+    regions = [CheckRegion.US, CheckRegion.EU, CheckRegion.ASIA]
+    down_count = 0
+    total_checked = 0
+
+    for region in regions:
+        result = await db.execute(
+            select(Check.status)
+            .where(Check.monitor_id == monitor_id, Check.region == region)
+            .order_by(Check.checked_at.desc())
+            .limit(1)
+        )
+        latest = result.scalar_one_or_none()
+        if latest is not None:
+            total_checked += 1
+            if latest == CheckStatus.DOWN:
+                down_count += 1
+
+    if total_checked == 0:
+        return
+
+    new_status = MonitorStatus.DOWN if down_count >= 2 else MonitorStatus.UP
+    await db.execute(
+        update(Monitor)
+        .where(Monitor.id == monitor_id)
+        .values(current_status=new_status)
+    )

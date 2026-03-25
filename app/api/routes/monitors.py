@@ -1,11 +1,12 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models.models import User, Project, Monitor, HttpMethod, MonitorStatus
+from app.models.models import Check, CheckStatus, User, Project, Monitor, HttpMethod, MonitorStatus
 from app.schemas.monitors import MonitorCreate, MonitorUpdate, MonitorResponse
 from app.services.auth import get_current_user
 
@@ -167,3 +168,98 @@ async def resume_monitor(
     await db.commit()
     await db.refresh(monitor)
     return _monitor_to_response(monitor)
+
+
+# --- Check history ---
+
+
+@router.get("/monitors/{monitor_id}/checks")
+async def list_checks(
+    monitor_id: uuid.UUID,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, le=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _get_user_monitor(monitor_id, current_user, db)
+
+    offset = (page - 1) * per_page
+    result = await db.execute(
+        select(Check)
+        .where(Check.monitor_id == monitor_id)
+        .order_by(Check.checked_at.desc())
+        .offset(offset)
+        .limit(per_page)
+    )
+    checks = result.scalars().all()
+
+    total_result = await db.execute(
+        select(func.count()).select_from(Check).where(Check.monitor_id == monitor_id)
+    )
+    total = total_result.scalar()
+
+    return {
+        "checks": [
+            {
+                "id": str(c.id),
+                "region": c.region.value,
+                "status": c.status.value,
+                "status_code": c.status_code,
+                "response_time_ms": c.response_time_ms,
+                "error": c.error,
+                "checked_at": c.checked_at.isoformat(),
+            }
+            for c in checks
+        ],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    }
+
+
+@router.get("/monitors/{monitor_id}/checks/summary")
+async def checks_summary(
+    monitor_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _get_user_monitor(monitor_id, current_user, db)
+
+    now = datetime.now(timezone.utc)
+    periods = {
+        "24h": timedelta(hours=24),
+        "7d": timedelta(days=7),
+        "30d": timedelta(days=30),
+        "90d": timedelta(days=90),
+    }
+
+    summary = {}
+    for label, delta in periods.items():
+        since = now - delta
+        total_result = await db.execute(
+            select(func.count())
+            .select_from(Check)
+            .where(Check.monitor_id == monitor_id, Check.checked_at >= since)
+        )
+        total = total_result.scalar()
+
+        if total == 0:
+            summary[label] = {"uptime_pct": None, "total_checks": 0}
+            continue
+
+        up_result = await db.execute(
+            select(func.count())
+            .select_from(Check)
+            .where(
+                Check.monitor_id == monitor_id,
+                Check.checked_at >= since,
+                Check.status == CheckStatus.UP,
+            )
+        )
+        up_count = up_result.scalar()
+        summary[label] = {
+            "uptime_pct": round((up_count / total) * 100, 3),
+            "total_checks": total,
+        }
+
+    return summary
