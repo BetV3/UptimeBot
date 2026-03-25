@@ -7,6 +7,7 @@ celery_app = Celery(
     "uptimebot",
     broker=settings.redis_url,
     backend=settings.redis_url,
+    include=["app.workers.tasks"],
 )
 
 celery_app.conf.update(
@@ -16,10 +17,9 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     beat_schedule={
-        # Will be added in Week 3:
-        # "schedule-checks": {
-        #     "task": "app.workers.tasks.schedule_pending_checks",
-        #     "schedule": 15.0,  # every 15 seconds
-        # },
+        "schedule-checks": {
+            "task": "app.workers.tasks.schedule_pending_checks",
+            "schedule": 15.0,
+        },
     },
 )

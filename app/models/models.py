@@ -148,3 +148,15 @@ class AlertChannel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     project = relationship("Project", back_populates="alert_channels")
+
+
+class PendingCheck(Base):
+    __tablename__ = "pending_checks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    monitor_id = Column(UUID(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False, index=True)
+    region = Column(Enum(CheckRegion), nullable=False)
+    scheduled_at = Column(DateTime(timezone=True), server_default=func.now())
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+
+    monitor = relationship("Monitor")

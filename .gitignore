@@ -9,3 +9,4 @@ build/
 .idea/
 venv/
 .venv/
+celerybeat-schedule
