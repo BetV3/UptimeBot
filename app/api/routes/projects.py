@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models.models import User, Project
+from app.models.models import User, Project, StatusPage
 from app.schemas.projects import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.services.auth import get_current_user
 
@@ -49,6 +49,12 @@ async def create_project(
 
     project = Project(user_id=current_user.id, name=body.name, slug=slug)
     db.add(project)
+    await db.flush()
+
+    # Auto-create status page with sensible defaults
+    sp = StatusPage(project_id=project.id, display_name=body.name, is_public=False)
+    db.add(sp)
+
     await db.commit()
     await db.refresh(project)
     return ProjectResponse(
