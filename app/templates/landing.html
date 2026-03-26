@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UptimeBot — Uptime Monitoring for Bot Developers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { brand: '#7C3AED' }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-white">
+
+    <!-- Nav -->
+    <nav class="border-b border-gray-100">
+        <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+            <span class="font-bold text-lg text-brand">UptimeBot</span>
+            <div class="flex items-center gap-4">
+                <a href="/docs/getting-started" class="text-sm text-gray-600 hover:text-gray-900">Docs</a>
+                <a href="#pricing" class="text-sm text-gray-600 hover:text-gray-900">Pricing</a>
+                <a href="/dashboard/login" class="text-sm text-gray-600 hover:text-gray-900">Login</a>
+                <a href="/dashboard/register" class="bg-brand text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-purple-700 transition">Get Started Free</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="py-20 text-center">
+        <div class="max-w-3xl mx-auto px-4">
+            <h1 class="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight">
+                Your bot goes down.<br>Your users complain.<br>You find out last.
+            </h1>
+            <p class="mt-6 text-lg text-gray-500 max-w-2xl mx-auto">
+                UptimeBot monitors your Discord and Telegram bots from 3 continents and alerts you instantly &mdash; before your community even notices.
+            </p>
+            <div class="mt-8 flex justify-center gap-3">
+                <a href="/dashboard/register" class="bg-brand text-white font-medium px-6 py-3 rounded-md hover:bg-purple-700 transition">Start Monitoring Free</a>
+                <a href="#pricing" class="border border-gray-300 text-gray-700 font-medium px-6 py-3 rounded-md hover:bg-gray-50 transition">View Pricing</a>
+            </div>
+            <p class="mt-3 text-sm text-gray-400">No credit card required</p>
+        </div>
+    </section>
+
+    <!-- Problem -->
+    <section class="py-16 bg-gray-50">
+        <div class="max-w-3xl mx-auto px-4">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">You built the bot. Who's watching it?</h2>
+            <p class="text-gray-500 mb-6">
+                Your bot serves thousands of users across hundreds of servers. When it goes down at 3am, you don't find out until you wake up to a flooded support channel.
+            </p>
+            <p class="text-gray-500 mb-4">
+                Generic monitoring tools weren't built for bot developers. They'll tell you a URL returned 200, but they won't:
+            </p>
+            <ul class="space-y-2 text-gray-600">
+                <li class="flex items-start gap-2">
+                    <span class="text-red-400 mt-1">&#x2717;</span>
+                    Alert your Discord server the way your community expects
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-red-400 mt-1">&#x2717;</span>
+                    Check from multiple regions so you know if it's really down
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-red-400 mt-1">&#x2717;</span>
+                    Give your supporters a status page they can actually trust
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-red-400 mt-1">&#x2717;</span>
+                    Let you set up monitoring in under a minute
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="py-20">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-bold text-center text-gray-900 mb-12">Monitoring that speaks bot developer</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-white border border-gray-100 rounded-lg p-6">
+                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Multi-Region Checks</h3>
+                    <p class="text-sm text-gray-500">Your bot gets pinged from the US, Europe, and Asia. We only alert when 2+ regions confirm it's down &mdash; no more 3am false alarms from a single flaky check.</p>
+                </div>
+                <div class="bg-white border border-gray-100 rounded-lg p-6">
+                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Discord-Native Alerts</h3>
+                    <p class="text-sm text-gray-500">Not a plain text webhook. Rich embeds with status, response time, and incident duration &mdash; dropped right into your ops channel.</p>
+                </div>
+                <div class="bg-white border border-gray-100 rounded-lg p-6">
+                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Public Status Pages</h3>
+                    <p class="text-sm text-gray-500">Give your community a live status page. Show your supporters you take reliability seriously with 90-day uptime bars and incident history.</p>
+                </div>
+                <div class="bg-white border border-gray-100 rounded-lg p-6">
+                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Telegram Alerts</h3>
+                    <p class="text-sm text-gray-500">Running a Telegram bot? Get instant notifications in your Telegram chat when something goes wrong.</p>
+                </div>
+                <div class="bg-white border border-gray-100 rounded-lg p-6">
+                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">30-Second Setup</h3>
+                    <p class="text-sm text-gray-500">Paste your bot's health endpoint. Pick your Discord webhook. Done. No 20-minute onboarding, no YAML files.</p>
+                </div>
+                <div class="bg-white border border-gray-100 rounded-lg p-6">
+                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
+                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Incident Timeline</h3>
+                    <p class="text-sm text-gray-500">When something breaks, get a clear timeline: when it went down, from which regions, how long it was out, and when it recovered.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="py-16 bg-gray-50">
+        <div class="max-w-3xl mx-auto px-4">
+            <h2 class="text-2xl font-bold text-center text-gray-900 mb-12">Three steps. Under a minute.</h2>
+            <div class="space-y-8">
+                <div class="flex gap-4">
+                    <div class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-sm shrink-0">1</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">Add your endpoint</h3>
+                        <p class="text-sm text-gray-500">Paste the URL your bot's health check lives at. We support GET and POST with custom headers if you need them.</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-sm shrink-0">2</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">Connect your alerts</h3>
+                        <p class="text-sm text-gray-500">Drop in your Discord webhook URL, Telegram bot token, or email. Or all three.</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-sm shrink-0">3</div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">Relax</h3>
+                        <p class="text-sm text-gray-500">We check your bot from 3 regions. If something breaks, you'll know before your users do.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section id="pricing" class="py-20">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-bold text-center text-gray-900 mb-2">Simple pricing. No per-monitor math.</h2>
+            <p class="text-center text-gray-500 mb-12">All plans include multi-region monitoring and zero setup fees. Cancel anytime.</p>
+
+            <div class="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                <!-- Free -->
+                <div class="border border-gray-200 rounded-lg p-6">
+                    <h3 class="font-semibold text-gray-900 text-lg">Free</h3>
+                    <div class="mt-2 mb-4">
+                        <span class="text-3xl font-bold text-gray-900">$0</span>
+                        <span class="text-gray-500">/mo</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-6">Perfect for side projects and hobby bots.</p>
+                    <ul class="space-y-3 text-sm text-gray-600 mb-8">
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            3 monitors
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            5-minute check intervals
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            1 project
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Checked from 3 regions
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Discord + email alerts
+                        </li>
+                    </ul>
+                    <a href="/dashboard/register" class="block text-center border border-brand text-brand font-medium py-2 rounded-md hover:bg-purple-50 transition text-sm">Get Started</a>
+                </div>
+
+                <!-- Starter -->
+                <div class="border-2 border-brand rounded-lg p-6 relative">
+                    <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand text-white text-xs font-medium px-3 py-1 rounded-full">Popular</span>
+                    <h3 class="font-semibold text-gray-900 text-lg">Starter</h3>
+                    <div class="mt-2 mb-4">
+                        <span class="text-3xl font-bold text-gray-900">$5</span>
+                        <span class="text-gray-500">/mo</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-6">For bot developers who take uptime seriously.</p>
+                    <ul class="space-y-3 text-sm text-gray-600 mb-8">
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            10 monitors
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            1-minute check intervals
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            3 projects
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Checked from 3 regions
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Discord, Telegram + email alerts
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            90-day incident history
+                        </li>
+                    </ul>
+                    <a href="/dashboard/register" class="block text-center bg-brand text-white font-medium py-2 rounded-md hover:bg-purple-700 transition text-sm">Get Started</a>
+                </div>
+
+                <!-- Pro -->
+                <div class="border border-gray-200 rounded-lg p-6">
+                    <h3 class="font-semibold text-gray-900 text-lg">Pro</h3>
+                    <div class="mt-2 mb-4">
+                        <span class="text-3xl font-bold text-gray-900">$15</span>
+                        <span class="text-gray-500">/mo</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-6">For teams and developers running multiple production bots.</p>
+                    <ul class="space-y-3 text-sm text-gray-600 mb-8">
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            50 monitors
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            30-second check intervals
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Unlimited projects
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            All alert channels
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Custom status page domain
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Priority support
+                        </li>
+                    </ul>
+                    <a href="/dashboard/register" class="block text-center border border-brand text-brand font-medium py-2 rounded-md hover:bg-purple-50 transition text-sm">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison -->
+    <section class="py-16 bg-gray-50">
+        <div class="max-w-4xl mx-auto px-4">
+            <h2 class="text-2xl font-bold text-center text-gray-900 mb-10">How UptimeBot stacks up</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="py-3 pr-4 font-medium text-gray-500">Feature</th>
+                            <th class="py-3 px-4 font-semibold text-brand">UptimeBot Starter</th>
+                            <th class="py-3 px-4 font-medium text-gray-500">UptimeRobot Solo</th>
+                            <th class="py-3 px-4 font-medium text-gray-500">Uptime Kuma</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-600">
+                        <tr class="border-b border-gray-100">
+                            <td class="py-3 pr-4">Price</td>
+                            <td class="py-3 px-4 font-medium text-gray-900">$5/mo</td>
+                            <td class="py-3 px-4">$7/mo</td>
+                            <td class="py-3 px-4">Free (self-hosted)</td>
+                        </tr>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-3 pr-4">Monitors</td>
+                            <td class="py-3 px-4 font-medium text-gray-900">10</td>
+                            <td class="py-3 px-4">10</td>
+                            <td class="py-3 px-4">Unlimited</td>
+                        </tr>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-3 pr-4">Check interval</td>
+                            <td class="py-3 px-4 font-medium text-gray-900">1 min</td>
+                            <td class="py-3 px-4">1 min</td>
+                            <td class="py-3 px-4">1 min</td>
+                        </tr>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-3 pr-4">Multi-region checks</td>
+                            <td class="py-3 px-4 font-medium text-gray-900">3 regions</td>
+                            <td class="py-3 px-4">Single region</td>
+                            <td class="py-3 px-4">Single instance</td>
+                        </tr>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-3 pr-4">Discord-native alerts</td>
+                            <td class="py-3 px-4 font-medium text-gray-900">Rich embeds</td>
+                            <td class="py-3 px-4">Basic webhook</td>
+                            <td class="py-3 px-4">Basic webhook</td>
+                        </tr>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-3 pr-4">Hosted (zero maintenance)</td>
+                            <td class="py-3 px-4 font-medium text-gray-900">Yes</td>
+                            <td class="py-3 px-4">Yes</td>
+                            <td class="py-3 px-4">No</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 pr-4">Built for bot devs</td>
+                            <td class="py-3 px-4 font-medium text-gray-900">Yes</td>
+                            <td class="py-3 px-4">No</td>
+                            <td class="py-3 px-4">No</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-xs text-gray-400 mt-4 text-center">Uptime Kuma is great, but if your monitoring tool runs on the same server as your bot, they go down together.</p>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="py-20">
+        <div class="max-w-3xl mx-auto px-4">
+            <h2 class="text-2xl font-bold text-center text-gray-900 mb-12">Frequently asked questions</h2>
+            <div class="space-y-6">
+                <details class="group border-b border-gray-200 pb-4">
+                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
+                        Who is UptimeBot for?
+                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
+                    </summary>
+                    <p class="mt-3 text-sm text-gray-500">UptimeBot is built for developers who run Discord bots, Telegram bots, or APIs that serve online communities. If your users rely on your bot being online and you want to know the second it's not, this is for you.</p>
+                </details>
+                <details class="group border-b border-gray-200 pb-4">
+                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
+                        How is this different from UptimeRobot?
+                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
+                    </summary>
+                    <p class="mt-3 text-sm text-gray-500">UptimeRobot is a general-purpose monitoring tool. UptimeBot is purpose-built for bot developers &mdash; Discord-native alerts with rich embeds, multi-region verification to eliminate false alarms, and status pages designed for your community. Our Starter plan is $5/mo vs their $7/mo.</p>
+                </details>
+                <details class="group border-b border-gray-200 pb-4">
+                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
+                        How is this different from Uptime Kuma?
+                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
+                    </summary>
+                    <p class="mt-3 text-sm text-gray-500">Uptime Kuma is a self-hosted, single-instance tool. If the server running it goes down, your monitoring goes down with it. UptimeBot runs in the cloud and checks from 3 continents, so you have redundancy built in. No server to maintain, no Docker to manage.</p>
+                </details>
+                <details class="group border-b border-gray-200 pb-4">
+                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
+                        What endpoints can I monitor?
+                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
+                    </summary>
+                    <p class="mt-3 text-sm text-gray-500">Any HTTP or HTTPS endpoint. Most bot developers point us at their /health or /status endpoint. We support custom headers, expected status codes, and POST requests with bodies.</p>
+                </details>
+                <details class="group border-b border-gray-200 pb-4">
+                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
+                        Do you really check from 3 continents?
+                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
+                    </summary>
+                    <p class="mt-3 text-sm text-gray-500">Yes. Every check runs from the US, Europe, and Asia. We only flag an incident when 2 or more regions confirm the endpoint is down, which eliminates false positives from regional network blips.</p>
+                </details>
+                <details class="group border-b border-gray-200 pb-4">
+                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
+                        Can I use this for non-bot projects?
+                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
+                    </summary>
+                    <p class="mt-3 text-sm text-gray-500">Absolutely. UptimeBot works for any API or web service. But our features, integrations, and community are optimized for bot developers.</p>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer CTA -->
+    <section class="py-16 bg-gray-900 text-center">
+        <div class="max-w-2xl mx-auto px-4">
+            <h2 class="text-2xl font-bold text-white mb-3">Your bot deserves better than "is it down?"</h2>
+            <p class="text-gray-400 mb-8">Start monitoring in under 60 seconds. Free forever for up to 3 monitors.</p>
+            <a href="/dashboard/register" class="bg-brand text-white font-medium px-8 py-3 rounded-md hover:bg-purple-700 transition inline-block">Start Monitoring Free</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-100 py-8">
+        <div class="max-w-5xl mx-auto px-4 flex items-center justify-between text-sm text-gray-400">
+            <span>UptimeBot</span>
+            <div class="flex gap-4">
+                <a href="/docs/getting-started" class="hover:text-gray-600">Docs</a>
+                <a href="#pricing" class="hover:text-gray-600">Pricing</a>
+                <a href="/dashboard/login" class="hover:text-gray-600">Login</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

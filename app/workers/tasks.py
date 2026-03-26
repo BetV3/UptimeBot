@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import create_engine, select, func, text
 from sqlalchemy.orm import Session
@@ -67,3 +67,17 @@ def schedule_pending_checks():
 
         session.commit()
         return {"created": created}
+
+
+@celery_app.task(name="app.workers.tasks.cleanup_old_checks")
+def cleanup_old_checks():
+    """Delete check records older than 90 days to manage storage."""
+    with Session(sync_engine) as session:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+        result = session.execute(
+            text("DELETE FROM checks WHERE checked_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+        deleted = result.rowcount
+        session.commit()
+        return {"deleted": deleted}

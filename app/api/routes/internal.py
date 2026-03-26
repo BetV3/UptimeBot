@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models.models import Check, CheckRegion, CheckStatus, Incident, Monitor, MonitorStatus, PendingCheck
+from app.models.models import Check, CheckRegion, CheckStatus, Incident, Monitor, MonitorStatus, PendingCheck, WorkerHeartbeat
 from app.schemas.internal import CheckResultsBatch
 from app.services.alerts import dispatch_alerts
 
@@ -183,3 +183,47 @@ async def _update_monitor_status(monitor_id: str, db: AsyncSession):
         if incident:
             incident.resolved_at = now
             await dispatch_alerts(monitor, incident, "resolved", db)
+
+
+@router.post("/heartbeat", dependencies=[Depends(verify_worker_secret)])
+async def worker_heartbeat(
+    region: CheckRegion = Query(...),
+    hostname: str = Query(default=""),
+    version: str = Query(default=""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Workers call this periodically to report they're alive."""
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        select(WorkerHeartbeat).where(WorkerHeartbeat.region == region)
+    )
+    hb = result.scalar_one_or_none()
+    if hb:
+        hb.last_seen = now
+        hb.hostname = hostname or hb.hostname
+        hb.version = version or hb.version
+    else:
+        hb = WorkerHeartbeat(region=region, hostname=hostname, version=version, last_seen=now)
+        db.add(hb)
+    await db.commit()
+    return {"status": "ok"}
+
+
+@router.get("/workers", dependencies=[Depends(verify_worker_secret)])
+async def list_workers(db: AsyncSession = Depends(get_db)):
+    """Return status of all known workers."""
+    result = await db.execute(select(WorkerHeartbeat))
+    workers = result.scalars().all()
+    now = datetime.now(timezone.utc)
+    return {
+        "workers": [
+            {
+                "region": w.region.value,
+                "hostname": w.hostname,
+                "version": w.version,
+                "last_seen": w.last_seen.isoformat(),
+                "stale": (now - w.last_seen).total_seconds() > 120,
+            }
+            for w in workers
+        ]
+    }

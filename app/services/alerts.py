@@ -55,6 +55,10 @@ async def _send_alert(
         await _send_telegram(channel.config, monitor, incident, event, project_name)
     elif channel.type == AlertType.EMAIL:
         await _send_email(channel.config, monitor, incident, event, project_name)
+    elif channel.type == AlertType.SLACK:
+        await _send_slack(channel.config, monitor, incident, event, project_name)
+    elif channel.type == AlertType.WEBHOOK:
+        await _send_webhook(channel.config, monitor, incident, event, project_name)
 
 
 async def send_test_alert(channel: AlertChannel, project_name: str):
@@ -65,6 +69,10 @@ async def send_test_alert(channel: AlertChannel, project_name: str):
         await _send_telegram_test(channel.config, project_name)
     elif channel.type == AlertType.EMAIL:
         await _send_email_test(channel.config, project_name)
+    elif channel.type == AlertType.SLACK:
+        await _send_slack_test(channel.config, project_name)
+    elif channel.type == AlertType.WEBHOOK:
+        await _send_webhook_test(channel.config, project_name)
 
 
 # --- Discord ---
@@ -203,6 +211,96 @@ async def _send_email_test(config: dict, project_name: str):
         server.starttls()
         server.login(config["smtp_user"], config["smtp_pass"])
         server.send_message(msg)
+
+
+# --- Slack ---
+
+
+async def _send_slack(config: dict, monitor: Monitor, incident: Incident, event: str, project_name: str):
+    webhook_url = config["webhook_url"]
+
+    if event == "down":
+        color = "#ED4245"
+        text = f":red_circle: *{monitor.name}* is DOWN"
+        fallback = f"{monitor.name} is DOWN"
+    else:
+        color = "#57F287"
+        duration = ""
+        if incident.resolved_at and incident.started_at:
+            secs = int((incident.resolved_at - incident.started_at).total_seconds())
+            duration = f" (downtime: {_format_duration(secs)})"
+        text = f":large_green_circle: *{monitor.name}* is back UP{duration}"
+        fallback = f"{monitor.name} is back UP"
+
+    payload = {
+        "attachments": [{
+            "color": color,
+            "fallback": fallback,
+            "text": text,
+            "fields": [
+                {"title": "URL", "value": f"`{monitor.url}`", "short": True},
+                {"title": "Project", "value": project_name, "short": True},
+            ],
+            "footer": "UptimeBot",
+            "ts": int(datetime.now(timezone.utc).timestamp()),
+        }]
+    }
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(webhook_url, json=payload, timeout=10)
+        resp.raise_for_status()
+
+
+async def _send_slack_test(config: dict, project_name: str):
+    webhook_url = config["webhook_url"]
+    payload = {
+        "attachments": [{
+            "color": "#5865F2",
+            "text": f":white_check_mark: *UptimeBot Test Alert*\nYour Slack webhook is working!\nProject: {project_name}",
+            "footer": "UptimeBot",
+        }]
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(webhook_url, json=payload, timeout=10)
+        resp.raise_for_status()
+
+
+# --- Generic Webhook ---
+
+
+async def _send_webhook(config: dict, monitor: Monitor, incident: Incident, event: str, project_name: str):
+    webhook_url = config["url"]
+    payload = {
+        "event": event,
+        "monitor": {"name": monitor.name, "url": monitor.url},
+        "project": project_name,
+        "incident": {
+            "started_at": incident.started_at.isoformat(),
+            "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else None,
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    headers = config.get("headers") or {}
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(webhook_url, json=payload, headers=headers, timeout=10)
+        resp.raise_for_status()
+
+
+async def _send_webhook_test(config: dict, project_name: str):
+    webhook_url = config["url"]
+    payload = {
+        "event": "test",
+        "project": project_name,
+        "message": "UptimeBot test alert — your webhook is working!",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    headers = config.get("headers") or {}
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(webhook_url, json=payload, headers=headers, timeout=10)
+        resp.raise_for_status()
+
+
+# --- Helpers ---
 
 
 def _format_duration(seconds: int) -> str:

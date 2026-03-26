@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models.models import User, Project, StatusPage
 from app.schemas.projects import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.services.auth import get_current_user
+from app.services.plans import check_project_limit
 
 router = APIRouter()
 
@@ -41,6 +42,8 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await check_project_limit(current_user, db)
+
     slug = slugify(body.name)
     # Ensure slug uniqueness by appending short suffix if needed
     result = await db.execute(select(Project).where(Project.slug == slug))

@@ -25,6 +25,11 @@
             <a href="/dashboard" class="font-bold text-lg text-brand">UptimeBot</a>
             <div class="flex items-center gap-4">
                 {% if user %}
+                {% if user.plan is defined %}
+                <span class="text-xs px-2 py-0.5 rounded-full {% if user.plan.value == 'pro' %}bg-purple-100 text-purple-700{% elif user.plan.value == 'starter' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                    {{ user.plan.value | capitalize }}
+                </span>
+                {% endif %}
                 <span class="text-sm text-gray-500">{{ user.email }}</span>
                 <a href="/dashboard/logout" class="text-sm text-gray-600 hover:text-gray-900">Logout</a>
                 {% endif %}

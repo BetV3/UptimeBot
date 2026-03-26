@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     # Workers
     worker_secret: str = "change-me-worker-secret"
 
+    # Stripe
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_starter_price_id: str = ""
+    stripe_pro_price_id: str = ""
+    app_url: str = "http://localhost:8000"
+
     # App
     app_name: str = "UptimeBot"
     app_env: str = "development"

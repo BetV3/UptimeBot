@@ -23,6 +23,7 @@ from app.services.auth import (
     create_access_token, create_refresh_token,
     decode_token, hash_password, verify_password,
 )
+from app.services.plans import check_project_limit, check_monitor_limit, check_interval_limit
 
 router = APIRouter()
 settings = get_settings()
@@ -134,6 +135,8 @@ async def create_project_submit(
     if not user:
         return RedirectResponse("/dashboard/login", status_code=303)
 
+    await check_project_limit(user, db)
+
     slug = re.sub(r"[^\w\s-]", "", name.lower().strip())
     slug = re.sub(r"[\s_]+", "-", slug).strip("-")
     existing = await db.execute(select(Project).where(Project.slug == slug))
@@ -232,6 +235,9 @@ async def create_monitor_submit(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404)
 
+    await check_monitor_limit(user, db)
+    check_interval_limit(user, interval_seconds)
+
     monitor = Monitor(
         project_id=project_id, name=name, url=url,
         method=HttpMethod(method), expected_status=expected_status,
@@ -255,6 +261,9 @@ async def create_alert_submit(
     smtp_pass: str = Form(""),
     from_email: str = Form(""),
     to_email: str = Form(""),
+    slack_webhook_url: str = Form(""),
+    generic_webhook_url: str = Form(""),
+    webhook_secret: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     user = await _get_user_from_cookie(request, db)
@@ -278,6 +287,12 @@ async def create_alert_submit(
             "smtp_user": smtp_user, "smtp_pass": smtp_pass,
             "from_email": from_email, "to_email": to_email,
         }
+    elif type == "slack":
+        config = {"webhook_url": slack_webhook_url}
+    elif type == "webhook":
+        config = {"url": generic_webhook_url}
+        if webhook_secret:
+            config["headers"] = {"Authorization": webhook_secret}
 
     channel = AlertChannel(project_id=project_id, type=AlertType(type), config=config)
     db.add(channel)
@@ -368,8 +383,10 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
         "monitor": {
             "id": str(monitor.id), "project_id": str(monitor.project_id),
             "name": monitor.name, "url": monitor.url, "method": monitor.method.value,
+            "expected_status": monitor.expected_status,
             "current_status": monitor.current_status.value, "is_active": monitor.is_active,
             "interval_seconds": monitor.interval_seconds,
+            "timeout_seconds": monitor.timeout_seconds,
         },
         "summary": summary, "checks": checks, "chart_data": chart_data,
     })
@@ -422,6 +439,39 @@ async def delete_monitor_submit(monitor_id: str, request: Request, db: AsyncSess
     await db.delete(monitor)
     await db.commit()
     return RedirectResponse(f"/dashboard/projects/{project_id}", status_code=303)
+
+
+@router.post("/monitors/{monitor_id}/edit")
+async def edit_monitor_submit(
+    monitor_id: str, request: Request,
+    name: str = Form(...),
+    url: str = Form(...),
+    method: str = Form("GET"),
+    expected_status: int = Form(200),
+    interval_seconds: int = Form(60),
+    timeout_seconds: int = Form(10),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    result = await db.execute(
+        select(Monitor).join(Project).where(Monitor.id == monitor_id, Project.user_id == user.id)
+    )
+    monitor = result.scalar_one_or_none()
+    if not monitor:
+        raise HTTPException(status_code=404)
+
+    check_interval_limit(user, interval_seconds)
+
+    monitor.name = name
+    monitor.url = url
+    monitor.method = HttpMethod(method)
+    monitor.expected_status = expected_status
+    monitor.interval_seconds = interval_seconds
+    monitor.timeout_seconds = timeout_seconds
+    await db.commit()
+    return RedirectResponse(f"/dashboard/monitors/{monitor_id}", status_code=303)
 
 
 # --- Status page settings ---

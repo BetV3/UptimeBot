@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models.models import Check, CheckStatus, User, Project, Monitor, HttpMethod, MonitorStatus
 from app.schemas.monitors import MonitorCreate, MonitorUpdate, MonitorResponse
 from app.services.auth import get_current_user
+from app.services.plans import check_monitor_limit, check_interval_limit
 
 router = APIRouter()
 
@@ -72,6 +73,9 @@ async def create_monitor(
     current_user: User = Depends(get_current_user),
 ):
     await _get_user_project(project_id, current_user, db)
+    await check_monitor_limit(current_user, db)
+    check_interval_limit(current_user, body.interval_seconds)
+
     monitor = Monitor(
         project_id=project_id,
         name=body.name,
@@ -124,6 +128,8 @@ async def update_monitor(
 ):
     monitor = await _get_user_monitor(monitor_id, current_user, db)
     update_data = body.model_dump(exclude_unset=True)
+    if "interval_seconds" in update_data:
+        check_interval_limit(current_user, update_data["interval_seconds"])
     if "method" in update_data:
         update_data["method"] = HttpMethod(update_data["method"])
     for field, value in update_data.items():

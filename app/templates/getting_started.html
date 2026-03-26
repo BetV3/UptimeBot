@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started — UptimeBot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { brand: '#7C3AED' }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-white">
+
+    <!-- Nav -->
+    <nav class="border-b border-gray-100">
+        <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+            <a href="/" class="font-bold text-lg text-brand">UptimeBot</a>
+            <div class="flex items-center gap-4">
+                <a href="/docs/getting-started" class="text-sm text-brand font-medium">Docs</a>
+                <a href="/dashboard/login" class="text-sm text-gray-600 hover:text-gray-900">Login</a>
+                <a href="/dashboard/register" class="bg-brand text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-purple-700 transition">Get Started Free</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-3xl mx-auto px-4 py-12">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Getting Started</h1>
+        <p class="text-gray-500 mb-10">Set up monitoring for your bot in under a minute.</p>
+
+        <!-- Step 1 -->
+        <section class="mb-10">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">1</span>
+                <h2 class="text-xl font-semibold text-gray-900">Create an account</h2>
+            </div>
+            <p class="text-gray-600 ml-10 mb-3">
+                <a href="/dashboard/register" class="text-brand hover:underline">Sign up</a> with your email. No credit card required &mdash; the free plan includes 3 monitors with 5-minute check intervals.
+            </p>
+        </section>
+
+        <!-- Step 2 -->
+        <section class="mb-10">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">2</span>
+                <h2 class="text-xl font-semibold text-gray-900">Create a project</h2>
+            </div>
+            <p class="text-gray-600 ml-10 mb-3">
+                A project groups related monitors together. For example, you might have one project per bot.
+                From the <a href="/dashboard" class="text-brand hover:underline">dashboard</a>, enter a name and click <strong>Create</strong>.
+            </p>
+        </section>
+
+        <!-- Step 3 -->
+        <section class="mb-10">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">3</span>
+                <h2 class="text-xl font-semibold text-gray-900">Add a monitor</h2>
+            </div>
+            <p class="text-gray-600 ml-10 mb-3">
+                Inside your project, add a monitor by providing:
+            </p>
+            <ul class="text-gray-600 ml-10 space-y-1 list-disc list-inside mb-3">
+                <li><strong>Name</strong> &mdash; A friendly label (e.g. "My Bot Health Check")</li>
+                <li><strong>URL</strong> &mdash; The endpoint to check (e.g. <code class="bg-gray-100 px-1 rounded text-sm">https://mybot.example.com/health</code>)</li>
+                <li><strong>Method</strong> &mdash; GET (default), POST, or HEAD</li>
+                <li><strong>Expected Status</strong> &mdash; The HTTP status code that means "up" (default: 200)</li>
+                <li><strong>Interval</strong> &mdash; How often to check, in seconds (depends on your plan)</li>
+            </ul>
+            <p class="text-gray-600 ml-10">
+                Once created, UptimeBot will start checking your endpoint from 3 regions (US, EU, Asia) automatically. A monitor is only marked <strong>down</strong> when 2+ regions confirm the failure.
+            </p>
+        </section>
+
+        <!-- Step 4 -->
+        <section class="mb-10">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">4</span>
+                <h2 class="text-xl font-semibold text-gray-900">Set up alerts</h2>
+            </div>
+            <p class="text-gray-600 ml-10 mb-3">
+                On your project page, add an alert channel so you get notified when something goes wrong:
+            </p>
+            <div class="ml-10 space-y-4">
+                <div>
+                    <h3 class="font-medium text-gray-900">Discord Webhook</h3>
+                    <p class="text-sm text-gray-500">
+                        In your Discord server: Server Settings &rarr; Integrations &rarr; Webhooks &rarr; New Webhook. Copy the URL and paste it into UptimeBot. You'll get rich embed notifications in your channel.
+                    </p>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-900">Telegram</h3>
+                    <p class="text-sm text-gray-500">
+                        Create a bot via <code class="bg-gray-100 px-1 rounded">@BotFather</code>, get the bot token, then send a message to the bot and grab your chat ID. Enter both in UptimeBot.
+                    </p>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-900">Email</h3>
+                    <p class="text-sm text-gray-500">
+                        Provide your SMTP server details and the email address to notify. Works with any SMTP provider (Gmail, Mailgun, Resend, etc.).
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 5 -->
+        <section class="mb-10">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">5</span>
+                <h2 class="text-xl font-semibold text-gray-900">Enable your status page</h2>
+            </div>
+            <p class="text-gray-600 ml-10 mb-3">
+                Each project gets a public status page automatically. From your project page, click <strong>Status Page Settings</strong> to customize:
+            </p>
+            <ul class="text-gray-600 ml-10 space-y-1 list-disc list-inside mb-3">
+                <li><strong>Display name</strong> and <strong>logo</strong></li>
+                <li><strong>Accent color</strong> to match your brand</li>
+                <li>Toggle the page <strong>public</strong> when you're ready</li>
+            </ul>
+            <p class="text-gray-600 ml-10">
+                Your status page will be available at <code class="bg-gray-100 px-1 rounded text-sm">/status/your-project-slug</code> and shows live monitor status, 90-day uptime bars, and recent incidents.
+            </p>
+        </section>
+
+        <!-- API -->
+        <section class="mb-10 border-t border-gray-200 pt-10">
+            <h2 class="text-xl font-semibold text-gray-900 mb-3">REST API</h2>
+            <p class="text-gray-600 mb-3">
+                Everything you can do in the dashboard is also available via the API. Authenticate with a JWT token:
+            </p>
+            <div class="bg-gray-900 text-gray-100 rounded-lg p-4 text-sm font-mono overflow-x-auto mb-3">
+                <div class="text-gray-400"># Register</div>
+                <div>curl -X POST /auth/register -H "Content-Type: application/json" \</div>
+                <div class="pl-4">-d '{"email": "you@example.com", "password": "secret"}'</div>
+                <div class="mt-2 text-gray-400"># Use the returned access_token</div>
+                <div>curl /projects -H "Authorization: Bearer &lt;token&gt;"</div>
+            </div>
+            <p class="text-gray-600">
+                Interactive API docs are available at <a href="/api/docs" class="text-brand hover:underline">/api/docs</a>.
+            </p>
+        </section>
+
+        <!-- Plans -->
+        <section class="mb-10 border-t border-gray-200 pt-10">
+            <h2 class="text-xl font-semibold text-gray-900 mb-3">Plans</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="py-2 pr-4 font-medium text-gray-500"></th>
+                            <th class="py-2 px-4 font-medium text-gray-900">Free</th>
+                            <th class="py-2 px-4 font-medium text-gray-900">Starter ($5/mo)</th>
+                            <th class="py-2 px-4 font-medium text-gray-900">Pro ($15/mo)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-600">
+                        <tr class="border-b border-gray-100"><td class="py-2 pr-4">Projects</td><td class="py-2 px-4">1</td><td class="py-2 px-4">3</td><td class="py-2 px-4">Unlimited</td></tr>
+                        <tr class="border-b border-gray-100"><td class="py-2 pr-4">Monitors</td><td class="py-2 px-4">3</td><td class="py-2 px-4">10</td><td class="py-2 px-4">50</td></tr>
+                        <tr class="border-b border-gray-100"><td class="py-2 pr-4">Min interval</td><td class="py-2 px-4">5 min</td><td class="py-2 px-4">1 min</td><td class="py-2 px-4">30 sec</td></tr>
+                        <tr><td class="py-2 pr-4">Regions</td><td class="py-2 px-4">3</td><td class="py-2 px-4">3</td><td class="py-2 px-4">3</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-gray-100 py-8">
+        <div class="max-w-3xl mx-auto px-4 flex items-center justify-between text-sm text-gray-400">
+            <a href="/" class="hover:text-gray-600">UptimeBot</a>
+            <div class="flex gap-4">
+                <a href="/dashboard/login" class="hover:text-gray-600">Login</a>
+                <a href="/dashboard/register" class="hover:text-gray-600">Sign Up</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

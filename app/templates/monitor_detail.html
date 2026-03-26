@@ -25,6 +25,8 @@
                 <button type="submit" class="text-sm px-3 py-1.5 bg-green-50 border border-green-300 text-green-700 rounded-md hover:bg-green-100">Resume</button>
             </form>
             {% endif %}
+            <button onclick="document.getElementById('edit-monitor-modal').classList.remove('hidden')"
+                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50">Edit</button>
             <form method="post" action="/dashboard/monitors/{{ monitor.id }}/delete"
                 onsubmit="return confirm('Delete this monitor?')" class="inline">
                 <button type="submit" class="text-sm px-3 py-1.5 text-red-600 border border-red-200 rounded-md hover:bg-red-50">Delete</button>
@@ -96,6 +98,60 @@
     <p class="text-gray-500">No checks yet.</p>
 </div>
 {% endif %}
+
+<!-- Edit Monitor Modal -->
+<div id="edit-monitor-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+        <h2 class="text-lg font-semibold mb-4">Edit Monitor</h2>
+        <form method="post" action="/dashboard/monitors/{{ monitor.id }}/edit">
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input type="text" name="name" required value="{{ monitor.name }}"
+                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                    <input type="url" name="url" required value="{{ monitor.url }}"
+                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Method</label>
+                        <select name="method" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="GET" {% if monitor.method == 'GET' %}selected{% endif %}>GET</option>
+                            <option value="POST" {% if monitor.method == 'POST' %}selected{% endif %}>POST</option>
+                            <option value="HEAD" {% if monitor.method == 'HEAD' %}selected{% endif %}>HEAD</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Expected Status</label>
+                        <input type="number" name="expected_status" value="{{ monitor.expected_status }}"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Interval (seconds)</label>
+                        <input type="number" name="interval_seconds" value="{{ monitor.interval_seconds }}" min="30"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Timeout (seconds)</label>
+                        <input type="number" name="timeout_seconds" value="{{ monitor.timeout_seconds }}" min="1" max="30"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-5">
+                <button type="button" onclick="this.closest('#edit-monitor-modal').classList.add('hidden')"
+                    class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
+                <button type="submit"
+                    class="bg-brand text-white text-sm px-4 py-2 rounded-md hover:bg-purple-700">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 {% endblock %}
 

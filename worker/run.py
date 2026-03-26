@@ -9,6 +9,7 @@ Usage:
 
 import argparse
 import os
+import platform
 import time
 
 import httpx
@@ -86,13 +87,32 @@ def post_results(client: httpx.Client, api_url: str, secret: str, results: list[
     return resp.json()
 
 
+def send_heartbeat(client: httpx.Client, api_url: str, region: str, secret: str):
+    try:
+        client.post(
+            f"{api_url}/internal/heartbeat",
+            params={"region": region, "hostname": platform.node(), "version": "1.0.0"},
+            headers={"X-Worker-Secret": secret},
+            timeout=5,
+        )
+    except Exception:
+        pass  # Heartbeat failure is non-fatal
+
+
 def main():
     config = get_config()
     print(f"Worker starting: region={config.region} api={config.api_url} poll={config.poll_interval}s")
 
+    heartbeat_counter = 0
     with httpx.Client() as client:
         while True:
             try:
+                # Send heartbeat every 6th poll (~60s at default 10s interval)
+                heartbeat_counter += 1
+                if heartbeat_counter >= 6:
+                    send_heartbeat(client, config.api_url, config.region, config.secret)
+                    heartbeat_counter = 0
+
                 jobs = fetch_jobs(client, config.api_url, config.region, config.secret)
                 if jobs:
                     print(f"Got {len(jobs)} job(s)")
