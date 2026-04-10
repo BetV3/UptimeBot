@@ -1,153 +1,153 @@
 {% extends "base.html" %}
-{% block title %}{{ monitor.name }} — UptimeBot{% endblock %}
+{% block title %}{{ monitor.name }} — BotOps Cloud{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-    <a href="/dashboard/projects/{{ monitor.project_id }}" class="text-sm text-gray-500 hover:text-gray-700">← Back to project</a>
-    <div class="flex items-center justify-between mt-2">
+<div class="mb-8">
+    <a href="/dashboard/projects/{{ monitor.project_id }}" class="text-sm text-ink-dim hover:text-ink transition font-mono">&larr; back to project</a>
+    <div class="flex items-center justify-between mt-3">
         <div class="flex items-center gap-3">
             {% if monitor.current_status == 'up' %}
-            <span class="w-3 h-3 rounded-full bg-green-500"></span>
+            <span class="w-3 h-3 rounded-full bg-ok" style="box-shadow: 0 0 12px rgba(16, 185, 129, 0.7);"></span>
             {% elif monitor.current_status == 'down' %}
-            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+            <span class="w-3 h-3 rounded-full bg-bad" style="box-shadow: 0 0 12px rgba(239, 68, 68, 0.7);"></span>
             {% else %}
-            <span class="w-3 h-3 rounded-full bg-gray-400"></span>
+            <span class="w-3 h-3 rounded-full bg-ink-dim"></span>
             {% endif %}
-            <h1 class="text-xl font-bold">{{ monitor.name }}</h1>
+            <h1 class="font-mono text-2xl font-bold text-ink">{{ monitor.name }}</h1>
         </div>
         <div class="flex gap-2">
             {% if monitor.is_active %}
             <form method="post" action="/dashboard/monitors/{{ monitor.id }}/pause" class="inline">
-                <button type="submit" class="text-sm px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50">Pause</button>
+                <button type="submit" class="bc-btn-secondary">Pause</button>
             </form>
             {% else %}
             <form method="post" action="/dashboard/monitors/{{ monitor.id }}/resume" class="inline">
-                <button type="submit" class="text-sm px-3 py-1.5 bg-green-50 border border-green-300 text-green-700 rounded-md hover:bg-green-100">Resume</button>
+                <button type="submit" class="bc-btn-secondary" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #10B981;">Resume</button>
             </form>
             {% endif %}
-            <button onclick="document.getElementById('edit-monitor-modal').classList.remove('hidden')"
-                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50">Edit</button>
-            <form method="post" action="/dashboard/monitors/{{ monitor.id }}/delete"
-                onsubmit="return confirm('Delete this monitor?')" class="inline">
-                <button type="submit" class="text-sm px-3 py-1.5 text-red-600 border border-red-200 rounded-md hover:bg-red-50">Delete</button>
+            <button onclick="document.getElementById('edit-monitor-modal').classList.remove('hidden')" class="bc-btn-secondary">Edit</button>
+            <form method="post" action="/dashboard/monitors/{{ monitor.id }}/delete" onsubmit="return confirm('Delete this monitor?')" class="inline">
+                <button type="submit" class="bc-btn-danger">Delete</button>
             </form>
         </div>
     </div>
-    <p class="text-sm text-gray-500 mt-1">{{ monitor.url }} · {{ monitor.method }} · every {{ monitor.interval_seconds }}s</p>
+    <p class="text-sm text-ink-dim mt-2 font-mono">{{ monitor.url }} &middot; {{ monitor.method }} &middot; every {{ monitor.interval_seconds }}s</p>
 </div>
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
     {% for label, data in summary.items() %}
-    <div class="bg-white rounded-lg shadow p-4">
-        <div class="text-sm text-gray-500">{{ label }} uptime</div>
-        <div class="text-2xl font-bold {% if data.uptime_pct is not none and data.uptime_pct >= 99.9 %}text-green-600{% elif data.uptime_pct is not none and data.uptime_pct >= 99 %}text-yellow-600{% elif data.uptime_pct is not none %}text-red-600{% else %}text-gray-400{% endif %}">
-            {% if data.uptime_pct is not none %}{{ data.uptime_pct }}%{% else %}—{% endif %}
+    <div class="bc-card p-5">
+        <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">{{ label }} uptime</div>
+        <div class="font-mono text-3xl font-bold {% if data.uptime_pct is not none and data.uptime_pct >= 99.9 %}text-ok{% elif data.uptime_pct is not none and data.uptime_pct >= 99 %}text-warn{% elif data.uptime_pct is not none %}text-bad{% else %}text-ink-dim{% endif %}">
+            {% if data.uptime_pct is not none %}{{ data.uptime_pct }}<span class="text-lg">%</span>{% else %}&mdash;{% endif %}
         </div>
-        <div class="text-xs text-gray-400">{{ data.total_checks }} checks</div>
+        <div class="text-xs text-ink-dim mt-1 font-mono">{{ data.total_checks }} checks</div>
     </div>
     {% endfor %}
 </div>
 
 <!-- Response Time Chart -->
-<div class="bg-white rounded-lg shadow p-5 mb-6">
-    <h2 class="text-sm font-semibold text-gray-700 mb-3">Response Time (last 24h)</h2>
-    <canvas id="chart" height="120"></canvas>
+<div class="bc-card p-5 mb-6">
+    <h2 class="text-xs font-mono uppercase tracking-wider text-ink-muted mb-4">// Response Time (last 24h)</h2>
+    <canvas id="chart" height="140"></canvas>
 </div>
 
 <!-- Recent Checks -->
 <div class="mb-4">
-    <h2 class="text-lg font-semibold">Recent Checks</h2>
+    <h2 class="text-xs font-mono uppercase tracking-wider text-ink-muted">// Recent Checks</h2>
 </div>
 
 {% if checks %}
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="bc-card overflow-hidden">
     <table class="w-full text-sm">
-        <thead class="bg-gray-50 text-gray-500">
-            <tr>
-                <th class="px-4 py-2.5 text-left font-medium">Time</th>
-                <th class="px-4 py-2.5 text-left font-medium">Region</th>
-                <th class="px-4 py-2.5 text-left font-medium">Status</th>
-                <th class="px-4 py-2.5 text-left font-medium">Code</th>
-                <th class="px-4 py-2.5 text-left font-medium">Response</th>
+        <thead class="bg-bg-surface/40">
+            <tr class="text-left">
+                <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Time</th>
+                <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Region</th>
+                <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Status</th>
+                <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Code</th>
+                <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Response</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
+        <tbody class="divide-y divide-bg-surface/50">
             {% for c in checks %}
-            <tr>
-                <td class="px-4 py-2.5 text-gray-600">{{ c.checked_at[:19] }}</td>
-                <td class="px-4 py-2.5">
-                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ c.region | upper }}</span>
+            <tr class="hover:bg-bg-surface/20 transition">
+                <td class="px-4 py-3 text-ink-muted font-mono text-xs">{{ c.checked_at[:19] }}</td>
+                <td class="px-4 py-3">
+                    <span class="font-mono text-[10px] uppercase tracking-wider bg-bg-surface/60 text-ink-muted px-2 py-1 rounded border border-bg-surface">{{ c.region | upper }}</span>
                 </td>
-                <td class="px-4 py-2.5">
+                <td class="px-4 py-3">
                     {% if c.status == 'up' %}
-                    <span class="text-green-600 font-medium">UP</span>
+                    <span class="flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-ok">
+                        <span class="w-1.5 h-1.5 rounded-full bg-ok"></span> UP
+                    </span>
                     {% else %}
-                    <span class="text-red-600 font-medium">DOWN</span>
+                    <span class="flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-bad">
+                        <span class="w-1.5 h-1.5 rounded-full bg-bad"></span> DOWN
+                    </span>
                     {% endif %}
                 </td>
-                <td class="px-4 py-2.5 text-gray-600">{{ c.status_code or '—' }}</td>
-                <td class="px-4 py-2.5 text-gray-600">{{ c.response_time_ms or '—' }}{% if c.response_time_ms %}ms{% endif %}</td>
+                <td class="px-4 py-3 text-ink-muted font-mono text-xs">{{ c.status_code or '—' }}</td>
+                <td class="px-4 py-3 text-ink-muted font-mono text-xs">{{ c.response_time_ms or '—' }}{% if c.response_time_ms %}ms{% endif %}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 {% else %}
-<div class="bg-white rounded-lg shadow p-6 text-center">
-    <p class="text-gray-500">No checks yet.</p>
+<div class="bc-card p-10 text-center">
+    <p class="text-ink-muted">No checks yet.</p>
 </div>
 {% endif %}
 
 <!-- Edit Monitor Modal -->
-<div id="edit-monitor-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
-        <h2 class="text-lg font-semibold mb-4">Edit Monitor</h2>
+<div id="edit-monitor-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bc-card w-full max-w-lg p-6 shadow-glow-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-5">
+            <h2 class="font-mono text-lg font-bold text-ink">Edit Monitor</h2>
+            <button onclick="document.getElementById('edit-monitor-modal').classList.add('hidden')" class="text-ink-dim hover:text-ink">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
         <form method="post" action="/dashboard/monitors/{{ monitor.id }}/edit">
-            <div class="space-y-3">
+            <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                    <input type="text" name="name" required value="{{ monitor.name }}"
-                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Name</label>
+                    <input type="text" name="name" required value="{{ monitor.name }}">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">URL</label>
-                    <input type="url" name="url" required value="{{ monitor.url }}"
-                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">URL</label>
+                    <input type="url" name="url" required value="{{ monitor.url }}">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Method</label>
-                        <select name="method" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Method</label>
+                        <select name="method">
                             <option value="GET" {% if monitor.method == 'GET' %}selected{% endif %}>GET</option>
                             <option value="POST" {% if monitor.method == 'POST' %}selected{% endif %}>POST</option>
                             <option value="HEAD" {% if monitor.method == 'HEAD' %}selected{% endif %}>HEAD</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Expected Status</label>
-                        <input type="number" name="expected_status" value="{{ monitor.expected_status }}"
-                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Expected Status</label>
+                        <input type="number" name="expected_status" value="{{ monitor.expected_status }}">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Interval (seconds)</label>
-                        <input type="number" name="interval_seconds" value="{{ monitor.interval_seconds }}" min="30"
-                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Interval (seconds)</label>
+                        <input type="number" name="interval_seconds" value="{{ monitor.interval_seconds }}" min="30">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Timeout (seconds)</label>
-                        <input type="number" name="timeout_seconds" value="{{ monitor.timeout_seconds }}" min="1" max="30"
-                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Timeout (seconds)</label>
+                        <input type="number" name="timeout_seconds" value="{{ monitor.timeout_seconds }}" min="1" max="30">
                     </div>
                 </div>
             </div>
-            <div class="flex justify-end gap-3 mt-5">
-                <button type="button" onclick="this.closest('#edit-monitor-modal').classList.add('hidden')"
-                    class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
-                <button type="submit"
-                    class="bg-brand text-white text-sm px-4 py-2 rounded-md hover:bg-purple-700">Save Changes</button>
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button" onclick="this.closest('#edit-monitor-modal').classList.add('hidden')" class="bc-btn-secondary">Cancel</button>
+                <button type="submit" class="bc-btn-primary">Save Changes</button>
             </div>
         </form>
     </div>
@@ -166,7 +166,7 @@ if (canvas && chartData.length > 0) {
     canvas.height = rect.height * 2;
     ctx.scale(2, 2);
     const w = rect.width, h = rect.height;
-    const pad = { top: 10, right: 10, bottom: 25, left: 45 };
+    const pad = { top: 14, right: 14, bottom: 28, left: 52 };
     const pw = w - pad.left - pad.right, ph = h - pad.top - pad.bottom;
 
     const vals = chartData.map(d => d.ms).filter(v => v !== null);
@@ -175,19 +175,45 @@ if (canvas && chartData.length > 0) {
     const range = maxVal - minVal || 1;
 
     // Grid lines
-    ctx.strokeStyle = '#E5E7EB';
+    ctx.strokeStyle = 'rgba(30, 41, 59, 0.6)';
     ctx.lineWidth = 0.5;
+    ctx.font = '10px "JetBrains Mono", monospace';
     for (let i = 0; i <= 4; i++) {
         const y = pad.top + (ph / 4) * i;
         ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
-        ctx.fillStyle = '#9CA3AF'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
-        ctx.fillText(Math.round(maxVal - (range / 4) * i) + 'ms', pad.left - 5, y + 3);
+        ctx.fillStyle = '#64748B'; ctx.textAlign = 'right';
+        ctx.fillText(Math.round(maxVal - (range / 4) * i) + 'ms', pad.left - 8, y + 3);
+    }
+
+    // Area fill under line
+    ctx.beginPath();
+    let firstPoint = null;
+    chartData.forEach((d, i) => {
+        if (d.ms === null) return;
+        const x = pad.left + (i / (chartData.length - 1)) * pw;
+        const y = pad.top + (1 - (d.ms - minVal) / range) * ph;
+        if (firstPoint === null) {
+            firstPoint = { x, y };
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    if (firstPoint) {
+        ctx.lineTo(pad.left + pw, pad.top + ph);
+        ctx.lineTo(firstPoint.x, pad.top + ph);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ph);
+        grad.addColorStop(0, 'rgba(124, 58, 237, 0.25)');
+        grad.addColorStop(1, 'rgba(124, 58, 237, 0)');
+        ctx.fillStyle = grad;
+        ctx.fill();
     }
 
     // Line
     ctx.beginPath();
     ctx.strokeStyle = '#7C3AED';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.8;
     let first = true;
     chartData.forEach((d, i) => {
         if (d.ms === null) return;
@@ -198,11 +224,11 @@ if (canvas && chartData.length > 0) {
     ctx.stroke();
 
     // X labels
-    ctx.fillStyle = '#9CA3AF'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#64748B'; ctx.textAlign = 'center';
     const step = Math.max(1, Math.floor(chartData.length / 6));
     for (let i = 0; i < chartData.length; i += step) {
         const x = pad.left + (i / (chartData.length - 1)) * pw;
-        ctx.fillText(chartData[i].time, x, h - 5);
+        ctx.fillText(chartData[i].time, x, h - 8);
     }
 }
 </script>

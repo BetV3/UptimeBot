@@ -231,14 +231,14 @@ def _render_status_page(
 
     monitors_html = ""
     for m in monitors:
-        status_color = "#10B981" if m["status"] == "up" else ("#EF4444" if m["status"] == "down" else "#6B7280")
+        status_color = "#10B981" if m["status"] == "up" else ("#EF4444" if m["status"] == "down" else "#64748B")
         status_label = m["status"].upper()
 
         # Build 90-day bar
         bars = ""
         for day in m["daily_uptimes"]:
             if day["uptime_pct"] is None:
-                bar_color = "#E5E7EB"
+                bar_color = "#1E293B"
                 tooltip = f'{day["date"]}: No data'
             elif day["uptime_pct"] == 100:
                 bar_color = "#10B981"
@@ -272,16 +272,25 @@ def _render_status_page(
     incidents_html = ""
     if incidents:
         for inc in incidents:
-            resolved = f"Resolved after {inc['duration']}" if inc["resolved_at"] else "🔴 Ongoing"
+            resolved_html = (
+                f'<span class="incident-badge resolved">Resolved &middot; {inc["duration"]}</span>'
+                if inc["resolved_at"]
+                else '<span class="incident-badge ongoing">Ongoing</span>'
+            )
             incidents_html += f"""
             <div class="incident">
-                <div class="incident-title">{inc['monitor_name']}</div>
+                <div class="incident-head">
+                    <div class="incident-title">{inc['monitor_name']}</div>
+                    {resolved_html}
+                </div>
                 <div class="incident-time">{inc['started_at']}</div>
-                <div class="incident-status">{resolved}</div>
             </div>
             """
     else:
-        incidents_html = '<p class="no-incidents">No incidents in the last 14 days.</p>'
+        incidents_html = '<div class="no-incidents"><div class="check-icon">&#10003;</div><p>No incidents in the last 14 days.</p></div>'
+
+    overall_bg = "rgba(16, 185, 129, 0.08)" if overall_status == "operational" else "rgba(239, 68, 68, 0.08)"
+    overall_border = "rgba(16, 185, 129, 0.25)" if overall_status == "operational" else "rgba(239, 68, 68, 0.25)"
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -289,126 +298,289 @@ def _render_status_page(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{name} — Status</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        *, *::before, *::after {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #F9FAFB;
-            color: #111827;
+            font-family: 'Manrope', system-ui, sans-serif;
+            background: #0A0E1A;
+            color: #94A3B8;
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.6;
         }}
+        body::before {{
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.06) 1px, transparent 0);
+            background-size: 32px 32px;
+            pointer-events: none;
+            z-index: 0;
+        }}
+        body > * {{ position: relative; z-index: 1; }}
+        .font-mono {{ font-family: 'JetBrains Mono', monospace; }}
         .header {{
-            background: {color};
-            color: white;
-            padding: 2rem 1rem;
+            padding: 48px 24px 40px;
             text-align: center;
+            border-bottom: 1px solid rgba(30, 41, 59, 0.6);
         }}
-        .header .logo {{ height: 48px; margin-bottom: 0.5rem; }}
-        .header h1 {{ font-size: 1.5rem; font-weight: 600; }}
-        .container {{ max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem; }}
+        .header .logo {{
+            max-height: 56px;
+            margin: 0 auto 16px;
+            display: block;
+            border-radius: 6px;
+        }}
+        .header h1 {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #F8FAFC;
+            letter-spacing: -0.01em;
+        }}
+        .header .sub {{
+            font-size: 0.8125rem;
+            color: #64748B;
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }}
+        .accent-bar {{
+            height: 3px;
+            background: linear-gradient(90deg, transparent, {color} 30%, {color} 70%, transparent);
+            opacity: 0.6;
+        }}
+        .container {{
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 40px 24px 60px;
+        }}
         .overall {{
-            background: white;
+            background: {overall_bg};
+            border: 1px solid {overall_border};
             border-radius: 8px;
-            padding: 1rem 1.5rem;
-            margin-bottom: 1.5rem;
+            padding: 20px 24px;
+            margin-bottom: 40px;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            gap: 14px;
         }}
         .overall-dot {{
             width: 12px; height: 12px; border-radius: 50%;
             background: {overall_color};
             flex-shrink: 0;
+            box-shadow: 0 0 12px {overall_color};
+            animation: pulse 2.4s ease-in-out infinite;
         }}
-        .overall-text {{ font-weight: 600; font-size: 1.1rem; }}
+        @keyframes pulse {{
+            0%, 100% {{ box-shadow: 0 0 8px {overall_color}; }}
+            50% {{ box-shadow: 0 0 18px {overall_color}; }}
+        }}
+        .overall-text {{
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 1rem;
+            color: {overall_color};
+        }}
+        .section-label {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #64748B;
+            margin-bottom: 16px;
+        }}
         .monitor {{
-            background: white;
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(30, 41, 59, 0.8);
             border-radius: 8px;
-            padding: 1rem 1.5rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px 24px;
+            margin-bottom: 12px;
+            transition: border-color 0.3s ease;
         }}
+        .monitor:hover {{ border-color: rgba(124, 58, 237, 0.25); }}
         .monitor-header {{
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.75rem;
+            margin-bottom: 14px;
         }}
         .monitor-name {{
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 10px;
             font-weight: 500;
+            color: #F8FAFC;
+            font-size: 0.9375rem;
         }}
         .status-dot {{
-            width: 10px; height: 10px; border-radius: 50%;
+            width: 9px; height: 9px; border-radius: 50%;
             display: inline-block; flex-shrink: 0;
         }}
-        .monitor-status {{ font-size: 0.85rem; font-weight: 600; }}
+        .monitor-status {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }}
         .uptime-bar {{
             display: flex;
-            gap: 1px;
-            height: 28px;
-            border-radius: 4px;
-            overflow: hidden;
+            gap: 2px;
+            height: 30px;
+            border-radius: 3px;
         }}
         .bar {{
             flex: 1;
-            min-width: 1px;
+            min-width: 2px;
             border-radius: 2px;
             cursor: pointer;
-            transition: opacity 0.15s;
+            transition: opacity 0.15s, transform 0.15s;
+            opacity: 0.75;
         }}
-        .bar:hover {{ opacity: 0.7; }}
+        .bar:hover {{
+            opacity: 1;
+            transform: scaleY(1.1);
+        }}
         .uptime-meta {{
             display: flex;
             justify-content: space-between;
-            font-size: 0.75rem;
-            color: #6B7280;
-            margin-top: 0.35rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6875rem;
+            color: #64748B;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }}
+        .uptime-pct {{ color: #94A3B8; }}
         .section-title {{
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin: 2rem 0 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #64748B;
+            margin: 40px 0 16px;
         }}
         .incident {{
-            background: white;
-            border-radius: 8px;
-            padding: 1rem 1.5rem;
-            margin-bottom: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            background: rgba(17, 24, 39, 0.5);
+            border: 1px solid rgba(30, 41, 59, 0.7);
+            border-radius: 6px;
+            padding: 16px 20px;
+            margin-bottom: 8px;
         }}
-        .incident-title {{ font-weight: 500; }}
-        .incident-time {{ font-size: 0.85rem; color: #6B7280; }}
-        .incident-status {{ font-size: 0.85rem; margin-top: 0.25rem; }}
-        .no-incidents {{ color: #6B7280; font-size: 0.9rem; }}
+        .incident-head {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            gap: 12px;
+        }}
+        .incident-title {{
+            font-weight: 500;
+            color: #F8FAFC;
+            font-size: 0.875rem;
+        }}
+        .incident-badge {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6875rem;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            flex-shrink: 0;
+        }}
+        .incident-badge.resolved {{
+            background: rgba(16, 185, 129, 0.1);
+            color: #10B981;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }}
+        .incident-badge.ongoing {{
+            background: rgba(239, 68, 68, 0.1);
+            color: #EF4444;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }}
+        .incident-time {{
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #64748B;
+        }}
+        .no-incidents {{
+            background: rgba(17, 24, 39, 0.5);
+            border: 1px solid rgba(30, 41, 59, 0.7);
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+        }}
+        .no-incidents .check-icon {{
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 12px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #10B981;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.125rem;
+            font-weight: 700;
+        }}
+        .no-incidents p {{
+            color: #94A3B8;
+            font-size: 0.875rem;
+        }}
         .footer {{
             text-align: center;
-            padding: 2rem 1rem;
-            font-size: 0.8rem;
-            color: #9CA3AF;
+            padding: 32px 24px 40px;
+            font-size: 0.75rem;
+            color: #475569;
+            border-top: 1px solid rgba(30, 41, 59, 0.5);
+            margin-top: 40px;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.05em;
         }}
-        .footer a {{ color: {color}; text-decoration: none; }}
+        .footer a {{
+            color: #94A3B8;
+            text-decoration: none;
+            font-weight: 700;
+            transition: color 0.2s;
+        }}
+        .footer a span {{ color: {color}; }}
+        .footer a:hover {{ color: #F8FAFC; }}
+
+        @media (max-width: 640px) {{
+            .header {{ padding: 36px 20px 28px; }}
+            .header h1 {{ font-size: 1.375rem; }}
+            .container {{ padding: 28px 16px 40px; }}
+            .monitor, .incident {{ padding: 16px 18px; }}
+            .incident-head {{ flex-direction: column; align-items: flex-start; }}
+        }}
     </style>
 </head>
 <body>
     <div class="header">
         {logo_html}
         <h1>{name}</h1>
+        <div class="sub">// live system status</div>
     </div>
+    <div class="accent-bar"></div>
     <div class="container">
         <div class="overall">
             <div class="overall-dot"></div>
             <div class="overall-text">{overall_label}</div>
         </div>
+        <div class="section-label">// Monitors</div>
         {monitors_html}
-        <div class="section-title">Recent Incidents</div>
+        <div class="section-title">// Recent Incidents</div>
         {incidents_html}
     </div>
     <div class="footer">
-        Powered by <a href="#">UptimeBot</a>
+        POWERED BY <a href="/">BotOps<span>Cloud</span></a>
     </div>
 </body>
 </html>"""

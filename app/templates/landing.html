@@ -3,415 +3,1312 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UptimeBot — Uptime Monitoring for Bot Developers</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: { brand: '#7C3AED' }
-                }
-            }
-        }
-    </script>
-</head>
-<body class="bg-white">
+    <title>BotOps Cloud — Reliability Platform for Bot Developers</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-    <!-- Nav -->
-    <nav class="border-b border-gray-100">
-        <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-            <span class="font-bold text-lg text-brand">UptimeBot</span>
-            <div class="flex items-center gap-4">
-                <a href="/docs/getting-started" class="text-sm text-gray-600 hover:text-gray-900">Docs</a>
-                <a href="#pricing" class="text-sm text-gray-600 hover:text-gray-900">Pricing</a>
-                <a href="/dashboard/login" class="text-sm text-gray-600 hover:text-gray-900">Login</a>
-                <a href="/dashboard/register" class="bg-brand text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-purple-700 transition">Get Started Free</a>
+        :root {
+            --bg: #0A0E1A;
+            --bg-card: #111827;
+            --bg-surface: #1E293B;
+            --border: rgba(30, 41, 59, 0.8);
+            --border-solid: #1E293B;
+            --primary: #7C3AED;
+            --primary-hover: #6D28D9;
+            --primary-glow: rgba(124, 58, 237, 0.25);
+            --secondary: #06B6D4;
+            --secondary-glow: rgba(6, 182, 212, 0.15);
+            --text: #F8FAFC;
+            --text-muted: #94A3B8;
+            --text-dim: #64748B;
+            --green: #10B981;
+            --amber: #F59E0B;
+            --red: #EF4444;
+            --font-body: 'Manrope', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text-muted);
+            line-height: 1.6;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Dot grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.07) 1px, transparent 0);
+            background-size: 32px 32px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Ensure content sits above grid */
+        body > * { position: relative; z-index: 1; }
+
+        h1, h2, h3, h4 {
+            font-family: var(--font-mono);
+            color: var(--text);
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        a { color: inherit; text-decoration: none; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 0.9375rem;
+            padding: 12px 28px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            box-shadow: 0 0 30px var(--primary-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-solid);
+        }
+        .btn-outline:hover {
+            border-color: var(--text-dim);
+            color: var(--text);
+            transform: translateY(-1px);
+        }
+
+        .btn-large { padding: 16px 36px; font-size: 1rem; }
+
+        /* ── Navigation ── */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            transition: background 0.3s ease, backdrop-filter 0.3s ease, border-color 0.3s ease;
+            border-bottom: 1px solid transparent;
+        }
+        .nav.scrolled {
+            background: rgba(10, 14, 26, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom-color: var(--border);
+        }
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-logo {
+            font-family: var(--font-mono);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .nav-logo span { color: var(--primary); }
+        .nav-links { display: flex; align-items: center; gap: 32px; }
+        .nav-links a {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--text); }
+        .nav-cta {
+            font-size: 0.875rem !important;
+            padding: 8px 20px !important;
+        }
+
+        .nav-mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        /* ── Hero ── */
+        .hero {
+            padding: 140px 0 100px;
+            overflow: hidden;
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+        .hero h1 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            letter-spacing: -0.02em;
+            margin-bottom: 24px;
+        }
+        .hero-sub {
+            font-size: 1.125rem;
+            color: var(--text-muted);
+            max-width: 520px;
+            margin-bottom: 32px;
+            line-height: 1.7;
+        }
+        .hero-ctas { display: flex; gap: 12px; margin-bottom: 16px; }
+        .hero-trust {
+            font-size: 0.8125rem;
+            color: var(--text-dim);
+        }
+
+        /* Terminal mockup */
+        .terminal {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow:
+                0 0 40px var(--primary-glow),
+                0 25px 50px rgba(0, 0, 0, 0.4);
+        }
+        .terminal-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 16px;
+            background: rgba(30, 41, 59, 0.5);
+            border-bottom: 1px solid var(--border-solid);
+        }
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .terminal-dot.r { background: var(--red); }
+        .terminal-dot.a { background: var(--amber); }
+        .terminal-dot.g { background: var(--green); }
+        .terminal-title {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-left: 8px;
+        }
+        .terminal-body {
+            padding: 20px;
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.8;
+            color: var(--text-muted);
+            min-height: 280px;
+        }
+        .terminal-body .cmd { color: var(--secondary); }
+        .terminal-body .ok { color: var(--green); }
+        .terminal-body .fail { color: var(--red); }
+        .terminal-body .warn { color: var(--amber); }
+        .terminal-body .dim { color: var(--text-dim); }
+        .terminal-body .region { color: var(--secondary); opacity: 0.8; }
+        .terminal-line {
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .terminal-line.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .cursor-blink::after {
+            content: '|';
+            animation: blink 1s step-end infinite;
+            color: var(--primary);
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* ── Problem Section ── */
+        .problem { padding: 100px 0; }
+        .problem h2 {
+            font-size: clamp(1.5rem, 2.5vw, 2rem);
+            text-align: center;
+            margin-bottom: 56px;
+        }
+        .problem-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .problem-card {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 32px 28px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .problem-card:hover {
+            border-color: rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.08);
+        }
+        .problem-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            background: rgba(239, 68, 68, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .problem-icon svg { width: 20px; height: 20px; color: var(--red); }
+        .problem-card p {
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+
+        /* ── Features ── */
+        .features { padding: 100px 0; }
+        .features h2 {
+            font-size: clamp(1.5rem, 2.5vw, 2rem);
+            text-align: center;
+            margin-bottom: 56px;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        .feature-card {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 32px 28px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+        }
+        .feature-card:hover {
+            border-color: rgba(124, 58, 237, 0.3);
+            box-shadow: 0 0 24px var(--primary-glow);
+            transform: translateY(-2px);
+        }
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .feature-icon.purple { background: rgba(124, 58, 237, 0.12); }
+        .feature-icon.purple svg { color: var(--primary); }
+        .feature-icon.cyan { background: rgba(6, 182, 212, 0.12); }
+        .feature-icon.cyan svg { color: var(--secondary); }
+        .feature-icon svg { width: 20px; height: 20px; }
+        .feature-card h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+        }
+        .feature-card p {
+            font-size: 0.875rem;
+            line-height: 1.7;
+        }
+        .feature-code {
+            background: var(--bg);
+            border: 1px solid var(--border-solid);
+            border-radius: 4px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+        .feature-code .kw { color: var(--primary); }
+        .feature-code .fn { color: var(--secondary); }
+        .feature-code .str { color: var(--green); }
+        .feature-code .num { color: var(--amber); }
+
+        /* ── How It Works ── */
+        .how-it-works { padding: 100px 0; }
+        .how-it-works h2 {
+            font-size: clamp(1.5rem, 2.5vw, 2rem);
+            text-align: center;
+            margin-bottom: 56px;
+        }
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            position: relative;
+        }
+        .steps::before {
+            content: '';
+            position: absolute;
+            top: 32px;
+            left: calc(16.66% + 32px);
+            right: calc(16.66% + 32px);
+            height: 1px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            opacity: 0.3;
+        }
+        .step { text-align: center; }
+        .step-num {
+            width: 64px;
+            height: 64px;
+            border-radius: 6px;
+            background: rgba(124, 58, 237, 0.1);
+            border: 1px solid rgba(124, 58, 237, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            position: relative;
+            z-index: 1;
+        }
+        .step h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+        }
+        .step p {
+            font-size: 0.875rem;
+            line-height: 1.7;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+
+        /* ── Trust Page Mockup ── */
+        .trust-demo { padding: 100px 0; }
+        .trust-demo h2 {
+            font-size: clamp(1.5rem, 2.5vw, 2rem);
+            text-align: center;
+            margin-bottom: 56px;
+        }
+        .trust-mockup {
+            max-width: 720px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow:
+                0 0 50px var(--secondary-glow),
+                0 25px 50px rgba(0, 0, 0, 0.4);
+        }
+        .trust-browser-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            background: rgba(30, 41, 59, 0.5);
+            border-bottom: 1px solid var(--border-solid);
+        }
+        .trust-browser-bar .dots { display: flex; gap: 6px; }
+        .trust-browser-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .trust-browser-bar .dot.r { background: var(--red); }
+        .trust-browser-bar .dot.a { background: var(--amber); }
+        .trust-browser-bar .dot.g { background: var(--green); }
+        .trust-url-bar {
+            flex: 1;
+            margin-left: 12px;
+            background: var(--bg);
+            border-radius: 4px;
+            padding: 5px 12px;
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--text-dim);
+        }
+        .trust-content { padding: 32px; }
+        .trust-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .trust-bot-logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            color: #fff;
+            font-size: 1.25rem;
+        }
+        .trust-bot-name {
+            font-family: var(--font-mono);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .trust-bot-sub {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+        .trust-status-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 20px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 6px;
+            margin-bottom: 28px;
+        }
+        .status-dot-live {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+            animation: pulse-green 2s ease-in-out infinite;
+        }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+            50% { box-shadow: 0 0 16px rgba(16, 185, 129, 0.8); }
+        }
+        .trust-status-text {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--green);
+        }
+        .trust-monitors { margin-bottom: 28px; }
+        .trust-monitor {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+        }
+        .trust-monitor:last-child { border-bottom: none; }
+        .trust-monitor-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .trust-monitor-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .trust-monitor-dot.up { background: var(--green); }
+        .trust-monitor-name {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--text);
+        }
+        .trust-monitor-uptime {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--green);
+            font-weight: 500;
+        }
+        .trust-uptime-section { margin-bottom: 28px; }
+        .trust-uptime-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-bottom: 10px;
+            font-family: var(--font-mono);
+        }
+        .trust-uptime-bars {
+            display: flex;
+            gap: 2px;
+            height: 28px;
+            align-items: flex-end;
+        }
+        .trust-bar {
+            flex: 1;
+            border-radius: 2px;
+            min-width: 4px;
+            height: 100%;
+            transition: opacity 0.2s;
+        }
+        .trust-bar.ok { background: var(--green); opacity: 0.7; }
+        .trust-bar.ok:hover { opacity: 1; }
+        .trust-bar.warn { background: var(--amber); opacity: 0.8; }
+        .trust-bar.bad { background: var(--red); opacity: 0.9; }
+        .trust-incident {
+            padding: 16px 20px;
+            background: rgba(30, 41, 59, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        .trust-incident-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .trust-incident-title {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--text);
+            font-weight: 500;
+        }
+        .trust-incident-badge {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .trust-incident-badge.resolved {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--green);
+        }
+        .trust-incident-detail {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+        .trust-platform {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: rgba(30, 41, 59, 0.2);
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .trust-platform-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+        }
+        .trust-platform-text {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        /* ── Pricing ── */
+        .pricing { padding: 100px 0; }
+        .pricing h2 {
+            font-size: clamp(1.5rem, 2.5vw, 2rem);
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .pricing-sub {
+            text-align: center;
+            font-size: 0.9375rem;
+            color: var(--text-dim);
+            margin-bottom: 56px;
+        }
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .pricing-card {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 36px 28px;
+            position: relative;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .pricing-card:hover {
+            border-color: rgba(124, 58, 237, 0.2);
+        }
+        .pricing-card.featured {
+            border-color: var(--primary);
+            box-shadow: 0 0 40px var(--primary-glow);
+        }
+        .pricing-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: #fff;
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 4px 16px;
+            border-radius: 4px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .pricing-name {
+            font-family: var(--font-mono);
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        .pricing-price {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        .pricing-amount {
+            font-family: var(--font-mono);
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .pricing-period {
+            font-size: 0.875rem;
+            color: var(--text-dim);
+        }
+        .pricing-desc {
+            font-size: 0.8125rem;
+            color: var(--text-dim);
+            margin-bottom: 28px;
+        }
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 32px;
+        }
+        .pricing-features li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 0.875rem;
+            padding: 8px 0;
+            color: var(--text-muted);
+        }
+        .pricing-features li svg {
+            width: 16px;
+            height: 16px;
+            color: var(--green);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .pricing-card .btn { width: 100%; }
+        .pricing-note {
+            text-align: center;
+            font-size: 0.8125rem;
+            color: var(--text-dim);
+            margin-top: 32px;
+        }
+
+        /* ── Social Proof ── */
+        .social-proof { padding: 80px 0; }
+        .social-proof h2 {
+            font-size: clamp(1.25rem, 2vw, 1.5rem);
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .badges {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 24px;
+            background: rgba(17, 24, 39, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        .badge svg {
+            width: 16px;
+            height: 16px;
+            color: var(--secondary);
+        }
+
+        /* ── Final CTA ── */
+        .final-cta { padding: 100px 0; }
+        .cta-card {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 64px 48px;
+            text-align: center;
+            background: rgba(17, 24, 39, 0.6);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        .cta-card::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), transparent 50%, rgba(6, 182, 212, 0.1));
+            border-radius: 8px;
+            z-index: -1;
+        }
+        .cta-card h2 {
+            font-size: clamp(1.5rem, 2.5vw, 2rem);
+            margin-bottom: 16px;
+        }
+        .cta-card p {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border-solid);
+        }
+        .footer-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .footer-logo {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .footer-logo span { color: var(--primary); }
+        .footer-links { display: flex; gap: 24px; }
+        .footer-links a {
+            font-size: 0.8125rem;
+            color: var(--text-dim);
+            transition: color 0.2s;
+        }
+        .footer-links a:hover { color: var(--text-muted); }
+        .footer-tagline {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        /* ── Scroll Animations ── */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .stagger-1 { transition-delay: 0.05s; }
+        .stagger-2 { transition-delay: 0.1s; }
+        .stagger-3 { transition-delay: 0.15s; }
+        .stagger-4 { transition-delay: 0.2s; }
+        .stagger-5 { transition-delay: 0.25s; }
+        .stagger-6 { transition-delay: 0.3s; }
+
+        /* ── Section divider ── */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-solid), transparent);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 1024px) {
+            .hero-grid { grid-template-columns: 1fr; gap: 48px; }
+            .hero { text-align: center; padding: 120px 0 80px; }
+            .hero-sub { margin: 0 auto 32px; }
+            .hero-ctas { justify-content: center; }
+            .hero-trust { text-align: center; }
+            .terminal { max-width: 560px; margin: 0 auto; }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .nav-links.open {
+                display: flex;
+                flex-direction: column;
+                position: absolute;
+                top: 64px;
+                left: 0;
+                right: 0;
+                background: rgba(10, 14, 26, 0.95);
+                backdrop-filter: blur(16px);
+                padding: 24px;
+                gap: 20px;
+                border-bottom: 1px solid var(--border-solid);
+            }
+            .nav-mobile-toggle { display: block; }
+
+            .problem-grid,
+            .features-grid,
+            .pricing-grid,
+            .steps {
+                grid-template-columns: 1fr;
+            }
+            .steps::before { display: none; }
+
+            .hero-ctas { flex-direction: column; align-items: center; }
+            .btn { width: 100%; max-width: 300px; }
+
+            .footer-inner { flex-direction: column; gap: 20px; text-align: center; }
+
+            .cta-card { padding: 48px 24px; }
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 0 16px; }
+            .hero { padding: 100px 0 60px; }
+            .problem, .features, .how-it-works, .trust-demo, .pricing, .final-cta { padding: 60px 0; }
+            .trust-content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Navigation ── -->
+    <nav class="nav" id="nav">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">BotOps<span>Cloud</span></a>
+            <button class="nav-mobile-toggle" id="nav-toggle" aria-label="Toggle menu">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="nav-links" id="nav-links">
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="/docs/getting-started">Docs</a>
+                <a href="/dashboard/login">Login</a>
+                <a href="/dashboard/register" class="btn btn-primary nav-cta">Start Free</a>
             </div>
         </div>
     </nav>
 
-    <!-- Hero -->
-    <section class="py-20 text-center">
-        <div class="max-w-3xl mx-auto px-4">
-            <h1 class="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight">
-                Your bot goes down.<br>Your users complain.<br>You find out last.
-            </h1>
-            <p class="mt-6 text-lg text-gray-500 max-w-2xl mx-auto">
-                UptimeBot monitors your Discord and Telegram bots from 3 continents and alerts you instantly &mdash; before your community even notices.
-            </p>
-            <div class="mt-8 flex justify-center gap-3">
-                <a href="/dashboard/register" class="bg-brand text-white font-medium px-6 py-3 rounded-md hover:bg-purple-700 transition">Start Monitoring Free</a>
-                <a href="#pricing" class="border border-gray-300 text-gray-700 font-medium px-6 py-3 rounded-md hover:bg-gray-50 transition">View Pricing</a>
-            </div>
-            <p class="mt-3 text-sm text-gray-400">No credit card required</p>
-        </div>
-    </section>
-
-    <!-- Problem -->
-    <section class="py-16 bg-gray-50">
-        <div class="max-w-3xl mx-auto px-4">
-            <h2 class="text-2xl font-bold text-gray-900 mb-4">You built the bot. Who's watching it?</h2>
-            <p class="text-gray-500 mb-6">
-                Your bot serves thousands of users across hundreds of servers. When it goes down at 3am, you don't find out until you wake up to a flooded support channel.
-            </p>
-            <p class="text-gray-500 mb-4">
-                Generic monitoring tools weren't built for bot developers. They'll tell you a URL returned 200, but they won't:
-            </p>
-            <ul class="space-y-2 text-gray-600">
-                <li class="flex items-start gap-2">
-                    <span class="text-red-400 mt-1">&#x2717;</span>
-                    Alert your Discord server the way your community expects
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-red-400 mt-1">&#x2717;</span>
-                    Check from multiple regions so you know if it's really down
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-red-400 mt-1">&#x2717;</span>
-                    Give your supporters a status page they can actually trust
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-red-400 mt-1">&#x2717;</span>
-                    Let you set up monitoring in under a minute
-                </li>
-            </ul>
-        </div>
-    </section>
-
-    <!-- Features -->
-    <section class="py-20">
-        <div class="max-w-5xl mx-auto px-4">
-            <h2 class="text-2xl font-bold text-center text-gray-900 mb-12">Monitoring that speaks bot developer</h2>
-            <div class="grid md:grid-cols-3 gap-8">
-                <div class="bg-white border border-gray-100 rounded-lg p-6">
-                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
-                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+    <!-- ── Hero ── -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-grid">
+                <div>
+                    <h1>Your bot goes down.<br>Your users complain.<br>You find out last.</h1>
+                    <p class="hero-sub">BotOps Cloud detects the failures your users actually feel and communicates incidents automatically &mdash; before your community notices.</p>
+                    <div class="hero-ctas">
+                        <a href="/dashboard/register" class="btn btn-primary btn-large">Start Monitoring Free</a>
+                        <a href="#how-it-works" class="btn btn-outline btn-large">See How It Works</a>
                     </div>
-                    <h3 class="font-semibold text-gray-900 mb-2">Multi-Region Checks</h3>
-                    <p class="text-sm text-gray-500">Your bot gets pinged from the US, Europe, and Asia. We only alert when 2+ regions confirm it's down &mdash; no more 3am false alarms from a single flaky check.</p>
+                    <p class="hero-trust">Free forever for 1 bot. No credit card required.</p>
                 </div>
-                <div class="bg-white border border-gray-100 rounded-lg p-6">
-                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
-                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                <div class="terminal">
+                    <div class="terminal-bar">
+                        <div class="terminal-dot r"></div>
+                        <div class="terminal-dot a"></div>
+                        <div class="terminal-dot g"></div>
+                        <span class="terminal-title">botops-cli</span>
                     </div>
-                    <h3 class="font-semibold text-gray-900 mb-2">Discord-Native Alerts</h3>
-                    <p class="text-sm text-gray-500">Not a plain text webhook. Rich embeds with status, response time, and incident duration &mdash; dropped right into your ops channel.</p>
-                </div>
-                <div class="bg-white border border-gray-100 rounded-lg p-6">
-                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
-                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                    </div>
-                    <h3 class="font-semibold text-gray-900 mb-2">Public Status Pages</h3>
-                    <p class="text-sm text-gray-500">Give your community a live status page. Show your supporters you take reliability seriously with 90-day uptime bars and incident history.</p>
-                </div>
-                <div class="bg-white border border-gray-100 rounded-lg p-6">
-                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
-                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-                    </div>
-                    <h3 class="font-semibold text-gray-900 mb-2">Telegram Alerts</h3>
-                    <p class="text-sm text-gray-500">Running a Telegram bot? Get instant notifications in your Telegram chat when something goes wrong.</p>
-                </div>
-                <div class="bg-white border border-gray-100 rounded-lg p-6">
-                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
-                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    </div>
-                    <h3 class="font-semibold text-gray-900 mb-2">30-Second Setup</h3>
-                    <p class="text-sm text-gray-500">Paste your bot's health endpoint. Pick your Discord webhook. Done. No 20-minute onboarding, no YAML files.</p>
-                </div>
-                <div class="bg-white border border-gray-100 rounded-lg p-6">
-                    <div class="w-10 h-10 rounded-md bg-purple-100 flex items-center justify-center mb-4">
-                        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    </div>
-                    <h3 class="font-semibold text-gray-900 mb-2">Incident Timeline</h3>
-                    <p class="text-sm text-gray-500">When something breaks, get a clear timeline: when it went down, from which regions, how long it was out, and when it recovered.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- How It Works -->
-    <section class="py-16 bg-gray-50">
-        <div class="max-w-3xl mx-auto px-4">
-            <h2 class="text-2xl font-bold text-center text-gray-900 mb-12">Three steps. Under a minute.</h2>
-            <div class="space-y-8">
-                <div class="flex gap-4">
-                    <div class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-sm shrink-0">1</div>
-                    <div>
-                        <h3 class="font-semibold text-gray-900 mb-1">Add your endpoint</h3>
-                        <p class="text-sm text-gray-500">Paste the URL your bot's health check lives at. We support GET and POST with custom headers if you need them.</p>
-                    </div>
-                </div>
-                <div class="flex gap-4">
-                    <div class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-sm shrink-0">2</div>
-                    <div>
-                        <h3 class="font-semibold text-gray-900 mb-1">Connect your alerts</h3>
-                        <p class="text-sm text-gray-500">Drop in your Discord webhook URL, Telegram bot token, or email. Or all three.</p>
-                    </div>
-                </div>
-                <div class="flex gap-4">
-                    <div class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-sm shrink-0">3</div>
-                    <div>
-                        <h3 class="font-semibold text-gray-900 mb-1">Relax</h3>
-                        <p class="text-sm text-gray-500">We check your bot from 3 regions. If something breaks, you'll know before your users do.</p>
+                    <div class="terminal-body" id="terminal-body">
+                        <div class="terminal-line"><span class="cmd">$ botops check --all-regions</span></div>
+                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="ok">&#10003;</span> Bot API &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">142ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="ok">&#10003;</span> Bot API &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">198ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[AP-South]</span> <span class="ok">&#10003;</span> Bot API &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">231ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="ok">&#10003;</span> Gateway Shard 0 &nbsp;<span class="dim">&nbsp;42ms</span> &nbsp;<span class="ok">Connected</span></div>
+                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="ok">&#10003;</span> Gateway Shard 0 &nbsp;<span class="dim">&nbsp;67ms</span> &nbsp;<span class="ok">Connected</span></div>
+                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="fail">&#10007;</span> Cmd Handler &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">Timeout</span></div>
+                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="fail">&#10007;</span> Cmd Handler &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">Timeout</span></div>
+                        <div class="terminal-line">&nbsp;</div>
+                        <div class="terminal-line"><span class="warn">&#9888; Incident created:</span> <span class="text">Cmd Handler degraded (2/3 regions)</span></div>
+                        <div class="terminal-line"><span class="dim">&nbsp;&nbsp;&#8627; Discord webhook sent to #ops-alerts</span></div>
+                        <div class="terminal-line"><span class="dim">&nbsp;&nbsp;&#8627; Trust page updated</span></div>
+                        <div class="terminal-line cursor-blink"><span class="cmd">$</span></div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Pricing -->
-    <section id="pricing" class="py-20">
-        <div class="max-w-5xl mx-auto px-4">
-            <h2 class="text-2xl font-bold text-center text-gray-900 mb-2">Simple pricing. No per-monitor math.</h2>
-            <p class="text-center text-gray-500 mb-12">All plans include multi-region monitoring and zero setup fees. Cancel anytime.</p>
+    <div class="divider"></div>
 
-            <div class="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+    <!-- ── Problem ── -->
+    <section class="problem" id="problem">
+        <div class="container">
+            <h2 class="fade-in">Generic monitoring tools don't understand bots.</h2>
+            <div class="problem-grid">
+                <div class="problem-card fade-in stagger-1">
+                    <div class="problem-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <p>They check if a URL returns 200. They don't know if your slash commands are timing out.</p>
+                </div>
+                <div class="problem-card fade-in stagger-2">
+                    <div class="problem-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    </div>
+                    <p>They send you an email. They don't post an incident embed in your support server.</p>
+                </div>
+                <div class="problem-card fade-in stagger-3">
+                    <div class="problem-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <p>They can't tell the difference between your bot failing and Discord itself being down.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── Features ── -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2 class="fade-in">Built for how bots actually break.</h2>
+            <div class="features-grid">
+                <div class="feature-card fade-in stagger-1">
+                    <div class="feature-icon purple">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    </div>
+                    <h3>Bot-Native Health Checks</h3>
+                    <p>Monitor interaction ack latency, gateway heartbeat health, command success rates, and webhook delivery &mdash; not just HTTP status codes.</p>
+                </div>
+                <div class="feature-card fade-in stagger-2">
+                    <div class="feature-icon cyan">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    </div>
+                    <h3>Metrics SDK</h3>
+                    <p>Drop a few lines of code into your bot. We track command success rates, response times, and processing lag from the inside.</p>
+                    <div class="feature-code">
+                        <span class="kw">import</span> botops<br>
+                        botops.<span class="fn">track_command</span>(<span class="str">"/play"</span>, latency_ms=<span class="num">120</span>, success=<span class="num">True</span>)
+                    </div>
+                </div>
+                <div class="feature-card fade-in stagger-3">
+                    <div class="feature-icon purple">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                    </div>
+                    <h3>Auto Incident Communication</h3>
+                    <p>When something breaks, we push rich Discord embeds to your support server, update your trust page, and notify via Telegram, email, or webhook. Automatically.</p>
+                </div>
+                <div class="feature-card fade-in stagger-4">
+                    <div class="feature-icon cyan">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                    </div>
+                    <h3>Platform Correlation</h3>
+                    <p>We monitor Discord and Telegram's own infrastructure. When the platform is degraded, we annotate your incidents so users stop blaming your bot.</p>
+                </div>
+                <div class="feature-card fade-in stagger-5">
+                    <div class="feature-icon purple">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </div>
+                    <h3>Trust Pages</h3>
+                    <p>A public page your community can check instead of DMing you. Shows real-time status, 90-day uptime, incident history, and platform context.</p>
+                </div>
+                <div class="feature-card fade-in stagger-6">
+                    <div class="feature-icon cyan">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <h3>Multi-Region Checks</h3>
+                    <p>Every check runs from US, Europe, and Asia. We only alert when 2+ regions confirm the problem. No more false alarms from one flaky route.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── How It Works ── -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <h2 class="fade-in">60 seconds to your first monitor.</h2>
+            <div class="steps">
+                <div class="step fade-in stagger-1">
+                    <div class="step-num">1</div>
+                    <h3>Register your bot</h3>
+                    <p>Pick Discord or Telegram, name your bot, get your API key.</p>
+                </div>
+                <div class="step fade-in stagger-2">
+                    <div class="step-num">2</div>
+                    <h3>Add monitors + alerts</h3>
+                    <p>Paste your health endpoint, connect your Discord webhook, set thresholds.</p>
+                </div>
+                <div class="step fade-in stagger-3">
+                    <div class="step-num">3</div>
+                    <h3>Install the SDK (optional)</h3>
+                    <p>Add 3 lines to your bot for command-level observability.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── Trust Page Mockup ── -->
+    <section class="trust-demo" id="trust-demo">
+        <div class="container">
+            <h2 class="fade-in">What your trust page looks like</h2>
+            <div class="trust-mockup fade-in">
+                <div class="trust-browser-bar">
+                    <div class="dots">
+                        <div class="dot r"></div>
+                        <div class="dot a"></div>
+                        <div class="dot g"></div>
+                    </div>
+                    <div class="trust-url-bar">botops.cloud/status/melody-bot</div>
+                </div>
+                <div class="trust-content">
+                    <div class="trust-header">
+                        <div class="trust-bot-logo">M</div>
+                        <div>
+                            <div class="trust-bot-name">Melody Bot</div>
+                            <div class="trust-bot-sub">Music bot for Discord</div>
+                        </div>
+                    </div>
+                    <div class="trust-status-banner">
+                        <div class="status-dot-live"></div>
+                        <span class="trust-status-text">All Systems Operational</span>
+                    </div>
+                    <div class="trust-monitors">
+                        <div class="trust-monitor">
+                            <div class="trust-monitor-left">
+                                <div class="trust-monitor-dot up"></div>
+                                <span class="trust-monitor-name">Bot API</span>
+                            </div>
+                            <span class="trust-monitor-uptime">99.97%</span>
+                        </div>
+                        <div class="trust-monitor">
+                            <div class="trust-monitor-left">
+                                <div class="trust-monitor-dot up"></div>
+                                <span class="trust-monitor-name">Gateway Shard 0</span>
+                            </div>
+                            <span class="trust-monitor-uptime">99.99%</span>
+                        </div>
+                        <div class="trust-monitor">
+                            <div class="trust-monitor-left">
+                                <div class="trust-monitor-dot up"></div>
+                                <span class="trust-monitor-name">Command Handler</span>
+                            </div>
+                            <span class="trust-monitor-uptime">99.94%</span>
+                        </div>
+                    </div>
+                    <div class="trust-uptime-section">
+                        <div class="trust-uptime-label">90-day uptime</div>
+                        <div class="trust-uptime-bars" id="uptime-bars"></div>
+                    </div>
+                    <div class="trust-incident">
+                        <div class="trust-incident-header">
+                            <span class="trust-incident-title">Command Handler latency spike</span>
+                            <span class="trust-incident-badge resolved">Resolved</span>
+                        </div>
+                        <div class="trust-incident-detail">Mar 28, 2026 &mdash; 14:32 UTC &middot; Duration: 8 min &middot; 2 regions affected</div>
+                    </div>
+                    <div class="trust-platform">
+                        <div class="trust-platform-dot"></div>
+                        <span class="trust-platform-text">Discord API: Operational</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── Pricing ── -->
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <h2 class="fade-in">Simple pricing. Scale when you're ready.</h2>
+            <p class="pricing-sub fade-in">All plans include multi-region monitoring and SSL. Cancel anytime.</p>
+            <div class="pricing-grid">
                 <!-- Free -->
-                <div class="border border-gray-200 rounded-lg p-6">
-                    <h3 class="font-semibold text-gray-900 text-lg">Free</h3>
-                    <div class="mt-2 mb-4">
-                        <span class="text-3xl font-bold text-gray-900">$0</span>
-                        <span class="text-gray-500">/mo</span>
+                <div class="pricing-card fade-in stagger-1">
+                    <div class="pricing-name">Free</div>
+                    <div class="pricing-price">
+                        <span class="pricing-amount">$0</span>
+                        <span class="pricing-period">/month</span>
                     </div>
-                    <p class="text-sm text-gray-500 mb-6">Perfect for side projects and hobby bots.</p>
-                    <ul class="space-y-3 text-sm text-gray-600 mb-8">
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            3 monitors
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            5-minute check intervals
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            1 project
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            Checked from 3 regions
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            Discord + email alerts
-                        </li>
+                    <div class="pricing-desc">Perfect for side projects and hobby bots.</div>
+                    <ul class="pricing-features">
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1 bot</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 3 monitors</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 5-minute intervals</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Basic trust page</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Discord + email alerts</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 7-day history</li>
                     </ul>
-                    <a href="/dashboard/register" class="block text-center border border-brand text-brand font-medium py-2 rounded-md hover:bg-purple-50 transition text-sm">Get Started</a>
+                    <a href="/dashboard/register" class="btn btn-outline">Start Free</a>
                 </div>
-
-                <!-- Starter -->
-                <div class="border-2 border-brand rounded-lg p-6 relative">
-                    <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand text-white text-xs font-medium px-3 py-1 rounded-full">Popular</span>
-                    <h3 class="font-semibold text-gray-900 text-lg">Starter</h3>
-                    <div class="mt-2 mb-4">
-                        <span class="text-3xl font-bold text-gray-900">$5</span>
-                        <span class="text-gray-500">/mo</span>
-                    </div>
-                    <p class="text-sm text-gray-500 mb-6">For bot developers who take uptime seriously.</p>
-                    <ul class="space-y-3 text-sm text-gray-600 mb-8">
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            10 monitors
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            1-minute check intervals
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            3 projects
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            Checked from 3 regions
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            Discord, Telegram + email alerts
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            90-day incident history
-                        </li>
-                    </ul>
-                    <a href="/dashboard/register" class="block text-center bg-brand text-white font-medium py-2 rounded-md hover:bg-purple-700 transition text-sm">Get Started</a>
-                </div>
-
                 <!-- Pro -->
-                <div class="border border-gray-200 rounded-lg p-6">
-                    <h3 class="font-semibold text-gray-900 text-lg">Pro</h3>
-                    <div class="mt-2 mb-4">
-                        <span class="text-3xl font-bold text-gray-900">$15</span>
-                        <span class="text-gray-500">/mo</span>
+                <div class="pricing-card featured fade-in stagger-2">
+                    <div class="pricing-badge">Recommended</div>
+                    <div class="pricing-name">Pro</div>
+                    <div class="pricing-price">
+                        <span class="pricing-amount">$12</span>
+                        <span class="pricing-period">/month</span>
                     </div>
-                    <p class="text-sm text-gray-500 mb-6">For teams and developers running multiple production bots.</p>
-                    <ul class="space-y-3 text-sm text-gray-600 mb-8">
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            50 monitors
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            30-second check intervals
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            Unlimited projects
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            All alert channels
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            Custom status page domain
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            Priority support
-                        </li>
+                    <div class="pricing-desc">For bot developers who take uptime seriously.</div>
+                    <ul class="pricing-features">
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 3 bots</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 15 monitors</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1-minute intervals</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> All monitor types + SDK</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Platform correlation</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Custom domain</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 90-day history</li>
                     </ul>
-                    <a href="/dashboard/register" class="block text-center border border-brand text-brand font-medium py-2 rounded-md hover:bg-purple-50 transition text-sm">Get Started</a>
+                    <a href="/dashboard/register" class="btn btn-primary">Start Pro</a>
+                </div>
+                <!-- Studio -->
+                <div class="pricing-card fade-in stagger-3">
+                    <div class="pricing-name">Studio</div>
+                    <div class="pricing-price">
+                        <span class="pricing-amount">$49</span>
+                        <span class="pricing-period">/month</span>
+                    </div>
+                    <div class="pricing-desc">For teams running multiple production bots.</div>
+                    <ul class="pricing-features">
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 10 bots</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 50 monitors</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 30-second intervals</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Team access (5 seats)</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Branded trust pages</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Priority support</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1-year history</li>
+                    </ul>
+                    <a href="/dashboard/register" class="btn btn-outline">Start Studio</a>
+                </div>
+            </div>
+            <p class="pricing-note">All plans include multi-region monitoring and SSL. Cancel anytime.</p>
+        </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── Social Proof ── -->
+    <section class="social-proof">
+        <div class="container">
+            <h2 class="fade-in">Built by infrastructure engineers for bot creators.</h2>
+            <div class="badges fade-in">
+                <div class="badge">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Checks from 3 continents
+                </div>
+                <div class="badge">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Sub-60-second incident detection
+                </div>
+                <div class="badge">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    Discord and Telegram native
+                </div>
+                <div class="badge">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    Open-source SDK
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Comparison -->
-    <section class="py-16 bg-gray-50">
-        <div class="max-w-4xl mx-auto px-4">
-            <h2 class="text-2xl font-bold text-center text-gray-900 mb-10">How UptimeBot stacks up</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left">
-                    <thead>
-                        <tr class="border-b border-gray-200">
-                            <th class="py-3 pr-4 font-medium text-gray-500">Feature</th>
-                            <th class="py-3 px-4 font-semibold text-brand">UptimeBot Starter</th>
-                            <th class="py-3 px-4 font-medium text-gray-500">UptimeRobot Solo</th>
-                            <th class="py-3 px-4 font-medium text-gray-500">Uptime Kuma</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-gray-600">
-                        <tr class="border-b border-gray-100">
-                            <td class="py-3 pr-4">Price</td>
-                            <td class="py-3 px-4 font-medium text-gray-900">$5/mo</td>
-                            <td class="py-3 px-4">$7/mo</td>
-                            <td class="py-3 px-4">Free (self-hosted)</td>
-                        </tr>
-                        <tr class="border-b border-gray-100">
-                            <td class="py-3 pr-4">Monitors</td>
-                            <td class="py-3 px-4 font-medium text-gray-900">10</td>
-                            <td class="py-3 px-4">10</td>
-                            <td class="py-3 px-4">Unlimited</td>
-                        </tr>
-                        <tr class="border-b border-gray-100">
-                            <td class="py-3 pr-4">Check interval</td>
-                            <td class="py-3 px-4 font-medium text-gray-900">1 min</td>
-                            <td class="py-3 px-4">1 min</td>
-                            <td class="py-3 px-4">1 min</td>
-                        </tr>
-                        <tr class="border-b border-gray-100">
-                            <td class="py-3 pr-4">Multi-region checks</td>
-                            <td class="py-3 px-4 font-medium text-gray-900">3 regions</td>
-                            <td class="py-3 px-4">Single region</td>
-                            <td class="py-3 px-4">Single instance</td>
-                        </tr>
-                        <tr class="border-b border-gray-100">
-                            <td class="py-3 pr-4">Discord-native alerts</td>
-                            <td class="py-3 px-4 font-medium text-gray-900">Rich embeds</td>
-                            <td class="py-3 px-4">Basic webhook</td>
-                            <td class="py-3 px-4">Basic webhook</td>
-                        </tr>
-                        <tr class="border-b border-gray-100">
-                            <td class="py-3 pr-4">Hosted (zero maintenance)</td>
-                            <td class="py-3 px-4 font-medium text-gray-900">Yes</td>
-                            <td class="py-3 px-4">Yes</td>
-                            <td class="py-3 px-4">No</td>
-                        </tr>
-                        <tr>
-                            <td class="py-3 pr-4">Built for bot devs</td>
-                            <td class="py-3 px-4 font-medium text-gray-900">Yes</td>
-                            <td class="py-3 px-4">No</td>
-                            <td class="py-3 px-4">No</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <p class="text-xs text-gray-400 mt-4 text-center">Uptime Kuma is great, but if your monitoring tool runs on the same server as your bot, they go down together.</p>
-        </div>
-    </section>
+    <div class="divider"></div>
 
-    <!-- FAQ -->
-    <section class="py-20">
-        <div class="max-w-3xl mx-auto px-4">
-            <h2 class="text-2xl font-bold text-center text-gray-900 mb-12">Frequently asked questions</h2>
-            <div class="space-y-6">
-                <details class="group border-b border-gray-200 pb-4">
-                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
-                        Who is UptimeBot for?
-                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
-                    </summary>
-                    <p class="mt-3 text-sm text-gray-500">UptimeBot is built for developers who run Discord bots, Telegram bots, or APIs that serve online communities. If your users rely on your bot being online and you want to know the second it's not, this is for you.</p>
-                </details>
-                <details class="group border-b border-gray-200 pb-4">
-                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
-                        How is this different from UptimeRobot?
-                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
-                    </summary>
-                    <p class="mt-3 text-sm text-gray-500">UptimeRobot is a general-purpose monitoring tool. UptimeBot is purpose-built for bot developers &mdash; Discord-native alerts with rich embeds, multi-region verification to eliminate false alarms, and status pages designed for your community. Our Starter plan is $5/mo vs their $7/mo.</p>
-                </details>
-                <details class="group border-b border-gray-200 pb-4">
-                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
-                        How is this different from Uptime Kuma?
-                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
-                    </summary>
-                    <p class="mt-3 text-sm text-gray-500">Uptime Kuma is a self-hosted, single-instance tool. If the server running it goes down, your monitoring goes down with it. UptimeBot runs in the cloud and checks from 3 continents, so you have redundancy built in. No server to maintain, no Docker to manage.</p>
-                </details>
-                <details class="group border-b border-gray-200 pb-4">
-                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
-                        What endpoints can I monitor?
-                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
-                    </summary>
-                    <p class="mt-3 text-sm text-gray-500">Any HTTP or HTTPS endpoint. Most bot developers point us at their /health or /status endpoint. We support custom headers, expected status codes, and POST requests with bodies.</p>
-                </details>
-                <details class="group border-b border-gray-200 pb-4">
-                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
-                        Do you really check from 3 continents?
-                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
-                    </summary>
-                    <p class="mt-3 text-sm text-gray-500">Yes. Every check runs from the US, Europe, and Asia. We only flag an incident when 2 or more regions confirm the endpoint is down, which eliminates false positives from regional network blips.</p>
-                </details>
-                <details class="group border-b border-gray-200 pb-4">
-                    <summary class="cursor-pointer font-medium text-gray-900 flex justify-between items-center">
-                        Can I use this for non-bot projects?
-                        <span class="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
-                    </summary>
-                    <p class="mt-3 text-sm text-gray-500">Absolutely. UptimeBot works for any API or web service. But our features, integrations, and community are optimized for bot developers.</p>
-                </details>
+    <!-- ── Final CTA ── -->
+    <section class="final-cta">
+        <div class="container">
+            <div class="cta-card fade-in">
+                <h2>Your bot deserves better than "is it down?"</h2>
+                <p>Start monitoring in under 60 seconds. Free forever for 1 bot.</p>
+                <a href="/dashboard/register" class="btn btn-primary btn-large">Get Started Free</a>
             </div>
         </div>
     </section>
 
-    <!-- Footer CTA -->
-    <section class="py-16 bg-gray-900 text-center">
-        <div class="max-w-2xl mx-auto px-4">
-            <h2 class="text-2xl font-bold text-white mb-3">Your bot deserves better than "is it down?"</h2>
-            <p class="text-gray-400 mb-8">Start monitoring in under 60 seconds. Free forever for up to 3 monitors.</p>
-            <a href="/dashboard/register" class="bg-brand text-white font-medium px-8 py-3 rounded-md hover:bg-purple-700 transition inline-block">Start Monitoring Free</a>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="border-t border-gray-100 py-8">
-        <div class="max-w-5xl mx-auto px-4 flex items-center justify-between text-sm text-gray-400">
-            <span>UptimeBot</span>
-            <div class="flex gap-4">
-                <a href="/docs/getting-started" class="hover:text-gray-600">Docs</a>
-                <a href="#pricing" class="hover:text-gray-600">Pricing</a>
-                <a href="/dashboard/login" class="hover:text-gray-600">Login</a>
+    <!-- ── Footer ── -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-logo">BotOps<span>Cloud</span></div>
+                <div class="footer-links">
+                    <a href="#features">Features</a>
+                    <a href="#pricing">Pricing</a>
+                    <a href="/docs/getting-started">Docs</a>
+                    <a href="/dashboard/login">Login</a>
+                </div>
+                <div class="footer-tagline">Built with care in Texas.</div>
             </div>
         </div>
     </footer>
+
+    <script>
+        // ── Nav scroll effect ──
+        const nav = document.getElementById('nav');
+        let ticking = false;
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    nav.classList.toggle('scrolled', window.scrollY > 20);
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        });
+
+        // ── Mobile nav toggle ──
+        document.getElementById('nav-toggle').addEventListener('click', () => {
+            document.getElementById('nav-links').classList.toggle('open');
+        });
+
+        // ── Terminal animation ──
+        const lines = document.querySelectorAll('.terminal-line');
+        let delay = 600;
+        lines.forEach((line, i) => {
+            setTimeout(() => line.classList.add('show'), delay);
+            delay += i === 0 ? 500 : (i < 6 ? 280 : (i < 8 ? 400 : 350));
+        });
+
+        // ── Scroll animations ──
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    e.target.classList.add('visible');
+                    observer.unobserve(e.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+        // ── 90-day uptime bars ──
+        const barsContainer = document.getElementById('uptime-bars');
+        if (barsContainer) {
+            for (let i = 0; i < 90; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'trust-bar';
+                // Mostly green, with a couple events
+                if (i === 62) bar.className += ' bad';
+                else if (i === 63) bar.className += ' warn';
+                else bar.className += ' ok';
+                barsContainer.appendChild(bar);
+            }
+        }
+    </script>
 
 </body>
 </html>

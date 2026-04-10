@@ -3,178 +3,459 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Getting Started — UptimeBot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: { brand: '#7C3AED' }
-                }
-            }
+    <title>Getting Started — BotOps Cloud</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0A0E1A;
+            --bg-card: #111827;
+            --bg-surface: #1E293B;
+            --border: rgba(30, 41, 59, 0.8);
+            --border-solid: #1E293B;
+            --primary: #7C3AED;
+            --primary-hover: #6D28D9;
+            --secondary: #06B6D4;
+            --text: #F8FAFC;
+            --text-muted: #94A3B8;
+            --text-dim: #64748B;
+            --ok: #10B981;
+            --font-body: 'Manrope', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
         }
-    </script>
-</head>
-<body class="bg-white">
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text-muted);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.06) 1px, transparent 0);
+            background-size: 32px 32px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        body > * { position: relative; z-index: 1; }
 
-    <!-- Nav -->
-    <nav class="border-b border-gray-100">
-        <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-            <a href="/" class="font-bold text-lg text-brand">UptimeBot</a>
-            <div class="flex items-center gap-4">
-                <a href="/docs/getting-started" class="text-sm text-brand font-medium">Docs</a>
-                <a href="/dashboard/login" class="text-sm text-gray-600 hover:text-gray-900">Login</a>
-                <a href="/dashboard/register" class="bg-brand text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-purple-700 transition">Get Started Free</a>
+        a { color: inherit; text-decoration: none; }
+        a.link { color: var(--primary); transition: color 0.2s; }
+        a.link:hover { color: #A78BFA; }
+
+        h1, h2, h3 {
+            font-family: var(--font-mono);
+            color: var(--text);
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        strong { color: var(--text); font-weight: 600; }
+        code {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            color: var(--secondary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.85em;
+        }
+
+        /* ── Navigation ── */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            background: rgba(10, 14, 26, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-logo {
+            font-family: var(--font-mono);
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .nav-logo span { color: var(--primary); }
+        .nav-links { display: flex; align-items: center; gap: 24px; }
+        .nav-links a {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--text); }
+        .nav-links .active { color: var(--primary); }
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            background: var(--primary);
+            color: #fff !important;
+            font-weight: 600;
+            font-size: 0.8125rem;
+            padding: 8px 18px;
+            border-radius: 6px;
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.25);
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            box-shadow: 0 0 28px rgba(124, 58, 237, 0.4);
+        }
+
+        /* ── Main content ── */
+        main {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+        .page-head {
+            margin-bottom: 56px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--border-solid);
+        }
+        .page-head .label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
+        }
+        .page-head h1 {
+            font-size: 2.25rem;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+        }
+        .page-head p {
+            color: var(--text-muted);
+            font-size: 1.0625rem;
+        }
+
+        section.step {
+            margin-bottom: 56px;
+        }
+        section.divider {
+            padding-top: 56px;
+            border-top: 1px solid var(--border-solid);
+        }
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .step-num {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            background: rgba(124, 58, 237, 0.1);
+            border: 1px solid rgba(124, 58, 237, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: var(--primary);
+            flex-shrink: 0;
+        }
+        .step-header h2 {
+            font-size: 1.25rem;
+        }
+        .step-body {
+            margin-left: 52px;
+        }
+        .step-body p {
+            margin-bottom: 16px;
+            font-size: 0.9375rem;
+        }
+        .step-body ul {
+            list-style: none;
+            margin-bottom: 16px;
+        }
+        .step-body ul li {
+            padding: 6px 0 6px 20px;
+            position: relative;
+            font-size: 0.9375rem;
+        }
+        .step-body ul li::before {
+            content: '›';
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+            font-family: var(--font-mono);
+            font-weight: 700;
+        }
+        .step-body .channel-list {
+            display: grid;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .channel-item h3 {
+            font-family: var(--font-body);
+            font-size: 0.9375rem;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .channel-item p {
+            font-size: 0.875rem;
+            color: var(--text-dim);
+            margin-bottom: 0;
+        }
+
+        .section-heading {
+            font-size: 1.25rem;
+            margin-bottom: 16px;
+        }
+        .section-heading-sub {
+            color: var(--text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 24px;
+        }
+
+        /* ── Code block ── */
+        .code-block {
+            background: var(--bg-card);
+            border: 1px solid var(--border-solid);
+            border-radius: 6px;
+            padding: 20px;
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.8;
+            overflow-x: auto;
+            margin-bottom: 16px;
+            color: var(--text-muted);
+        }
+        .code-block .cm { color: var(--text-dim); }
+        .code-block .ok { color: var(--ok); }
+
+        /* ── Table ── */
+        .plans-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+            background: rgba(17, 24, 39, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .plans-table th {
+            text-align: left;
+            padding: 14px 16px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border-solid);
+            background: rgba(30, 41, 59, 0.4);
+        }
+        .plans-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .plans-table tr:last-child td { border-bottom: none; }
+        .plans-table td:first-child { color: var(--text); font-weight: 500; }
+
+        /* ── Footer ── */
+        footer {
+            padding: 40px 24px;
+            border-top: 1px solid var(--border-solid);
+        }
+        .footer-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .footer-logo {
+            font-family: var(--font-mono);
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .footer-logo span { color: var(--primary); }
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            font-size: 0.8125rem;
+        }
+        .footer-links a {
+            color: var(--text-dim);
+            transition: color 0.2s;
+        }
+        .footer-links a:hover { color: var(--text-muted); }
+
+        @media (max-width: 640px) {
+            .nav-links a:not(.btn-primary):not(.active) { display: none; }
+            main { padding: 40px 20px 60px; }
+            .page-head h1 { font-size: 1.75rem; }
+            .step-body { margin-left: 0; }
+            .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">BotOps<span>Cloud</span></a>
+            <div class="nav-links">
+                <a href="/docs/getting-started" class="active">Docs</a>
+                <a href="/dashboard/login">Login</a>
+                <a href="/dashboard/register" class="btn-primary">Start Free</a>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-3xl mx-auto px-4 py-12">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Getting Started</h1>
-        <p class="text-gray-500 mb-10">Set up monitoring for your bot in under a minute.</p>
+    <main>
+        <div class="page-head">
+            <div class="label">// documentation</div>
+            <h1>Getting Started</h1>
+            <p>Set up monitoring for your bot in under a minute.</p>
+        </div>
 
-        <!-- Step 1 -->
-        <section class="mb-10">
-            <div class="flex items-center gap-3 mb-3">
-                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">1</span>
-                <h2 class="text-xl font-semibold text-gray-900">Create an account</h2>
+        <section class="step">
+            <div class="step-header">
+                <div class="step-num">1</div>
+                <h2>Create an account</h2>
             </div>
-            <p class="text-gray-600 ml-10 mb-3">
-                <a href="/dashboard/register" class="text-brand hover:underline">Sign up</a> with your email. No credit card required &mdash; the free plan includes 3 monitors with 5-minute check intervals.
-            </p>
+            <div class="step-body">
+                <p><a href="/dashboard/register" class="link">Sign up</a> with your email. No credit card required &mdash; the free plan includes 3 monitors with 5-minute check intervals.</p>
+            </div>
         </section>
 
-        <!-- Step 2 -->
-        <section class="mb-10">
-            <div class="flex items-center gap-3 mb-3">
-                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">2</span>
-                <h2 class="text-xl font-semibold text-gray-900">Create a project</h2>
+        <section class="step">
+            <div class="step-header">
+                <div class="step-num">2</div>
+                <h2>Create a project</h2>
             </div>
-            <p class="text-gray-600 ml-10 mb-3">
-                A project groups related monitors together. For example, you might have one project per bot.
-                From the <a href="/dashboard" class="text-brand hover:underline">dashboard</a>, enter a name and click <strong>Create</strong>.
-            </p>
+            <div class="step-body">
+                <p>A project groups related monitors together. For example, you might have one project per bot. From the <a href="/dashboard" class="link">dashboard</a>, enter a name and click <strong>Create</strong>.</p>
+            </div>
         </section>
 
-        <!-- Step 3 -->
-        <section class="mb-10">
-            <div class="flex items-center gap-3 mb-3">
-                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">3</span>
-                <h2 class="text-xl font-semibold text-gray-900">Add a monitor</h2>
+        <section class="step">
+            <div class="step-header">
+                <div class="step-num">3</div>
+                <h2>Add a monitor</h2>
             </div>
-            <p class="text-gray-600 ml-10 mb-3">
-                Inside your project, add a monitor by providing:
-            </p>
-            <ul class="text-gray-600 ml-10 space-y-1 list-disc list-inside mb-3">
-                <li><strong>Name</strong> &mdash; A friendly label (e.g. "My Bot Health Check")</li>
-                <li><strong>URL</strong> &mdash; The endpoint to check (e.g. <code class="bg-gray-100 px-1 rounded text-sm">https://mybot.example.com/health</code>)</li>
-                <li><strong>Method</strong> &mdash; GET (default), POST, or HEAD</li>
-                <li><strong>Expected Status</strong> &mdash; The HTTP status code that means "up" (default: 200)</li>
-                <li><strong>Interval</strong> &mdash; How often to check, in seconds (depends on your plan)</li>
-            </ul>
-            <p class="text-gray-600 ml-10">
-                Once created, UptimeBot will start checking your endpoint from 3 regions (US, EU, Asia) automatically. A monitor is only marked <strong>down</strong> when 2+ regions confirm the failure.
-            </p>
+            <div class="step-body">
+                <p>Inside your project, add a monitor by providing:</p>
+                <ul>
+                    <li><strong>Name</strong> &mdash; A friendly label (e.g. "Bot Health Check")</li>
+                    <li><strong>URL</strong> &mdash; The endpoint to check (e.g. <code>https://mybot.example.com/health</code>)</li>
+                    <li><strong>Method</strong> &mdash; GET (default), POST, or HEAD</li>
+                    <li><strong>Expected Status</strong> &mdash; The HTTP status code that means "up" (default: 200)</li>
+                    <li><strong>Interval</strong> &mdash; How often to check, in seconds (depends on your plan)</li>
+                </ul>
+                <p>Once created, BotOps Cloud will start checking your endpoint from 3 regions (US, EU, Asia) automatically. A monitor is only marked <strong>down</strong> when 2+ regions confirm the failure.</p>
+            </div>
         </section>
 
-        <!-- Step 4 -->
-        <section class="mb-10">
-            <div class="flex items-center gap-3 mb-3">
-                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">4</span>
-                <h2 class="text-xl font-semibold text-gray-900">Set up alerts</h2>
+        <section class="step">
+            <div class="step-header">
+                <div class="step-num">4</div>
+                <h2>Set up alerts</h2>
             </div>
-            <p class="text-gray-600 ml-10 mb-3">
-                On your project page, add an alert channel so you get notified when something goes wrong:
-            </p>
-            <div class="ml-10 space-y-4">
-                <div>
-                    <h3 class="font-medium text-gray-900">Discord Webhook</h3>
-                    <p class="text-sm text-gray-500">
-                        In your Discord server: Server Settings &rarr; Integrations &rarr; Webhooks &rarr; New Webhook. Copy the URL and paste it into UptimeBot. You'll get rich embed notifications in your channel.
-                    </p>
-                </div>
-                <div>
-                    <h3 class="font-medium text-gray-900">Telegram</h3>
-                    <p class="text-sm text-gray-500">
-                        Create a bot via <code class="bg-gray-100 px-1 rounded">@BotFather</code>, get the bot token, then send a message to the bot and grab your chat ID. Enter both in UptimeBot.
-                    </p>
-                </div>
-                <div>
-                    <h3 class="font-medium text-gray-900">Email</h3>
-                    <p class="text-sm text-gray-500">
-                        Provide your SMTP server details and the email address to notify. Works with any SMTP provider (Gmail, Mailgun, Resend, etc.).
-                    </p>
+            <div class="step-body">
+                <p>On your project page, add an alert channel so you get notified when something goes wrong:</p>
+                <div class="channel-list">
+                    <div class="channel-item">
+                        <h3>Discord Webhook</h3>
+                        <p>In your Discord server: Server Settings &rarr; Integrations &rarr; Webhooks &rarr; New Webhook. Copy the URL and paste it into BotOps Cloud. You'll get rich embed notifications in your channel.</p>
+                    </div>
+                    <div class="channel-item">
+                        <h3>Telegram</h3>
+                        <p>Create a bot via <code>@BotFather</code>, get the bot token, then send a message to the bot and grab your chat ID. Enter both in BotOps Cloud.</p>
+                    </div>
+                    <div class="channel-item">
+                        <h3>Email</h3>
+                        <p>Provide your SMTP server details and the email address to notify. Works with any SMTP provider (Gmail, Mailgun, Resend, etc.).</p>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Step 5 -->
-        <section class="mb-10">
-            <div class="flex items-center gap-3 mb-3">
-                <span class="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold">5</span>
-                <h2 class="text-xl font-semibold text-gray-900">Enable your status page</h2>
+        <section class="step">
+            <div class="step-header">
+                <div class="step-num">5</div>
+                <h2>Enable your status page</h2>
             </div>
-            <p class="text-gray-600 ml-10 mb-3">
-                Each project gets a public status page automatically. From your project page, click <strong>Status Page Settings</strong> to customize:
-            </p>
-            <ul class="text-gray-600 ml-10 space-y-1 list-disc list-inside mb-3">
-                <li><strong>Display name</strong> and <strong>logo</strong></li>
-                <li><strong>Accent color</strong> to match your brand</li>
-                <li>Toggle the page <strong>public</strong> when you're ready</li>
-            </ul>
-            <p class="text-gray-600 ml-10">
-                Your status page will be available at <code class="bg-gray-100 px-1 rounded text-sm">/status/your-project-slug</code> and shows live monitor status, 90-day uptime bars, and recent incidents.
-            </p>
+            <div class="step-body">
+                <p>Each project gets a public status page automatically. From your project page, click <strong>Status Page</strong> to customize:</p>
+                <ul>
+                    <li><strong>Display name</strong> and <strong>logo</strong></li>
+                    <li><strong>Accent color</strong> to match your brand</li>
+                    <li>Toggle the page <strong>public</strong> when you're ready</li>
+                </ul>
+                <p>Your status page will be available at <code>/status/your-project-slug</code> and shows live monitor status, 90-day uptime bars, and recent incidents.</p>
+            </div>
         </section>
 
-        <!-- API -->
-        <section class="mb-10 border-t border-gray-200 pt-10">
-            <h2 class="text-xl font-semibold text-gray-900 mb-3">REST API</h2>
-            <p class="text-gray-600 mb-3">
-                Everything you can do in the dashboard is also available via the API. Authenticate with a JWT token:
-            </p>
-            <div class="bg-gray-900 text-gray-100 rounded-lg p-4 text-sm font-mono overflow-x-auto mb-3">
-                <div class="text-gray-400"># Register</div>
-                <div>curl -X POST /auth/register -H "Content-Type: application/json" \</div>
-                <div class="pl-4">-d '{"email": "you@example.com", "password": "secret"}'</div>
-                <div class="mt-2 text-gray-400"># Use the returned access_token</div>
-                <div>curl /projects -H "Authorization: Bearer &lt;token&gt;"</div>
+        <section class="divider">
+            <h2 class="section-heading">REST API</h2>
+            <p class="section-heading-sub">Everything you can do in the dashboard is also available via the API. Authenticate with a JWT token:</p>
+            <div class="code-block">
+<span class="cm"># Register</span>
+curl -X POST /auth/register -H <span class="ok">"Content-Type: application/json"</span> \
+    -d <span class="ok">'{"email": "you@example.com", "password": "secret"}'</span>
+
+<span class="cm"># Use the returned access_token</span>
+curl /projects -H <span class="ok">"Authorization: Bearer &lt;token&gt;"</span>
             </div>
-            <p class="text-gray-600">
-                Interactive API docs are available at <a href="/api/docs" class="text-brand hover:underline">/api/docs</a>.
-            </p>
+            <p style="font-size: 0.9375rem;">Interactive API docs are available at <a href="/api/docs" class="link">/api/docs</a>.</p>
         </section>
 
-        <!-- Plans -->
-        <section class="mb-10 border-t border-gray-200 pt-10">
-            <h2 class="text-xl font-semibold text-gray-900 mb-3">Plans</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left">
-                    <thead>
-                        <tr class="border-b border-gray-200">
-                            <th class="py-2 pr-4 font-medium text-gray-500"></th>
-                            <th class="py-2 px-4 font-medium text-gray-900">Free</th>
-                            <th class="py-2 px-4 font-medium text-gray-900">Starter ($5/mo)</th>
-                            <th class="py-2 px-4 font-medium text-gray-900">Pro ($15/mo)</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-gray-600">
-                        <tr class="border-b border-gray-100"><td class="py-2 pr-4">Projects</td><td class="py-2 px-4">1</td><td class="py-2 px-4">3</td><td class="py-2 px-4">Unlimited</td></tr>
-                        <tr class="border-b border-gray-100"><td class="py-2 pr-4">Monitors</td><td class="py-2 px-4">3</td><td class="py-2 px-4">10</td><td class="py-2 px-4">50</td></tr>
-                        <tr class="border-b border-gray-100"><td class="py-2 pr-4">Min interval</td><td class="py-2 px-4">5 min</td><td class="py-2 px-4">1 min</td><td class="py-2 px-4">30 sec</td></tr>
-                        <tr><td class="py-2 pr-4">Regions</td><td class="py-2 px-4">3</td><td class="py-2 px-4">3</td><td class="py-2 px-4">3</td></tr>
-                    </tbody>
-                </table>
-            </div>
+        <section class="divider">
+            <h2 class="section-heading">Plans</h2>
+            <table class="plans-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Free</th>
+                        <th>Pro ($12/mo)</th>
+                        <th>Studio ($49/mo)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Bots</td><td>1</td><td>3</td><td>10</td></tr>
+                    <tr><td>Monitors</td><td>3</td><td>15</td><td>50</td></tr>
+                    <tr><td>Min interval</td><td>5 min</td><td>1 min</td><td>30 sec</td></tr>
+                    <tr><td>Regions</td><td>3</td><td>3</td><td>3</td></tr>
+                    <tr><td>History</td><td>7 days</td><td>90 days</td><td>1 year</td></tr>
+                </tbody>
+            </table>
         </section>
     </main>
 
-    <footer class="border-t border-gray-100 py-8">
-        <div class="max-w-3xl mx-auto px-4 flex items-center justify-between text-sm text-gray-400">
-            <a href="/" class="hover:text-gray-600">UptimeBot</a>
-            <div class="flex gap-4">
-                <a href="/dashboard/login" class="hover:text-gray-600">Login</a>
-                <a href="/dashboard/register" class="hover:text-gray-600">Sign Up</a>
+    <footer>
+        <div class="footer-inner">
+            <a href="/" class="footer-logo">BotOps<span>Cloud</span></a>
+            <div class="footer-links">
+                <a href="/">Home</a>
+                <a href="/dashboard/login">Login</a>
+                <a href="/dashboard/register">Sign Up</a>
             </div>
         </div>
     </footer>

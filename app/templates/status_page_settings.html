@@ -1,48 +1,52 @@
 {% extends "base.html" %}
-{% block title %}Status Page Settings — UptimeBot{% endblock %}
+{% block title %}Status Page Settings — BotOps Cloud{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-    <a href="/dashboard/projects/{{ project.id }}" class="text-sm text-gray-500 hover:text-gray-700">← {{ project.name }}</a>
-    <h1 class="text-xl font-bold mt-2">Status Page Settings</h1>
+<div class="mb-8">
+    <a href="/dashboard/projects/{{ project.id }}" class="text-sm text-ink-dim hover:text-ink transition font-mono">&larr; {{ project.name }}</a>
+    <h1 class="font-mono text-2xl font-bold text-ink mt-3">Status Page Settings</h1>
+    <p class="text-sm text-ink-dim mt-1">// configure your public trust page</p>
 </div>
 
-<form method="post" action="/dashboard/projects/{{ project.id }}/status-page" class="bg-white rounded-lg shadow p-6 space-y-4 max-w-lg">
+<form method="post" action="/dashboard/projects/{{ project.id }}/status-page" class="bc-card p-6 space-y-5 max-w-xl">
     <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
-        <input type="text" name="display_name" value="{{ status_page.display_name }}" required
-            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Display Name</label>
+        <input type="text" name="display_name" value="{{ status_page.display_name }}" required>
     </div>
     <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
-        <input type="url" name="logo_url" value="{{ status_page.logo_url }}" placeholder="https://example.com/logo.png"
-            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Logo URL</label>
+        <input type="url" name="logo_url" value="{{ status_page.logo_url }}" placeholder="https://example.com/logo.png">
     </div>
     <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Accent Color</label>
+        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Accent Color</label>
         <div class="flex items-center gap-3">
-            <input type="color" name="primary_color" value="{{ status_page.primary_color }}"
-                class="w-10 h-10 rounded border border-gray-300 cursor-pointer">
-            <span class="text-sm text-gray-500">{{ status_page.primary_color }}</span>
+            <input type="color" name="primary_color" value="{{ status_page.primary_color }}" style="width: 48px; height: 40px; cursor: pointer;">
+            <span class="text-sm text-ink-muted font-mono">{{ status_page.primary_color }}</span>
         </div>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 pt-2">
         <input type="checkbox" name="is_public" id="is_public" {% if status_page.is_public %}checked{% endif %}
-            class="rounded border-gray-300 text-brand focus:ring-brand">
-        <label for="is_public" class="text-sm font-medium text-gray-700">Public (visible without login)</label>
+            class="rounded border-bg-surface text-brand focus:ring-brand focus:ring-offset-bg"
+            style="width: 16px; height: 16px; accent-color: #7C3AED;">
+        <label for="is_public" class="text-sm font-medium text-ink">Public (visible without login)</label>
     </div>
 
     {% if status_page.is_public %}
-    <div class="bg-gray-50 border border-gray-200 rounded-md p-3">
-        <p class="text-sm text-gray-600">
-            Your status page is live at:
-            <a href="/status/{{ project.slug }}" target="_blank" class="text-brand hover:underline font-medium">/status/{{ project.slug }}</a>
-        </p>
+    <div class="bg-ok/5 border border-ok/20 rounded-md p-4">
+        <div class="flex items-start gap-3">
+            <div class="w-2 h-2 rounded-full bg-ok mt-1.5" style="box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);"></div>
+            <div>
+                <p class="text-sm text-ink">Your status page is live at:</p>
+                <a href="/status/{{ project.slug }}" target="_blank" class="text-brand hover:text-brand-hover font-mono text-sm font-medium transition">
+                    /status/{{ project.slug }} &rarr;
+                </a>
+            </div>
+        </div>
     </div>
     {% endif %}
 
-    <button type="submit" class="bg-brand text-white text-sm px-4 py-2 rounded-md hover:bg-purple-700 transition">
-        Save Settings
-    </button>
+    <div class="flex justify-end pt-2">
+        <button type="submit" class="bc-btn-primary">Save Settings</button>
+    </div>
 </form>
 {% endblock %}

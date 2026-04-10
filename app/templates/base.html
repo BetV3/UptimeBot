@@ -3,42 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}UptimeBot{% endblock %}</title>
+    <title>{% block title %}BotOps Cloud{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { brand: '#7C3AED' }
+                    colors: {
+                        brand: '#7C3AED',
+                        'brand-hover': '#6D28D9',
+                        cyan2: '#06B6D4',
+                        bg: {
+                            DEFAULT: '#0A0E1A',
+                            card: '#111827',
+                            surface: '#1E293B',
+                        },
+                        ink: {
+                            DEFAULT: '#F8FAFC',
+                            muted: '#94A3B8',
+                            dim: '#64748B',
+                        },
+                        ok: '#10B981',
+                        warn: '#F59E0B',
+                        bad: '#EF4444',
+                    },
+                    fontFamily: {
+                        sans: ['Manrope', 'system-ui', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    boxShadow: {
+                        glow: '0 0 24px rgba(124, 58, 237, 0.25)',
+                        'glow-lg': '0 0 40px rgba(124, 58, 237, 0.3)',
+                    },
                 }
             }
         }
     </script>
     <style>
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Manrope', system-ui, sans-serif;
+            background: #0A0E1A;
+            color: #94A3B8;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+        /* Dot grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.06) 1px, transparent 0);
+            background-size: 32px 32px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        body > * { position: relative; z-index: 1; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Form element defaults for dark theme */
+        input[type="text"], input[type="email"], input[type="password"], input[type="url"],
+        input[type="number"], input[type="color"], select, textarea {
+            background: #0A0E1A;
+            color: #F8FAFC;
+            border: 1px solid #1E293B;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        input[type="color"] { padding: 2px; height: 40px; }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #7C3AED;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+        }
+        input::placeholder, textarea::placeholder { color: #475569; }
+        select { cursor: pointer; }
+        select option { background: #111827; color: #F8FAFC; }
+        label { color: #94A3B8; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #0A0E1A; }
+        ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
         [x-cloak] { display: none !important; }
+
+        /* Utility: card */
+        .bc-card {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(30, 41, 59, 0.8);
+            border-radius: 8px;
+        }
+        .bc-card-hover:hover {
+            border-color: rgba(124, 58, 237, 0.3);
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.12);
+        }
+        .bc-btn-primary {
+            background: #7C3AED;
+            color: #fff;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .bc-btn-primary:hover {
+            background: #6D28D9;
+            box-shadow: 0 0 28px rgba(124, 58, 237, 0.35);
+        }
+        .bc-btn-secondary {
+            background: transparent;
+            color: #94A3B8;
+            border: 1px solid #1E293B;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .bc-btn-secondary:hover {
+            border-color: #334155;
+            color: #F8FAFC;
+            background: rgba(30, 41, 59, 0.3);
+        }
+        .bc-btn-danger {
+            background: transparent;
+            color: #EF4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .bc-btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
     {% block nav %}
-    <nav class="bg-white border-b border-gray-200">
-        <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-            <a href="/dashboard" class="font-bold text-lg text-brand">UptimeBot</a>
-            <div class="flex items-center gap-4">
+    <nav class="border-b border-bg-surface/70 backdrop-blur-sm bg-bg/60 sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="/dashboard" class="font-mono font-bold text-lg text-ink">BotOps<span class="text-brand">Cloud</span></a>
+            <div class="flex items-center gap-5">
                 {% if user %}
                 {% if user.plan is defined %}
-                <span class="text-xs px-2 py-0.5 rounded-full {% if user.plan.value == 'pro' %}bg-purple-100 text-purple-700{% elif user.plan.value == 'starter' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
-                    {{ user.plan.value | capitalize }}
+                <span class="font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded border {% if user.plan.value == 'pro' %}border-brand/40 text-brand bg-brand/10{% elif user.plan.value == 'starter' %}border-cyan2/40 text-cyan2 bg-cyan2/10{% else %}border-ink-dim/30 text-ink-dim bg-ink-dim/5{% endif %}">
+                    {{ user.plan.value | upper }}
                 </span>
                 {% endif %}
-                <span class="text-sm text-gray-500">{{ user.email }}</span>
-                <a href="/dashboard/logout" class="text-sm text-gray-600 hover:text-gray-900">Logout</a>
+                <span class="text-sm text-ink-muted hidden sm:inline">{{ user.email }}</span>
+                <a href="/dashboard/logout" class="text-sm text-ink-dim hover:text-ink transition">Logout</a>
                 {% endif %}
             </div>
         </div>
     </nav>
     {% endblock %}
 
-    <main class="max-w-5xl mx-auto px-4 py-6">
+    <main class="max-w-6xl mx-auto px-6 py-8">
         {% block content %}{% endblock %}
     </main>
 
