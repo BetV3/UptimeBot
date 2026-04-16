@@ -65,12 +65,16 @@ async def get_jobs(
         jobs.append({
             "pending_check_id": str(pc.id),
             "monitor_id": str(pc.monitor_id),
+            "type": monitor.type.value,
             "url": monitor.url,
             "method": monitor.method.value,
             "expected_status": monitor.expected_status,
             "timeout_seconds": monitor.timeout_seconds,
             "headers": monitor.headers,
             "body": monitor.body,
+            "target_host": monitor.target_host,
+            "target_port": monitor.target_port,
+            "warn_days_before_expiry": monitor.warn_days_before_expiry,
             "region": pc.region.value,
         })
 
@@ -94,6 +98,9 @@ async def post_results(
             status_code=r.status_code,
             response_time_ms=r.response_time_ms,
             error=r.error,
+            cert_days_remaining=r.cert_days_remaining,
+            cert_subject=r.cert_subject,
+            cert_issuer=r.cert_issuer,
         )
         db.add(check)
 

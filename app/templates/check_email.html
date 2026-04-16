@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Check your email — CheckPulse{% endblock %}
+{% block nav %}{% endblock %}
+
+{% block content %}
+<div class="min-h-[85vh] flex items-center justify-center -mt-8">
+    <div class="w-full max-w-sm">
+        <div class="text-center mb-8">
+            <a href="/" class="inline-block">
+                <h1 class="font-mono text-2xl font-bold text-ink">Check<span class="text-brand">Pulse</span></h1>
+            </a>
+            <p class="text-ink-dim text-sm mt-2 font-mono">// one more step</p>
+        </div>
+
+        {% if info %}
+        <div class="bg-ok/10 border border-ok/30 text-ok text-sm rounded-md px-4 py-3 mb-4 font-mono">
+            &gt; {{ info }}
+        </div>
+        {% endif %}
+
+        <div class="bc-card p-6 space-y-4 shadow-glow text-center">
+            <div class="mx-auto w-12 h-12 rounded-full bg-brand/10 border border-brand/30 flex items-center justify-center">
+                <svg class="w-6 h-6 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-ink">Check your inbox</h2>
+            <p class="text-sm text-ink-muted">
+                We just sent a verification link to<br>
+                <span class="text-ink font-mono">{{ email }}</span>
+            </p>
+            <p class="text-xs text-ink-dim">
+                Click the link in that email to activate your account. The link expires in 24 hours.
+            </p>
+
+            <form method="post" action="/dashboard/resend-verification" class="pt-2">
+                <input type="hidden" name="email" value="{{ email }}">
+                <button type="submit" class="w-full bc-btn-secondary justify-center py-2">
+                    Resend verification email
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-sm text-ink-dim mt-6">
+            <a href="/dashboard/login" class="text-brand hover:text-brand-hover transition font-medium">Back to sign in</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

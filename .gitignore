@@ -3,7 +3,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-.env
 *.db
 .vscode/
 .idea/
@@ -11,3 +10,6 @@ venv/
 .venv/
 celerybeat-schedule
 .claude/
+*.log
+*.yml
+.env.local

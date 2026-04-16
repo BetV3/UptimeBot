@@ -1,6 +1,6 @@
 """
-Standalone check worker — runs on VPS, polls for jobs, executes HTTP checks,
-and reports results back to the API.
+Standalone check worker — runs on VPS, polls for jobs, dispatches to the right
+checker based on monitor type, and reports results back to the API.
 
 Usage:
     python run.py --region us --api-url http://your-api:8000 --secret your-worker-secret
@@ -14,9 +14,11 @@ import time
 
 import httpx
 
+from checkers import get_checker
+
 
 def get_config():
-    parser = argparse.ArgumentParser(description="UptimeBot check worker")
+    parser = argparse.ArgumentParser(description="CheckPulse check worker")
     parser.add_argument("--region", default=os.getenv("REGION", "us"))
     parser.add_argument("--api-url", default=os.getenv("API_URL", "http://localhost:8000"))
     parser.add_argument("--secret", default=os.getenv("WORKER_SECRET", "change-me-worker-secret"))
@@ -35,45 +37,22 @@ def fetch_jobs(client: httpx.Client, api_url: str, region: str, secret: str) -> 
 
 
 def execute_check(client: httpx.Client, job: dict) -> dict:
-    url = job["url"]
-    method = job.get("method", "GET")
-    timeout = job.get("timeout_seconds", 10)
-    headers = job.get("headers") or {}
-    body = job.get("body")
-
     result = {
         "pending_check_id": job["pending_check_id"],
         "monitor_id": job["monitor_id"],
         "region": job["region"],
     }
-
+    monitor_type = job.get("type", "http")
     try:
-        start = time.monotonic()
-        resp = client.request(
-            method=method,
-            url=url,
-            headers=headers,
-            content=body,
-            timeout=timeout,
-            follow_redirects=True,
-        )
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-
-        expected = job.get("expected_status", 200)
-        is_up = resp.status_code == expected
-
-        result["status"] = "up" if is_up else "down"
-        result["status_code"] = resp.status_code
-        result["response_time_ms"] = elapsed_ms
-        if not is_up:
-            result["error"] = f"Expected {expected}, got {resp.status_code}"
-    except httpx.TimeoutException:
-        result["status"] = "down"
-        result["error"] = f"Timeout after {timeout}s"
-    except Exception as e:
+        checker = get_checker(monitor_type)
+        check_result = checker.run(job, client)
+        result.update(check_result.to_payload())
+    except ValueError as e:
         result["status"] = "down"
         result["error"] = str(e)[:500]
-
+    except Exception as e:
+        result["status"] = "down"
+        result["error"] = f"Checker error: {str(e)[:480]}"
     return result
 
 
@@ -107,7 +86,6 @@ def main():
     with httpx.Client() as client:
         while True:
             try:
-                # Send heartbeat every 6th poll (~60s at default 10s interval)
                 heartbeat_counter += 1
                 if heartbeat_counter >= 6:
                     send_heartbeat(client, config.api_url, config.region, config.secret)

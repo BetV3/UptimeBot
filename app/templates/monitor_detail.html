@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ monitor.name }} — BotOps Cloud{% endblock %}
+{% block title %}{{ monitor.name }} — CheckPulse{% endblock %}
 
 {% block content %}
 <div class="mb-8">
     <a href="/dashboard/projects/{{ monitor.project_id }}" class="text-sm text-ink-dim hover:text-ink transition font-mono">&larr; back to project</a>
-    <div class="flex items-center justify-between mt-3">
-        <div class="flex items-center gap-3">
+    <div class="flex items-center justify-between mt-3 gap-3 flex-wrap">
+        <div class="flex items-center gap-3 min-w-0">
             {% if monitor.current_status == 'up' %}
             <span class="w-3 h-3 rounded-full bg-ok" style="box-shadow: 0 0 12px rgba(16, 185, 129, 0.7);"></span>
             {% elif monitor.current_status == 'down' %}
@@ -15,7 +15,7 @@
             {% endif %}
             <h1 class="font-mono text-2xl font-bold text-ink">{{ monitor.name }}</h1>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
             {% if monitor.is_active %}
             <form method="post" action="/dashboard/monitors/{{ monitor.id }}/pause" class="inline">
                 <button type="submit" class="bc-btn-secondary">Pause</button>
@@ -26,13 +26,55 @@
             </form>
             {% endif %}
             <button onclick="document.getElementById('edit-monitor-modal').classList.remove('hidden')" class="bc-btn-secondary">Edit</button>
-            <form method="post" action="/dashboard/monitors/{{ monitor.id }}/delete" onsubmit="return confirm('Delete this monitor?')" class="inline">
-                <button type="submit" class="bc-btn-danger">Delete</button>
-            </form>
+            <button onclick="document.getElementById('delete-monitor-modal').classList.remove('hidden')" class="bc-btn-danger">Delete</button>
         </div>
     </div>
-    <p class="text-sm text-ink-dim mt-2 font-mono">{{ monitor.url }} &middot; {{ monitor.method }} &middot; every {{ monitor.interval_seconds }}s</p>
+    <p class="text-sm text-ink-dim mt-2 font-mono flex items-center gap-2 flex-wrap">
+        <span class="bc-pill bc-pill--neutral">{{ monitor.type }}</span>
+        <span class="bc-pill {% if monitor.current_status == 'up' %}bc-pill--up{% elif monitor.current_status == 'down' %}bc-pill--down{% else %}bc-pill--pending{% endif %}">{{ monitor.current_status }}</span>
+        {% if not monitor.is_active %}<span class="bc-pill bc-pill--neutral">Paused</span>{% endif %}
+        <span class="text-ink-dim break-all">
+        {% if monitor.type == 'ssl' %}
+            {{ monitor.target_host }}:{{ monitor.target_port }} &middot; warn at {{ monitor.warn_days_before_expiry if monitor.warn_days_before_expiry is not none else '—' }}d &middot; every {{ monitor.interval_seconds }}s
+        {% else %}
+            {{ monitor.url }} &middot; {{ monitor.method }} &middot; every {{ monitor.interval_seconds }}s
+        {% endif %}
+        </span>
+    </p>
 </div>
+
+{% if monitor.type == 'ssl' and latest_cert %}
+<div class="bc-card p-5 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xs font-mono uppercase tracking-wider text-ink-muted">// Certificate</h2>
+        {% if latest_cert.days_remaining is not none %}
+            {% if latest_cert.days_remaining < 0 %}
+            <span class="bc-pill bc-pill--down">Expired</span>
+            {% elif monitor.warn_days_before_expiry is not none and latest_cert.days_remaining <= monitor.warn_days_before_expiry %}
+            <span class="bc-pill bc-pill--warn">Expiring soon</span>
+            {% else %}
+            <span class="bc-pill bc-pill--up">Valid</span>
+            {% endif %}
+        {% endif %}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Days remaining</div>
+            <div class="font-mono text-2xl font-bold {% if latest_cert.days_remaining is not none and latest_cert.days_remaining < 0 %}text-bad{% elif latest_cert.days_remaining is not none and monitor.warn_days_before_expiry is not none and latest_cert.days_remaining <= monitor.warn_days_before_expiry %}text-warn{% else %}text-ink{% endif %}">
+                {% if latest_cert.days_remaining is not none %}{{ latest_cert.days_remaining }}{% else %}&mdash;{% endif %}
+            </div>
+        </div>
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Subject</div>
+            <div class="text-sm text-ink-muted font-mono break-all">{{ latest_cert.subject or '—' }}</div>
+        </div>
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Issuer</div>
+            <div class="text-sm text-ink-muted font-mono break-all">{{ latest_cert.issuer or '—' }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Summary Cards -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -50,7 +92,7 @@
 <!-- Response Time Chart -->
 <div class="bc-card p-5 mb-6">
     <h2 class="text-xs font-mono uppercase tracking-wider text-ink-muted mb-4">// Response Time (last 24h)</h2>
-    <canvas id="chart" height="140"></canvas>
+    <canvas id="chart" height="140" class="w-full max-w-full block"></canvas>
 </div>
 
 <!-- Recent Checks -->
@@ -60,6 +102,7 @@
 
 {% if checks %}
 <div class="bc-card overflow-hidden">
+  <div class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="bg-bg-surface/40">
             <tr class="text-left">
@@ -73,19 +116,15 @@
         <tbody class="divide-y divide-bg-surface/50">
             {% for c in checks %}
             <tr class="hover:bg-bg-surface/20 transition">
-                <td class="px-4 py-3 text-ink-muted font-mono text-xs">{{ c.checked_at[:19] }}</td>
+                <td class="px-4 py-3 text-ink-muted font-mono text-xs whitespace-nowrap">{{ c.checked_at[:19].replace('T', ' ') }} <span class="text-ink-dim">UTC</span></td>
                 <td class="px-4 py-3">
-                    <span class="font-mono text-[10px] uppercase tracking-wider bg-bg-surface/60 text-ink-muted px-2 py-1 rounded border border-bg-surface">{{ c.region | upper }}</span>
+                    <span class="bc-pill bc-pill--neutral">{{ c.region | upper }}</span>
                 </td>
                 <td class="px-4 py-3">
                     {% if c.status == 'up' %}
-                    <span class="flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-ok">
-                        <span class="w-1.5 h-1.5 rounded-full bg-ok"></span> UP
-                    </span>
+                    <span class="bc-pill bc-pill--up">UP</span>
                     {% else %}
-                    <span class="flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-bad">
-                        <span class="w-1.5 h-1.5 rounded-full bg-bad"></span> DOWN
-                    </span>
+                    <span class="bc-pill bc-pill--down">DOWN</span>
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-ink-muted font-mono text-xs">{{ c.status_code or '—' }}</td>
@@ -94,6 +133,7 @@
             {% endfor %}
         </tbody>
     </table>
+  </div>
 </div>
 {% else %}
 <div class="bc-card p-10 text-center">
@@ -101,8 +141,40 @@
 </div>
 {% endif %}
 
+<!-- Delete Monitor Modal -->
+<div id="delete-monitor-modal" data-modal class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bc-card w-full max-w-md p-6 shadow-glow-lg">
+        <div class="flex items-start gap-4 mb-5">
+            <div class="w-10 h-10 rounded-md bg-bad/10 border border-bad/30 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-bad" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z"/>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h2 class="font-mono text-lg font-bold text-ink">Delete monitor?</h2>
+                <p class="text-sm text-ink-muted mt-1">
+                    This will permanently delete <span class="text-ink font-medium">{{ monitor.name }}</span> along with its check history and incident records. This cannot be undone.
+                </p>
+            </div>
+        </div>
+        <form method="post" action="/dashboard/monitors/{{ monitor.id }}/delete" data-modal-form="delete-monitor-modal" id="delete-monitor-form">
+            <div data-form-error class="hidden mb-4 bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 font-mono"></div>
+            <div class="mb-5">
+                <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">
+                    Type <span class="text-ink">{{ monitor.name }}</span> to confirm
+                </label>
+                <input type="text" id="delete-confirm-input" autocomplete="off" placeholder="{{ monitor.name }}">
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('delete-monitor-modal').classList.add('hidden'); document.getElementById('delete-confirm-input').value = ''; document.getElementById('delete-submit-btn').disabled = true;" class="bc-btn-secondary">Cancel</button>
+                <button type="submit" id="delete-submit-btn" class="bc-btn-danger" disabled>Delete permanently</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Edit Monitor Modal -->
-<div id="edit-monitor-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+<div id="edit-monitor-modal" data-modal class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div class="bc-card w-full max-w-lg p-6 shadow-glow-lg max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-5">
             <h2 class="font-mono text-lg font-bold text-ink">Edit Monitor</h2>
@@ -110,12 +182,29 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form method="post" action="/dashboard/monitors/{{ monitor.id }}/edit">
+        <form method="post" action="/dashboard/monitors/{{ monitor.id }}/edit" data-modal-form="edit-monitor-modal">
+            <div data-form-error class="hidden mb-4 bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 font-mono"></div>
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Name</label>
-                    <input type="text" name="name" required value="{{ monitor.name }}">
+                    <input type="text" name="name" required maxlength="100" value="{{ monitor.name }}">
                 </div>
+                {% if monitor.type == 'ssl' %}
+                <div class="grid grid-cols-[1fr_120px] gap-3">
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Target Host</label>
+                        <input type="text" name="target_host" value="{{ monitor.target_host or '' }}" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Port</label>
+                        <input type="number" name="target_port" value="{{ monitor.target_port or 443 }}" min="1" max="65535">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Warn Days Before Expiry</label>
+                    <input type="number" name="warn_days_before_expiry" value="{{ monitor.warn_days_before_expiry if monitor.warn_days_before_expiry is not none else '' }}" min="0" max="365">
+                </div>
+                {% else %}
                 <div>
                     <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">URL</label>
                     <input type="url" name="url" required value="{{ monitor.url }}">
@@ -134,14 +223,15 @@
                         <input type="number" name="expected_status" value="{{ monitor.expected_status }}">
                     </div>
                 </div>
+                {% endif %}
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Interval (seconds)</label>
-                        <input type="number" name="interval_seconds" value="{{ monitor.interval_seconds }}" min="30">
+                        <input type="number" name="interval_seconds" value="{{ monitor.interval_seconds }}" min="1" required>
                     </div>
                     <div>
                         <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Timeout (seconds)</label>
-                        <input type="number" name="timeout_seconds" value="{{ monitor.timeout_seconds }}" min="1" max="30">
+                        <input type="number" name="timeout_seconds" value="{{ monitor.timeout_seconds }}" min="1" max="60" required>
                     </div>
                 </div>
             </div>
@@ -157,6 +247,53 @@
 
 {% block scripts %}
 <script>
+const deleteConfirmInput = document.getElementById('delete-confirm-input');
+const deleteSubmitBtn = document.getElementById('delete-submit-btn');
+const requiredName = {{ monitor.name | tojson }};
+if (deleteConfirmInput && deleteSubmitBtn) {
+    deleteConfirmInput.addEventListener('input', () => {
+        deleteSubmitBtn.disabled = deleteConfirmInput.value !== requiredName;
+    });
+}
+
+document.querySelectorAll('form[data-modal-form]').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errorBox = form.querySelector('[data-form-error]');
+        errorBox.classList.add('hidden');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        try {
+            const resp = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'Accept': 'application/json' },
+                redirect: 'follow',
+            });
+            if (resp.ok || resp.redirected) {
+                window.location.href = resp.redirected ? resp.url : window.location.href;
+                return;
+            }
+            let detail = 'Something went wrong.';
+            try {
+                const data = await resp.json();
+                if (typeof data.detail === 'string') {
+                    detail = data.detail;
+                } else if (Array.isArray(data.detail) && data.detail[0]?.msg) {
+                    detail = data.detail[0].msg;
+                }
+            } catch {}
+            errorBox.textContent = detail;
+            errorBox.classList.remove('hidden');
+        } catch (err) {
+            errorBox.textContent = 'Network error — please try again.';
+            errorBox.classList.remove('hidden');
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+});
+
 const chartData = {{ chart_data | tojson }};
 const canvas = document.getElementById('chart');
 if (canvas && chartData.length > 0) {

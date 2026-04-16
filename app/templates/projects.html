@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Projects — BotOps Cloud{% endblock %}
+{% block title %}Projects — CheckPulse{% endblock %}
 
 {% block content %}
 <div class="flex items-center justify-between mb-8">
@@ -45,7 +45,7 @@
 </div>
 
 <!-- New Project Modal -->
-<div id="new-project-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+<div id="new-project-modal" data-modal class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div class="bc-card w-full max-w-md p-6 shadow-glow-lg">
         <div class="flex items-center justify-between mb-5">
             <h2 class="font-mono text-lg font-bold text-ink">New Project</h2>
@@ -53,10 +53,11 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form method="post" action="/dashboard/projects">
+        <form method="post" action="/dashboard/projects" data-modal-form="new-project-modal">
+            <div data-form-error class="hidden mb-4 bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 font-mono"></div>
             <div class="mb-5">
                 <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Project Name</label>
-                <input type="text" name="name" required placeholder="My Discord Bot" autofocus>
+                <input type="text" name="name" required maxlength="80" placeholder="My Discord Bot" autofocus>
             </div>
             <div class="flex justify-end gap-3">
                 <button type="button" onclick="this.closest('#new-project-modal').classList.add('hidden')" class="bc-btn-secondary">Cancel</button>
@@ -65,4 +66,46 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('form[data-modal-form]').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errorBox = form.querySelector('[data-form-error]');
+        errorBox.classList.add('hidden');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        try {
+            const resp = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'Accept': 'application/json' },
+                redirect: 'follow',
+            });
+            if (resp.ok || resp.redirected) {
+                window.location.href = resp.redirected ? resp.url : window.location.href;
+                return;
+            }
+            let detail = 'Something went wrong.';
+            try {
+                const data = await resp.json();
+                if (typeof data.detail === 'string') {
+                    detail = data.detail;
+                } else if (Array.isArray(data.detail) && data.detail[0]?.msg) {
+                    detail = data.detail[0].msg;
+                }
+            } catch {}
+            errorBox.textContent = detail;
+            errorBox.classList.remove('hidden');
+        } catch (err) {
+            errorBox.textContent = 'Network error — please try again.';
+            errorBox.classList.remove('hidden');
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+});
+</script>
 {% endblock %}

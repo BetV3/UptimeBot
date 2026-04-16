@@ -1,4 +1,4 @@
-# UptimeBot
+# CheckPulse
 
 Uptime monitoring and status pages for Discord/Telegram bot developers.
 
@@ -82,7 +82,7 @@ DATABASE_URL_SYNC=postgresql://uptimebot:localdev@db:5432/uptimebot
 REDIS_URL=redis://redis:6379/0
 
 # App
-APP_NAME=UptimeBot
+APP_NAME=CheckPulse
 APP_ENV=development                         # Set to "production" for prod
 APP_URL=http://localhost:8000               # Your public URL (used for Stripe redirects)
 
@@ -187,7 +187,7 @@ Create `/etc/systemd/system/uptimebot-worker.service`:
 
 ```ini
 [Unit]
-Description=UptimeBot Check Worker
+Description=CheckPulse Check Worker
 After=network.target
 
 [Service]
@@ -364,9 +364,61 @@ tests/                # Pytest tests
 
 | | Free | Starter | Pro |
 |---|---|---|---|
+| Price | $0 | $12/mo | $49/mo |
 | Projects | 1 | 3 | Unlimited |
 | Monitors | 3 | 10 | 50 |
 | Min check interval | 5 min | 1 min | 30 sec |
+
+## Stripe Billing Setup
+
+Billing is optional — the app runs fine on the free tier with no Stripe keys. When you're ready to accept payments:
+
+### 1. Create products + prices in Stripe
+
+In the Stripe dashboard (test mode is fine for local dev):
+
+- Create a product called **Starter** with a recurring price of **$12/month** (USD). Copy the price id (looks like `price_1Abc...`).
+- Create a product called **Pro** with a recurring price of **$49/month** (USD). Copy its price id.
+
+### 2. Populate env vars
+
+In `.env`:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_STARTER_PRICE_ID=price_...
+STRIPE_PRO_PRICE_ID=price_...
+# Webhook secret comes from step 3
+STRIPE_WEBHOOK_SECRET=whsec_...
+APP_URL=http://localhost:8000
+```
+
+Restart the API: `docker compose restart api`.
+
+### 3. Forward webhooks with the Stripe CLI
+
+Install the [Stripe CLI](https://stripe.com/docs/stripe-cli), log in once (`stripe login`), then forward events to the local webhook handler:
+
+```bash
+stripe listen --forward-to http://localhost:8000/billing/webhook
+```
+
+The CLI prints a `whsec_...` signing secret on the first line — paste it into `STRIPE_WEBHOOK_SECRET` and restart the API. Keep `stripe listen` running while you test checkouts.
+
+### 4. Test the checkout flow
+
+Sign in, go to **/dashboard/billing**, click **Upgrade to Starter**, and complete checkout with Stripe's test card `4242 4242 4242 4242` (any future date, any CVC). You should be redirected back to `/dashboard/billing?upgraded=1` and the plan pill should flip to **STARTER**.
+
+Click **Open billing portal** to update the card, switch plans, or cancel.
+
+### Webhook events handled
+
+| Event | Effect |
+|---|---|
+| `checkout.session.completed` | Link Stripe customer + subscription to user, set plan |
+| `customer.subscription.updated` | Re-sync plan + status + `current_period_end` |
+| `customer.subscription.deleted` | Downgrade to Free |
+| `invoice.payment_failed` | Mark subscription `past_due` |
 
 ## License
 

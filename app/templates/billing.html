@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Billing — CheckPulse{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <a href="/dashboard/account" class="text-sm text-ink-dim hover:text-ink transition font-mono">&larr; account</a>
+    <div class="flex items-center gap-3 mt-3">
+        <h1 class="font-mono text-2xl font-bold text-ink">Billing</h1>
+        <span class="bc-pill {% if current_plan == 'pro' %}bc-pill--up{% elif current_plan == 'starter' %}bc-pill--neutral{% else %}bc-pill--pending{% endif %}">{{ current_plan | upper }} plan</span>
+        {% if subscription_status %}
+        <span class="bc-pill {% if subscription_status == 'active' or subscription_status == 'trialing' %}bc-pill--up{% elif subscription_status == 'past_due' or subscription_status == 'unpaid' %}bc-pill--warn{% else %}bc-pill--neutral{% endif %}">{{ subscription_status | replace('_', ' ') }}</span>
+        {% endif %}
+    </div>
+    <p class="text-sm text-ink-dim mt-1 font-mono">// manage your subscription</p>
+</div>
+
+{% if not stripe_configured %}
+<div class="bc-card p-4 mb-6 border-warn/30 bg-warn/5">
+    <p class="text-warn text-sm font-mono">&gt; Payments are not configured on this instance. Ask the admin to set <code>STRIPE_SECRET_KEY</code>, <code>STRIPE_WEBHOOK_SECRET</code>, and the price IDs.</p>
+</div>
+{% endif %}
+
+<!-- Current usage -->
+<section class="mb-8">
+    <h2 class="font-mono text-sm uppercase tracking-wider text-ink-muted mb-3">// Current usage</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="bc-card p-5">
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Bots</div>
+            <div class="font-mono text-2xl font-bold text-ink">{{ project_count }}<span class="text-ink-dim text-base"> / {{ current_limits.max_projects if current_limits.max_projects is not none else '∞' }}</span></div>
+        </div>
+        <div class="bc-card p-5">
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Monitors</div>
+            <div class="font-mono text-2xl font-bold text-ink">{{ monitor_count }}<span class="text-ink-dim text-base"> / {{ current_limits.max_monitors }}</span></div>
+        </div>
+        <div class="bc-card p-5">
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Min interval</div>
+            <div class="font-mono text-2xl font-bold text-ink">{{ current_limits.min_interval_seconds }}<span class="text-ink-dim text-base">s</span></div>
+        </div>
+    </div>
+    {% if current_period_end %}
+    <p class="text-xs text-ink-dim font-mono mt-3">
+        {% if subscription_status == 'canceled' %}
+        &gt; Subscription ends {{ current_period_end.strftime('%b %d, %Y') }}.
+        {% else %}
+        &gt; Renews {{ current_period_end.strftime('%b %d, %Y') }}.
+        {% endif %}
+    </p>
+    {% endif %}
+</section>
+
+<!-- Manage subscription -->
+{% if has_stripe_customer %}
+<section class="mb-8">
+    <div class="bc-card p-5 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+            <h3 class="font-mono text-sm uppercase tracking-wider text-ink mb-1">Manage subscription</h3>
+            <p class="text-sm text-ink-muted">Update payment method, change plan, download invoices, or cancel.</p>
+        </div>
+        <form method="post" action="/billing/portal">
+            <button type="submit" class="bc-btn-secondary">
+                Open billing portal
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </button>
+        </form>
+    </div>
+</section>
+{% endif %}
+
+<!-- Plan tiers -->
+<section>
+    <h2 class="font-mono text-sm uppercase tracking-wider text-ink-muted mb-3">// Plans</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {% for tier in tiers %}
+        <div class="bc-card p-6 relative {% if tier.get('featured') %}border-brand/40 shadow-glow{% endif %}">
+            {% if tier.get('featured') %}
+            <span class="absolute -top-2.5 left-5 bc-pill bc-pill--up" style="background:#7C3AED;color:#fff;border-color:#7C3AED;">Recommended</span>
+            {% endif %}
+            <div class="flex items-baseline justify-between mb-3">
+                <h3 class="font-mono text-lg font-bold text-ink">{{ tier.name }}</h3>
+                {% if tier.key == current_plan %}
+                <span class="bc-pill bc-pill--neutral">Current</span>
+                {% endif %}
+            </div>
+            <div class="mb-4">
+                <span class="font-mono text-3xl font-bold text-ink">{{ tier.price }}</span>
+                {% if tier.key != 'free' %}<span class="text-sm text-ink-dim font-mono">/month</span>{% endif %}
+            </div>
+            <p class="text-sm text-ink-muted mb-5">{{ tier.tagline }}</p>
+            <ul class="space-y-2 mb-6">
+                {% for feat in tier.features %}
+                <li class="text-sm text-ink-muted flex items-start gap-2">
+                    <svg class="w-4 h-4 text-ok mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    {{ feat }}
+                </li>
+                {% endfor %}
+            </ul>
+            {% if tier.key == current_plan %}
+                <button disabled class="bc-btn-secondary w-full justify-center">Current plan</button>
+            {% elif tier.key == 'free' %}
+                {% if has_stripe_customer %}
+                <form method="post" action="/billing/portal">
+                    <button type="submit" class="bc-btn-secondary w-full justify-center">Downgrade via portal</button>
+                </form>
+                {% else %}
+                <button disabled class="bc-btn-secondary w-full justify-center">Default plan</button>
+                {% endif %}
+            {% else %}
+                <form method="post" action="/billing/checkout?plan={{ tier.key }}">
+                    <button type="submit" class="{% if tier.get('featured') %}bc-btn-primary{% else %}bc-btn-secondary{% endif %} w-full justify-center" {% if not stripe_configured %}disabled{% endif %}>
+                        {% if current_plan == 'free' %}Upgrade to {{ tier.name }}{% else %}Switch to {{ tier.name }}{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <p class="text-xs text-ink-dim font-mono mt-4">&gt; All plans include multi-region monitoring and SSL. Cancel anytime.</p>
+</section>
+{% endblock %}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BotOps Cloud — Reliability Platform for Bot Developers</title>
+    <title>CheckPulse — Reliability Platform for Bot Developers</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -894,7 +894,7 @@
     <!-- ── Navigation ── -->
     <nav class="nav" id="nav">
         <div class="nav-inner">
-            <a href="/" class="nav-logo">BotOps<span>Cloud</span></a>
+            <a href="/" class="nav-logo">Check<span>Pulse</span></a>
             <button class="nav-mobile-toggle" id="nav-toggle" aria-label="Toggle menu">
                 <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
@@ -914,7 +914,7 @@
             <div class="hero-grid">
                 <div>
                     <h1>Your bot goes down.<br>Your users complain.<br>You find out last.</h1>
-                    <p class="hero-sub">BotOps Cloud detects the failures your users actually feel and communicates incidents automatically &mdash; before your community notices.</p>
+                    <p class="hero-sub">CheckPulse detects the failures your users actually feel and communicates incidents automatically &mdash; before your community notices.</p>
                     <div class="hero-ctas">
                         <a href="/dashboard/register" class="btn btn-primary btn-large">Start Monitoring Free</a>
                         <a href="#how-it-works" class="btn btn-outline btn-large">See How It Works</a>
@@ -926,10 +926,10 @@
                         <div class="terminal-dot r"></div>
                         <div class="terminal-dot a"></div>
                         <div class="terminal-dot g"></div>
-                        <span class="terminal-title">botops-cli</span>
+                        <span class="terminal-title">checkpulse-cli</span>
                     </div>
                     <div class="terminal-body" id="terminal-body">
-                        <div class="terminal-line"><span class="cmd">$ botops check --all-regions</span></div>
+                        <div class="terminal-line"><span class="cmd">$ checkpulse check --all-regions</span></div>
                         <div class="terminal-line"><span class="region">[US-East] </span> <span class="ok">&#10003;</span> Bot API &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">142ms</span> &nbsp;<span class="ok">200 OK</span></div>
                         <div class="terminal-line"><span class="region">[EU-West] </span> <span class="ok">&#10003;</span> Bot API &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">198ms</span> &nbsp;<span class="ok">200 OK</span></div>
                         <div class="terminal-line"><span class="region">[AP-South]</span> <span class="ok">&#10003;</span> Bot API &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">231ms</span> &nbsp;<span class="ok">200 OK</span></div>
@@ -998,8 +998,8 @@
                     <h3>Metrics SDK</h3>
                     <p>Drop a few lines of code into your bot. We track command success rates, response times, and processing lag from the inside.</p>
                     <div class="feature-code">
-                        <span class="kw">import</span> botops<br>
-                        botops.<span class="fn">track_command</span>(<span class="str">"/play"</span>, latency_ms=<span class="num">120</span>, success=<span class="num">True</span>)
+                        <span class="kw">import</span> checkpulse<br>
+                        checkpulse.<span class="fn">track_command</span>(<span class="str">"/play"</span>, latency_ms=<span class="num">120</span>, success=<span class="num">True</span>)
                     </div>
                 </div>
                 <div class="feature-card fade-in stagger-3">
@@ -1073,7 +1073,7 @@
                         <div class="dot a"></div>
                         <div class="dot g"></div>
                     </div>
-                    <div class="trust-url-bar">botops.cloud/status/melody-bot</div>
+                    <div class="trust-url-bar">checkpulse.dev/status/melody-bot</div>
                 </div>
                 <div class="trust-content">
                     <div class="trust-header">
@@ -1156,10 +1156,10 @@
                     </ul>
                     <a href="/dashboard/register" class="btn btn-outline">Start Free</a>
                 </div>
-                <!-- Pro -->
+                <!-- Starter -->
                 <div class="pricing-card featured fade-in stagger-2">
                     <div class="pricing-badge">Recommended</div>
-                    <div class="pricing-name">Pro</div>
+                    <div class="pricing-name">Starter</div>
                     <div class="pricing-price">
                         <span class="pricing-amount">$12</span>
                         <span class="pricing-period">/month</span>
@@ -1167,33 +1167,32 @@
                     <div class="pricing-desc">For bot developers who take uptime seriously.</div>
                     <ul class="pricing-features">
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 3 bots</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 15 monitors</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 10 monitors</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1-minute intervals</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> All monitor types + SDK</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Platform correlation</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Custom domain</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 90-day history</li>
                     </ul>
-                    <a href="/dashboard/register" class="btn btn-primary">Start Pro</a>
+                    <a href="/dashboard/billing?upgrade=starter" class="btn btn-primary">Start Starter</a>
                 </div>
-                <!-- Studio -->
+                <!-- Pro -->
                 <div class="pricing-card fade-in stagger-3">
-                    <div class="pricing-name">Studio</div>
+                    <div class="pricing-name">Pro</div>
                     <div class="pricing-price">
                         <span class="pricing-amount">$49</span>
                         <span class="pricing-period">/month</span>
                     </div>
                     <div class="pricing-desc">For teams running multiple production bots.</div>
                     <ul class="pricing-features">
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 10 bots</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Unlimited bots</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 50 monitors</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 30-second intervals</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Team access (5 seats)</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Branded trust pages</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Priority support</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1-year history</li>
                     </ul>
-                    <a href="/dashboard/register" class="btn btn-outline">Start Studio</a>
+                    <a href="/dashboard/billing?upgrade=pro" class="btn btn-outline">Start Pro</a>
                 </div>
             </div>
             <p class="pricing-note">All plans include multi-region monitoring and SSL. Cancel anytime.</p>
@@ -1244,7 +1243,7 @@
     <footer class="footer">
         <div class="container">
             <div class="footer-inner">
-                <div class="footer-logo">BotOps<span>Cloud</span></div>
+                <div class="footer-logo">Check<span>Pulse</span></div>
                 <div class="footer-links">
                     <a href="#features">Features</a>
                     <a href="#pricing">Pricing</a>

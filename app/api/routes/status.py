@@ -580,7 +580,7 @@ def _render_status_page(
         {incidents_html}
     </div>
     <div class="footer">
-        POWERED BY <a href="/">BotOps<span>Cloud</span></a>
+        POWERED BY <a href="/">Check<span>Pulse</span></a>
     </div>
 </body>
 </html>"""

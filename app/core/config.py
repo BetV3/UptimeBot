@@ -27,8 +27,13 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:8000"
 
     # App
-    app_name: str = "UptimeBot"
+    app_name: str = "CheckPulse"
     app_env: str = "development"
+
+    # Email (Resend in production, stdout in dev)
+    resend_api_key: str = ""
+    email_from_address: str = "CheckPulse <no-reply@checkpulse.dev>"
+    verification_token_ttl_hours: int = 24
 
     class Config:
         env_file = ".env"

@@ -1,4 +1,4 @@
-# UptimeBot — Missing & Incomplete Features
+# CheckPulse — Missing & Incomplete Features
 
 Tracked against BUILD_PLAN.md, MARKET.md, and the current codebase.
 Last updated: 2026-03-25

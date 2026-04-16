@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}BotOps Cloud{% endblock %}</title>
+    <title>{% block title %}CheckPulse{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -151,18 +151,115 @@
             font-size: 0.875rem;
             font-weight: 500;
             transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
         .bc-btn-danger:hover {
             background: rgba(239, 68, 68, 0.1);
             border-color: rgba(239, 68, 68, 0.5);
         }
+        /* Compact ghost variants for table/row inline actions */
+        .bc-btn-ghost {
+            background: transparent;
+            color: #94A3B8;
+            border: 1px solid transparent;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .bc-btn-ghost:hover {
+            color: #F8FAFC;
+            background: rgba(30, 41, 59, 0.5);
+            border-color: #1E293B;
+        }
+        .bc-btn-ghost-danger {
+            background: transparent;
+            color: #94A3B8;
+            border: 1px solid transparent;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .bc-btn-ghost-danger:hover {
+            color: #EF4444;
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.25);
+        }
+        /* Disabled buttons */
+        button:disabled, .bc-btn-primary:disabled, .bc-btn-secondary:disabled, .bc-btn-danger:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        /* Pills — uniform small status/type badges */
+        .bc-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            line-height: 1;
+            font-weight: 500;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+        .bc-pill--neutral {
+            color: #94A3B8;
+            background: rgba(30, 41, 59, 0.6);
+            border-color: rgba(30, 41, 59, 0.9);
+        }
+        .bc-pill--up {
+            color: #10B981;
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .bc-pill--down {
+            color: #EF4444;
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .bc-pill--warn {
+            color: #F59E0B;
+            background: rgba(245, 158, 11, 0.08);
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+        .bc-pill--pending {
+            color: #64748B;
+            background: rgba(100, 116, 139, 0.08);
+            border-color: rgba(100, 116, 139, 0.3);
+        }
+
+        /* Flash banner */
+        .bc-flash { position: relative; transition: opacity 0.3s ease, transform 0.3s ease; }
+        .bc-flash--hidden { opacity: 0; transform: translateY(-4px); pointer-events: none; }
+        .bc-flash__close {
+            position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
+            background: transparent; border: 0; color: inherit; opacity: 0.6;
+            cursor: pointer; padding: 4px; line-height: 0; border-radius: 4px;
+        }
+        .bc-flash__close:hover { opacity: 1; background: rgba(255,255,255,0.06); }
     </style>
 </head>
 <body>
     {% block nav %}
     <nav class="border-b border-bg-surface/70 backdrop-blur-sm bg-bg/60 sticky top-0 z-40">
         <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-            <a href="/dashboard" class="font-mono font-bold text-lg text-ink">BotOps<span class="text-brand">Cloud</span></a>
+            <a href="/dashboard" class="font-mono font-bold text-lg text-ink">Check<span class="text-brand">Pulse</span></a>
             <div class="flex items-center gap-5">
                 {% if user %}
                 {% if user.plan is defined %}
@@ -170,7 +267,10 @@
                     {{ user.plan.value | upper }}
                 </span>
                 {% endif %}
-                <span class="text-sm text-ink-muted hidden sm:inline">{{ user.email }}</span>
+                <a href="/dashboard/account" class="text-sm text-ink-muted hover:text-ink transition flex items-center gap-2" title="{{ user.email }}">
+                    <span class="w-7 h-7 rounded-md bg-brand/10 border border-brand/20 flex items-center justify-center font-mono text-xs font-bold text-brand">{{ user.email[0] | upper }}</span>
+                    <span class="hidden sm:inline truncate max-w-[180px]">{{ user.email }}</span>
+                </a>
                 <a href="/dashboard/logout" class="text-sm text-ink-dim hover:text-ink transition">Logout</a>
                 {% endif %}
             </div>
@@ -179,9 +279,61 @@
     {% endblock %}
 
     <main class="max-w-6xl mx-auto px-6 py-8">
+        {% if flash_notice %}
+        <div class="bc-flash mb-6 bg-ok/10 border border-ok/30 text-ok text-sm rounded-md px-4 py-3 pr-10 font-mono" data-flash role="status" aria-live="polite">
+            &gt; {{ flash_notice }}
+            <button type="button" class="bc-flash__close" aria-label="Dismiss">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        {% endif %}
+        {% if flash_error %}
+        <div class="bc-flash mb-6 bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 pr-10 font-mono" data-flash role="alert">
+            &gt; {{ flash_error }}
+            <button type="button" class="bc-flash__close" aria-label="Dismiss">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 
+    <script>
+        // Flash banner: dismiss button + auto-hide after 6s
+        document.querySelectorAll('[data-flash]').forEach(el => {
+            const dismiss = () => {
+                el.classList.add('bc-flash--hidden');
+                setTimeout(() => el.remove(), 300);
+            };
+            el.querySelector('.bc-flash__close')?.addEventListener('click', dismiss);
+            setTimeout(dismiss, 6000);
+        });
+
+        // Modals: close on backdrop click + ESC
+        function _closeModal(modal) {
+            if (!modal) return;
+            modal.classList.add('hidden');
+        }
+        document.addEventListener('click', (e) => {
+            // Backdrop click: only when clicking the backdrop itself, not children
+            const modal = e.target.closest('[data-modal]') || e.target.matches('[data-modal]') && e.target;
+            if (e.target.matches('[data-modal]')) {
+                _closeModal(e.target);
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('[data-modal]:not(.hidden)').forEach(_closeModal);
+            }
+        });
+
+        // Confirm-on-submit for destructive forms
+        document.querySelectorAll('form[data-confirm]').forEach(f => {
+            f.addEventListener('submit', (e) => {
+                if (!confirm(f.getAttribute('data-confirm'))) e.preventDefault();
+            });
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

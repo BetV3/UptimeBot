@@ -101,7 +101,7 @@ async def _send_discord(config: dict, monitor: Monitor, incident: Incident, even
             "title": title,
             "description": description,
             "color": color,
-            "footer": {"text": f"{project_name} • UptimeBot"},
+            "footer": {"text": f"{project_name} • CheckPulse"},
             "timestamp": timestamp,
         }]
     }
@@ -115,10 +115,10 @@ async def _send_discord_test(config: dict, project_name: str):
     webhook_url = config["webhook_url"]
     payload = {
         "embeds": [{
-            "title": "✅ UptimeBot Test Alert",
+            "title": "✅ CheckPulse Test Alert",
             "description": "This is a test notification. Your Discord webhook is working!",
             "color": 0x5865F2,
-            "footer": {"text": f"{project_name} • UptimeBot"},
+            "footer": {"text": f"{project_name} • CheckPulse"},
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }]
     }
@@ -161,7 +161,7 @@ async def _send_telegram(config: dict, monitor: Monitor, incident: Incident, eve
 async def _send_telegram_test(config: dict, project_name: str):
     bot_token = config["bot_token"]
     chat_id = config["chat_id"]
-    text = f"✅ <b>UptimeBot Test Alert</b>\nYour Telegram notifications are working!\nProject: {project_name}"
+    text = f"✅ <b>CheckPulse Test Alert</b>\nYour Telegram notifications are working!\nProject: {project_name}"
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     async with httpx.AsyncClient() as client:
         resp = await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=10)
@@ -202,8 +202,8 @@ async def _send_email_test(config: dict, project_name: str):
     import smtplib
     from email.mime.text import MIMEText
 
-    msg = MIMEText(f"This is a test notification from UptimeBot.\nProject: {project_name}")
-    msg["Subject"] = f"✅ UptimeBot Test Alert — {project_name}"
+    msg = MIMEText(f"This is a test notification from CheckPulse.\nProject: {project_name}")
+    msg["Subject"] = f"✅ CheckPulse Test Alert — {project_name}"
     msg["From"] = config["from_email"]
     msg["To"] = config["to_email"]
 
@@ -241,7 +241,7 @@ async def _send_slack(config: dict, monitor: Monitor, incident: Incident, event:
                 {"title": "URL", "value": f"`{monitor.url}`", "short": True},
                 {"title": "Project", "value": project_name, "short": True},
             ],
-            "footer": "UptimeBot",
+            "footer": "CheckPulse",
             "ts": int(datetime.now(timezone.utc).timestamp()),
         }]
     }
@@ -256,8 +256,8 @@ async def _send_slack_test(config: dict, project_name: str):
     payload = {
         "attachments": [{
             "color": "#5865F2",
-            "text": f":white_check_mark: *UptimeBot Test Alert*\nYour Slack webhook is working!\nProject: {project_name}",
-            "footer": "UptimeBot",
+            "text": f":white_check_mark: *CheckPulse Test Alert*\nYour Slack webhook is working!\nProject: {project_name}",
+            "footer": "CheckPulse",
         }]
     }
     async with httpx.AsyncClient() as client:
@@ -291,7 +291,7 @@ async def _send_webhook_test(config: dict, project_name: str):
     payload = {
         "event": "test",
         "project": project_name,
-        "message": "UptimeBot test alert — your webhook is working!",
+        "message": "CheckPulse test alert — your webhook is working!",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     headers = config.get("headers") or {}

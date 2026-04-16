@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Account — CheckPulse{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <a href="/dashboard" class="text-sm text-ink-dim hover:text-ink transition font-mono">&larr; back to dashboard</a>
+    <h1 class="font-mono text-2xl font-bold text-ink mt-3">Account</h1>
+    <p class="text-sm text-ink-dim mt-1 font-mono">// manage your sign-in details</p>
+</div>
+
+<section class="mb-10">
+    <h2 class="font-mono text-sm uppercase tracking-wider text-ink-muted mb-3">// Profile</h2>
+    <div class="bc-card p-6 space-y-4">
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-1">Email</div>
+            <div class="font-mono text-ink">{{ user.email }}</div>
+        </div>
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-1">Plan</div>
+            <div class="flex items-center gap-3">
+                <div class="font-mono text-ink uppercase">{{ user.plan.value }}</div>
+                <a href="/dashboard/billing" class="bc-btn-ghost">
+                    Manage billing
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                </a>
+            </div>
+        </div>
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-1">Member since</div>
+            <div class="font-mono text-ink-muted">{{ user.created_at.strftime('%b %d, %Y') if user.created_at else '—' }}</div>
+        </div>
+    </div>
+</section>
+
+<section>
+    <h2 class="font-mono text-sm uppercase tracking-wider text-ink-muted mb-3">// Change password</h2>
+    {% if password_error %}
+    <div class="mb-4 bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 font-mono">
+        &gt; {{ password_error }}
+    </div>
+    {% endif %}
+    <form method="post" action="/dashboard/account/password" class="bc-card p-6 space-y-5 max-w-md">
+        <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Current password</label>
+            <input type="password" name="current_password" required autocomplete="current-password" placeholder="••••••••">
+        </div>
+        <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">New password</label>
+            <input type="password" name="new_password" required minlength="8" autocomplete="new-password" placeholder="••••••••">
+            <p class="text-xs text-ink-dim mt-1 font-mono">// at least 8 characters</p>
+        </div>
+        <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Confirm new password</label>
+            <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password" placeholder="••••••••">
+        </div>
+        <button type="submit" class="bc-btn-primary">Update password</button>
+    </form>
+</section>
+{% endblock %}

@@ -1,4 +1,4 @@
-# UptimeBot - Build Plan
+# CheckPulse - Build Plan
 
 Uptime monitoring and status pages for Discord/Telegram bot developers.
 

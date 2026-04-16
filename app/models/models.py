@@ -24,6 +24,12 @@ class HttpMethod(str, enum.Enum):
     HEAD = "HEAD"
 
 
+class MonitorType(str, enum.Enum):
+    HTTP = "http"
+    SSL = "ssl"
+    # DNS, API added in later phases as dedicated columns land.
+
+
 class MonitorStatus(str, enum.Enum):
     UP = "up"
     DOWN = "down"
@@ -51,6 +57,16 @@ class AlertType(str, enum.Enum):
 
 # --- Models ---
 
+class SubscriptionStatus(str, enum.Enum):
+    ACTIVE = "active"
+    TRIALING = "trialing"
+    PAST_DUE = "past_due"
+    CANCELED = "canceled"
+    INCOMPLETE = "incomplete"
+    INCOMPLETE_EXPIRED = "incomplete_expired"
+    UNPAID = "unpaid"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -58,6 +74,15 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     plan = Column(Enum(PlanType), default=PlanType.FREE, nullable=False)
+    email_verified = Column(Boolean, default=False, nullable=False)
+    verification_token = Column(String(128), nullable=True, index=True)
+    verification_token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    password_reset_token = Column(String(128), nullable=True, index=True)
+    password_reset_expires_at = Column(DateTime(timezone=True), nullable=True)
+    stripe_customer_id = Column(String(255), nullable=True, index=True)
+    stripe_subscription_id = Column(String(255), nullable=True, index=True)
+    subscription_status = Column(Enum(SubscriptionStatus), nullable=True)
+    current_period_end = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
@@ -84,6 +109,7 @@ class Monitor(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)
+    type = Column(Enum(MonitorType), default=MonitorType.HTTP, nullable=False)
     url = Column(String(2048), nullable=False)
     method = Column(Enum(HttpMethod), default=HttpMethod.GET, nullable=False)
     expected_status = Column(Integer, default=200, nullable=False)
@@ -91,6 +117,9 @@ class Monitor(Base):
     timeout_seconds = Column(Integer, default=10, nullable=False)
     headers = Column(JSONB, nullable=True)
     body = Column(Text, nullable=True)
+    target_host = Column(String(255), nullable=True)
+    target_port = Column(Integer, nullable=True)
+    warn_days_before_expiry = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     current_status = Column(Enum(MonitorStatus), default=MonitorStatus.UNKNOWN, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -110,6 +139,9 @@ class Check(Base):
     response_time_ms = Column(Integer, nullable=True)
     status_code = Column(Integer, nullable=True)
     error = Column(Text, nullable=True)
+    cert_days_remaining = Column(Integer, nullable=True)
+    cert_subject = Column(String(512), nullable=True)
+    cert_issuer = Column(String(512), nullable=True)
     checked_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     monitor = relationship("Monitor", back_populates="checks")

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ project.name }} — BotOps Cloud{% endblock %}
+{% block title %}{{ project.name }} — CheckPulse{% endblock %}
 
 {% block content %}
 <div class="mb-8">
@@ -42,9 +42,9 @@
         <p class="text-ink-dim text-sm">Add one to start monitoring.</p>
     </div>
     {% else %}
-    <div class="grid gap-2">
+    <div class="grid grid-cols-1 gap-2 min-w-0">
         {% for m in monitors %}
-        <a href="/dashboard/monitors/{{ m.id }}" class="bc-card bc-card-hover p-4 block group transition">
+        <a href="/dashboard/monitors/{{ m.id }}" class="bc-card bc-card-hover p-4 block group transition min-w-0">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                     {% if m.current_status == 'up' %}
@@ -56,15 +56,18 @@
                     {% endif %}
                     <div class="min-w-0 flex-1">
                         <div class="font-medium text-ink group-hover:text-brand transition truncate">{{ m.name }}</div>
-                        <div class="text-xs text-ink-dim font-mono truncate">{{ m.url }}</div>
+                        <div class="text-xs text-ink-dim font-mono truncate">
+                            {% if m.type == 'ssl' %}{{ m.target_host }}:{{ m.target_port }}{% else %}{{ m.url }}{% endif %}
+                        </div>
                     </div>
                 </div>
-                <div class="flex items-center gap-4 flex-shrink-0">
-                    <span class="font-mono text-xs uppercase tracking-wider {% if m.current_status == 'up' %}text-ok{% elif m.current_status == 'down' %}text-bad{% else %}text-ink-dim{% endif %}">
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <span class="bc-pill bc-pill--neutral">{{ m.type }}</span>
+                    <span class="bc-pill {% if m.current_status == 'up' %}bc-pill--up{% elif m.current_status == 'down' %}bc-pill--down{% else %}bc-pill--pending{% endif %}">
                         {{ m.current_status }}
                     </span>
                     {% if not m.is_active %}
-                    <span class="text-[10px] uppercase tracking-wider bg-bg-surface text-ink-dim px-2 py-0.5 rounded border border-bg-surface">Paused</span>
+                    <span class="bc-pill bc-pill--neutral">Paused</span>
                     {% endif %}
                 </div>
             </div>
@@ -92,9 +95,9 @@
         <p class="text-ink-muted">No alert channels configured.</p>
     </div>
     {% else %}
-    <div class="grid gap-2">
+    <div class="grid grid-cols-1 gap-2 min-w-0">
         {% for a in alerts %}
-        <div class="bc-card p-4">
+        <div class="bc-card p-4 min-w-0">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     {% if a.type == 'discord_webhook' %}
@@ -124,12 +127,22 @@
                     <span class="font-medium text-ink">Webhook</span>
                     {% endif %}
                     {% if not a.is_active %}
-                    <span class="text-[10px] uppercase tracking-wider bg-bg-surface text-ink-dim px-2 py-0.5 rounded border border-bg-surface">Disabled</span>
+                    <span class="bc-pill bc-pill--neutral">Disabled</span>
                     {% endif %}
                 </div>
-                <form method="post" action="/dashboard/alerts/{{ a.id }}/delete" class="inline">
-                    <button type="submit" class="text-xs text-bad hover:text-bad/80 transition font-mono uppercase tracking-wider">Delete</button>
-                </form>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <form method="post" action="/dashboard/alerts/{{ a.id }}/test" class="inline">
+                        <button type="submit" class="bc-btn-ghost" title="Send a test notification">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                            Send test
+                        </button>
+                    </form>
+                    <form method="post" action="/dashboard/alerts/{{ a.id }}/delete" class="inline" data-confirm="Delete this alert channel?">
+                        <button type="submit" class="bc-btn-ghost-danger" title="Delete channel" aria-label="Delete">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
         {% endfor %}
@@ -153,9 +166,9 @@
         <p class="text-xs text-ink-dim mt-1">All systems operational.</p>
     </div>
     {% else %}
-    <div class="grid gap-2">
+    <div class="grid grid-cols-1 gap-2 min-w-0">
         {% for inc in incidents %}
-        <div class="bc-card p-4">
+        <div class="bc-card p-4 min-w-0">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     {% if inc.resolved_at %}
@@ -181,7 +194,7 @@
 </section>
 
 <!-- New Monitor Modal -->
-<div id="new-monitor-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+<div id="new-monitor-modal" data-modal class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div class="bc-card w-full max-w-lg p-6 shadow-glow-lg max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-5">
             <h2 class="font-mono text-lg font-bold text-ink">Add Monitor</h2>
@@ -189,38 +202,66 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form method="post" action="/dashboard/projects/{{ project.id }}/monitors">
+        <form method="post" action="/dashboard/projects/{{ project.id }}/monitors" data-modal-form="new-monitor-modal">
+            <div data-form-error class="hidden mb-4 bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 font-mono"></div>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Name</label>
-                    <input type="text" name="name" required placeholder="My API">
+                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Type</label>
+                    <select name="type" id="monitor-type" onchange="updateMonitorFields()">
+                        <option value="http">HTTP / HTTPS</option>
+                        <option value="ssl">SSL Certificate</option>
+                    </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">URL</label>
-                    <input type="url" name="url" required placeholder="https://example.com/health">
+                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Name</label>
+                    <input type="text" name="name" required maxlength="100" placeholder="My API">
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div id="http-monitor-fields" class="space-y-4">
                     <div>
-                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Method</label>
-                        <select name="method">
-                            <option value="GET">GET</option>
-                            <option value="POST">POST</option>
-                            <option value="HEAD">HEAD</option>
-                        </select>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">URL</label>
+                        <input type="url" name="url" placeholder="https://example.com/health">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Method</label>
+                            <select name="method">
+                                <option value="GET">GET</option>
+                                <option value="POST">POST</option>
+                                <option value="HEAD">HEAD</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Expected Status</label>
+                            <input type="number" name="expected_status" value="200">
+                        </div>
+                    </div>
+                </div>
+                <div id="ssl-monitor-fields" class="hidden space-y-4">
+                    <div class="grid grid-cols-[1fr_120px] gap-3">
+                        <div>
+                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Target Host</label>
+                            <input type="text" name="target_host" placeholder="example.com">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Port</label>
+                            <input type="number" name="target_port" value="443" min="1" max="65535">
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Expected Status</label>
-                        <input type="number" name="expected_status" value="200">
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Warn Days Before Expiry</label>
+                        <input type="number" name="warn_days_before_expiry" value="14" min="0" max="365">
+                        <p class="text-xs text-ink-dim mt-1.5">Monitor reports down when the cert is expired or within this many days of expiring.</p>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Interval (seconds)</label>
-                        <input type="number" name="interval_seconds" value="60" min="30">
+                        <input type="number" name="interval_seconds" value="{{ min_interval_seconds }}" min="{{ min_interval_seconds }}" required>
+                        <p class="text-xs text-ink-dim mt-1.5">Minimum {{ min_interval_seconds }}s on your current plan.</p>
                     </div>
                     <div>
                         <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Timeout (seconds)</label>
-                        <input type="number" name="timeout_seconds" value="10" min="1" max="30">
+                        <input type="number" name="timeout_seconds" value="10" min="1" max="60" required>
                     </div>
                 </div>
             </div>
@@ -233,7 +274,7 @@
 </div>
 
 <!-- New Alert Channel Modal -->
-<div id="new-alert-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+<div id="new-alert-modal" data-modal class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     <div class="bc-card w-full max-w-lg p-6 shadow-glow-lg max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-5">
             <h2 class="font-mono text-lg font-bold text-ink">Add Alert Channel</h2>
@@ -241,7 +282,8 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form method="post" action="/dashboard/projects/{{ project.id }}/alerts">
+        <form method="post" action="/dashboard/projects/{{ project.id }}/alerts" data-modal-form="new-alert-modal">
+            <div data-form-error class="hidden mb-4 bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 font-mono"></div>
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Type</label>
@@ -325,6 +367,12 @@
 
 {% block scripts %}
 <script>
+function updateMonitorFields() {
+    const type = document.getElementById('monitor-type').value;
+    document.getElementById('http-monitor-fields').classList.toggle('hidden', type !== 'http');
+    document.getElementById('ssl-monitor-fields').classList.toggle('hidden', type !== 'ssl');
+}
+
 function updateAlertFields() {
     const type = document.getElementById('alert-type').value;
     document.getElementById('discord-fields').classList.toggle('hidden', type !== 'discord_webhook');
@@ -333,5 +381,43 @@ function updateAlertFields() {
     document.getElementById('slack-fields').classList.toggle('hidden', type !== 'slack');
     document.getElementById('webhook-fields').classList.toggle('hidden', type !== 'webhook');
 }
+
+document.querySelectorAll('form[data-modal-form]').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errorBox = form.querySelector('[data-form-error]');
+        errorBox.classList.add('hidden');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        try {
+            const resp = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'Accept': 'application/json' },
+                redirect: 'follow',
+            });
+            if (resp.ok || resp.redirected) {
+                window.location.href = resp.redirected ? resp.url : window.location.href;
+                return;
+            }
+            let detail = 'Something went wrong.';
+            try {
+                const data = await resp.json();
+                if (typeof data.detail === 'string') {
+                    detail = data.detail;
+                } else if (Array.isArray(data.detail) && data.detail[0]?.msg) {
+                    detail = data.detail[0].msg;
+                }
+            } catch {}
+            errorBox.textContent = detail;
+            errorBox.classList.remove('hidden');
+        } catch (err) {
+            errorBox.textContent = 'Network error — please try again.';
+            errorBox.classList.remove('hidden');
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+});
 </script>
 {% endblock %}

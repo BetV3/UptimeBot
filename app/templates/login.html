@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Login — BotOps Cloud{% endblock %}
+{% block title %}Login — CheckPulse{% endblock %}
 {% block nav %}{% endblock %}
 
 {% block content %}
@@ -7,11 +7,16 @@
     <div class="w-full max-w-sm">
         <div class="text-center mb-8">
             <a href="/" class="inline-block">
-                <h1 class="font-mono text-2xl font-bold text-ink">BotOps<span class="text-brand">Cloud</span></h1>
+                <h1 class="font-mono text-2xl font-bold text-ink">Check<span class="text-brand">Pulse</span></h1>
             </a>
             <p class="text-ink-dim text-sm mt-2 font-mono">// sign in to your control panel</p>
         </div>
 
+        {% if notice %}
+        <div class="bg-ok/10 border border-ok/30 text-ok text-sm rounded-md px-4 py-3 mb-4 font-mono">
+            &gt; {{ notice }}
+        </div>
+        {% endif %}
         {% if error %}
         <div class="bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 mb-4 font-mono">
             &gt; {{ error }}
@@ -21,11 +26,14 @@
         <form method="post" action="/dashboard/login" class="bc-card p-6 space-y-5 shadow-glow">
             <div>
                 <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Email</label>
-                <input type="email" name="email" required autofocus>
+                <input type="email" name="email" required autofocus autocomplete="email" placeholder="you@example.com">
             </div>
             <div>
-                <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Password</label>
-                <input type="password" name="password" required>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted">Password</label>
+                    <a href="/dashboard/forgot-password" class="text-xs text-brand hover:text-brand-hover transition font-mono">Forgot?</a>
+                </div>
+                <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••">
             </div>
             <button type="submit" class="w-full bc-btn-primary justify-center py-2.5">
                 Sign In
