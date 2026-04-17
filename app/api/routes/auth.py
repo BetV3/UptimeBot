@@ -4,6 +4,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.models import User
 from app.schemas.auth import UserCreate, UserResponse, Token, TokenRefresh
@@ -28,21 +29,34 @@ async def register(request: Request, body: UserCreate, db: AsyncSession = Depend
     if result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    token, expires_at = generate_verification_token()
-    user = User(
-        email=body.email,
-        password_hash=hash_password(body.password),
-        email_verified=False,
-        verification_token=token,
-        verification_token_expires_at=expires_at,
-    )
+    settings = get_settings()
+    is_production = settings.app_env == "production"
+
+    if is_production:
+        token, expires_at = generate_verification_token()
+        user = User(
+            email=body.email,
+            password_hash=hash_password(body.password),
+            email_verified=False,
+            verification_token=token,
+            verification_token_expires_at=expires_at,
+        )
+    else:
+        user = User(
+            email=body.email,
+            password_hash=hash_password(body.password),
+            email_verified=True,
+        )
+
     db.add(user)
     await db.commit()
     await db.refresh(user)
 
-    await send_verification_email(user.email, token)
+    if is_production:
+        await send_verification_email(user.email, token)
+        return {"status": "verification_email_sent", "email": user.email}
 
-    return {"status": "verification_email_sent", "email": user.email}
+    return {"status": "user_created", "email": user.email}
 
 
 @router.post("/login", response_model=Token)
@@ -53,7 +67,7 @@ async def login(request: Request, body: UserCreate, db: AsyncSession = Depends(g
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    if not user.email_verified:
+    if get_settings().app_env == "production" and not user.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="email_not_verified",

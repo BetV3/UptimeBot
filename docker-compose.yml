@@ -34,6 +34,7 @@ services:
       - .:/code
     env_file:
       - .env
+      - .env.local
     depends_on:
       db:
         condition: service_healthy
@@ -47,6 +48,7 @@ services:
       - .:/code
     env_file:
       - .env
+      - .env.local
     depends_on:
       db:
         condition: service_healthy
@@ -60,6 +62,7 @@ services:
       - .:/code
     env_file:
       - .env
+      - .env.local
     depends_on:
       db:
         condition: service_healthy

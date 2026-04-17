@@ -1,781 +1,755 @@
-Yes. Before marketing, you need **manual GUI test scripts** for the core user journey, not just “I clicked around and nothing exploded.” Otherwise you launch, get one real user, and they discover the dead button you stopped seeing three days ago.
+Yes. Billing is one of those areas where “it worked once on my machine” turns into refunds, angry emails, and a slow-motion trust collapse. So you want a **manual GUI billing test suite** that covers the full customer lifecycle, not just “I can pay Stripe money.”
 
-Below is a **pre-marketing clickable test pack** for a product like CheckPulse / LatencyLens.
+Below is an **extensive clickable billing QA pack** for CheckPulse with your 3 tiers:
 
-Use this as **manual QA / UAT**.
-Best done on:
+* **Free**
+* **Starter - $12/mo**
+* **Pro - $49/mo**
 
-* desktop Chrome
-* desktop Firefox
-* mobile browser
-* one totally fresh account
-* one existing account with monitors already created
+I’m assuming you use **Stripe Checkout** for subscribing and the **Stripe Customer Portal** for self-serve billing. Stripe’s docs specifically support Checkout for subscriptions, Customer Portal for billing management, test cards for simulating payments, test clocks for renewals/trials, and webhooks for subscription lifecycle updates. ([Stripe Docs][1])
 
 ---
 
-# Critical pre-launch goal
+# Test setup before you start
 
-A new user should be able to do this without confusion:
+Use:
 
-1. sign up
-2. verify account
-3. log in
-4. add a monitor
-5. understand monitor status
-6. configure alerts
-7. edit / pause / delete the monitor
-8. trust the product enough to keep using it
+* **Stripe test mode**
+* at least **3 app accounts**
+* at least **2 browser profiles** or incognito windows
+* one account starting on **Free**
+* one account already on **Starter**
+* one account already on **Pro**
 
-If any of those flows are clunky, your marketing is just paying to acquire people into disappointment.
+Have these visible while testing:
+
+* your app UI
+* Stripe Dashboard in **test mode**
+* webhook/event logs
+* your app database/admin panel if you have one
+
+Why: Stripe subscriptions are driven by Checkout + invoices + webhook-delivered subscription events, so the UI alone is not enough to confirm correctness. Stripe notes that subscription changes and failures are communicated through subscription and invoice events, and the most reliable way to test is by creating real test subscriptions rather than only firing fake events. ([Stripe Docs][2])
 
 ---
 
-# P0 test pack: must pass before marketing
+# Pass/fail rules
 
-## Test 1: Landing page to signup flow
+## P0 blockers
 
-**Purpose:** Make sure a stranger can become a user.
+Do **not** market if any of these fail:
+
+* user cannot upgrade from Free to a paid plan
+* successful payment does not grant the correct plan
+* canceled Checkout leaves the app in a broken state
+* cancellation does not properly downgrade access
+* payment failure incorrectly grants access
+* Customer Portal does not open or breaks billing management
+* plan changes do not reflect in the UI after webhook processing
+
+## P1 major issues
+
+* wrong plan label shown
+* delayed refresh causes confusing stale status
+* invoice history missing
+* failed payment copy is vague or misleading
+* plan switching works in Stripe but not in app UI
+
+---
+
+# Core billing test suite
+
+## 1. Pricing page clarity test
+
+**Goal:** A user understands what they’re buying.
 
 ### Steps
 
-1. Open landing page.
-2. Confirm headline clearly explains the product.
-3. Click main CTA:
+1. Log out.
+2. Visit pricing page.
+3. Confirm all 3 tiers are visible.
+4. Confirm one plan is clearly marked as current/recommended if you do that.
+5. Confirm Free, Starter, and Pro each show:
 
-   * “Get Started”
-   * “Start Free”
-   * “Try CheckPulse”
-   * whatever you actually named it
-4. Confirm CTA goes to signup page, not some weird dead-end.
-5. Fill signup form with:
+   * price
+   * billing frequency
+   * key limits/features
+   * CTA button text
 
-   * name
-   * email
-   * password
-6. Click “Create Account” or equivalent.
-7. Confirm success state is shown.
+### Expected
 
-### Expected result
-
-* No broken layout
-* No confusing validation
-* No spinner that hangs forever
-* User either lands in app or gets clear email verification instructions
-
-### Failure examples
-
-* button does nothing
-* validation errors appear only after submit and are unclear
-* password requirements are hidden until failure
-* success message does not tell user what happens next
+* no conflicting prices
+* no broken CTA
+* no vague “contact us” nonsense for standard plans
+* Starter and Pro clearly indicate monthly billing
 
 ---
 
-## Test 2: Email verification flow
+## 2. Free user upgrade to Starter, happy path
 
-**Purpose:** Make sure users can actually activate the account.
+**Goal:** The main conversion flow works.
 
 ### Steps
 
-1. Complete signup.
-2. Open verification email.
-3. Confirm subject line is clear.
-4. Click verification link.
-5. Confirm link opens the correct environment.
-6. Confirm user lands in app or login screen with success message.
-7. Try clicking the same verification link again.
+1. Log in as a Free user.
+2. Go to billing or pricing page.
+3. Click **Upgrade to Starter**.
+4. Confirm redirect to Stripe Checkout.
+5. Complete checkout with Stripe’s documented success test card flow. Stripe provides test card numbers for interactive testing in test mode. ([Stripe Docs][3])
+6. Complete payment.
+7. Let Stripe redirect back to your success URL.
+8. Refresh app billing page/dashboard.
 
-### Expected result
+### Expected
 
-* Email arrives quickly
-* Link works
-* Expired or already-used link shows a sane message
-* User is not trapped in a loop
+* user lands on Stripe Checkout
+* payment succeeds
+* app shows **Starter**
+* plan entitlements unlock correctly
+* Stripe shows a customer, invoice, and subscription for the user
+* your app records the Stripe customer/subscription identifiers if you store them
 
-### Failure examples
-
-* email lands in spam immediately
-* verification link opens localhost or wrong domain
-* link works once but app still says unverified
-* reused link shows server error instead of normal message
+Stripe states that once Checkout payment succeeds, the Checkout Session contains a reference to the Customer and either the successful PaymentIntent or an active Subscription. ([Stripe Docs][4])
 
 ---
 
-## Test 3: Login, logout, session persistence
+## 3. Free user upgrade to Pro, happy path
 
-**Purpose:** Basic trust test. Humans really do expect auth to work. Wild, I know.
+Same as above, but use **Upgrade to Pro**.
+
+### Expected
+
+* app ends on **Pro**
+* Pro entitlements unlock
+* no Starter intermediate state unless intentionally shown
+* Stripe subscription is tied to the Pro price
+
+---
+
+## 4. Checkout cancel flow
+
+**Goal:** Canceling payment does not create ghost subscriptions or broken UX.
 
 ### Steps
 
-1. Go to login page.
-2. Enter correct credentials.
-3. Click login.
-4. Close tab and reopen app.
-5. Confirm session persists if intended.
-6. Log out.
-7. Confirm user is redirected properly.
-8. Hit back button after logout.
+1. Log in as a Free user.
+2. Click **Upgrade to Starter**.
+3. On Stripe Checkout, click back/cancel.
+4. Return to app via cancel URL.
+5. Refresh billing page.
 
-### Expected result
+### Expected
 
-* Login succeeds
-* Logout fully ends session
-* Back button does not restore private app screens
-* Auth errors are clean
+* user remains on **Free**
+* no phantom upgrade banner
+* no partial access unlock
+* clear message like “Upgrade canceled” if you show one
+* no active subscription created in Stripe
 
 ---
 
-## Test 4: Forgot password flow
+## 5. Refresh/back-button resilience after successful checkout
 
-**Purpose:** Users always forget passwords five minutes after creating them.
+**Goal:** Success page isn’t doing fake provisioning on the client.
+
+Stripe’s subscription docs emphasize that lifecycle state should be handled through proper subscription/invoice/webhook handling, not blind trust in a redirect. ([Stripe Docs][2])
 
 ### Steps
 
-1. Open login page.
-2. Click “Forgot Password”.
-3. Enter valid email.
-4. Submit.
-5. Open reset email.
-6. Click reset link.
-7. Set new password.
-8. Log in with new password.
-9. Try old password.
+1. Complete successful checkout.
+2. On success page, hit refresh.
+3. Hit back button.
+4. Return to billing page.
+5. Open a new tab and log in again.
 
-### Expected result
+### Expected
 
-* Reset email arrives
-* New password works
-* Old password no longer works
-* Error messages are clear
+* app consistently shows the correct paid plan
+* no duplicate subscriptions
+* no “processing forever” state
+* no plan downgrade from refresh
 
 ---
 
-# Core product flow: adding a monitor
+## 6. Failed payment on signup
 
-## Test 5: Add first monitor, happy path
+**Goal:** Failed payment does not grant access.
 
-**Purpose:** This is the most important product test. If this is awkward, your product is awkward.
-
-### Assumed user path
-
-A typical user should click something like:
-
-1. **Login**
-2. Land on **Dashboard**
-3. Click **Add Monitor** / **New Monitor**
-4. Choose monitor type:
-
-   * HTTP/HTTPS
-   * Ping
-   * SSL
-   * DNS
-   * API
-   * whatever you support
-5. Fill monitor form
-6. Click **Create Monitor**
-7. Land on monitor detail page or monitor list
-8. See monitor in **Pending / Checking / Healthy** state
-9. Wait for first check result
-10. Confirm monitor shows actual result and timestamp
-
-### Example detailed manual script
-
-#### Steps
-
-1. Sign in to the app.
-2. From the dashboard, click **Add Monitor**.
-3. Confirm modal or page opens correctly.
-4. Select **HTTP/HTTPS Monitor**.
-5. Enter:
-
-   * Monitor name: `Homepage Prod`
-   * URL: `https://example.com`
-   * Check interval: choose a default like `1 min` or `5 min`
-   * Region selection: choose at least 2 regions if supported
-   * Alerting toggle: enabled
-6. Click **Save** / **Create Monitor**.
-7. Confirm user is redirected to:
-
-   * monitor list page, or
-   * monitor details page
-8. Confirm new monitor is visible immediately.
-9. Confirm initial status shows something sane:
-
-   * Pending
-   * Running first check
-   * Awaiting first result
-10. Refresh page after first check finishes.
-11. Confirm monitor shows:
-
-* current status
-* last checked time
-* response time or result
-* region results if applicable
-
-### Expected result
-
-* Add Monitor button is obvious
-* Form fields are understandable
-* URL validation works
-* No required field is hidden or surprising
-* Create action succeeds on first try
-* Monitor appears immediately
-* First check result appears without user confusion
-
-### Failures to look for
-
-* unclear difference between monitor types
-* URL field accepts bad input silently
-* Save button stays disabled with no explanation
-* monitor gets created but does not appear in list
-* first check status is blank or confusing
-* user cannot tell whether creation succeeded
-
----
-
-## Test 6: Add monitor with invalid input
-
-**Purpose:** Error handling tells you whether the app is trustworthy.
+Stripe supports testing failures with test cards and failure scenarios in test mode. ([Stripe Docs][3])
 
 ### Steps
 
-Try creating monitors with:
+1. Log in as Free user.
+2. Click **Upgrade to Starter**.
+3. Use a Stripe failure test payment method from the docs.
+4. Submit payment.
 
-1. blank monitor name
-2. blank URL
-3. invalid URL like `abc`
-4. URL missing protocol if protocol is required
-5. duplicate name, if names must be unique
-6. absurdly long name
-7. unsupported interval or blank interval
+### Expected
 
-### Expected result
+* checkout shows failure cleanly
+* user remains on **Free**
+* app shows no paid access
+* no active subscription or entitlement is granted
+* if Stripe creates an incomplete subscription/invoice, your app still does not unlock the plan
 
-* Inline validation appears
-* Errors are specific
-* Form does not wipe entered data
-* User knows exactly what to fix
-
-### Bad sign
-
-A generic “Something went wrong” toast. That is lazy and useless.
+Stripe notes that when a subscription is created, the invoice is initially `open`, and the subscription can be `incomplete` if payment/authentication is not completed successfully. ([Stripe Docs][5])
 
 ---
 
-## Test 7: Add different monitor types
+## 7. Authentication-required / 3DS-style flow
 
-**Purpose:** Make sure type-specific forms actually work.
+**Goal:** SCA or auth-required flows behave correctly.
 
-Run one test each for the monitor types you support.
-
-### HTTP/HTTPS monitor
-
-* add valid URL
-* check status and latency fields appear
-
-### SSL monitor
-
-* add domain
-* confirm expiry info appears
-
-### DNS monitor
-
-* add domain and expected record
-* confirm record/value shows
-
-### API monitor
-
-* add method, endpoint, maybe headers/body
-* confirm response code or assertion handling
-
-### Expected result
-
-Each type has the right fields and the right result display.
-
----
-
-# Monitor management flows
-
-## Test 8: Edit monitor
-
-**Purpose:** Users always change intervals, URLs, names, or alert settings later.
+Stripe documents subscription states and webhook events for payments that require customer action. ([Stripe Docs][2])
 
 ### Steps
 
-1. Open monitor list.
-2. Click existing monitor.
-3. Click **Edit**.
-4. Change:
+1. Start paid checkout.
+2. Use a Stripe test payment method that requires additional authentication.
+3. Complete the auth flow.
+4. Return to app.
 
-   * name
-   * interval
-   * URL or domain
-   * region selection
-5. Save changes.
-6. Refresh page.
+### Expected
 
-### Expected result
-
-* Changes persist
-* Updated values show everywhere
-* App does not create a duplicate by accident
-* New checks use new configuration
+* auth step is clear
+* after successful auth, plan becomes active
+* if auth is abandoned, plan does not activate
+* no confusing mismatch between Stripe success state and app UI
 
 ---
 
-## Test 9: Pause and resume monitor
+## 8. Prevent duplicate paid subscriptions
 
-**Purpose:** A standard control that often breaks quietly.
+**Goal:** A paying user cannot accidentally buy the same plan twice.
 
 ### Steps
 
-1. Open monitor details.
-2. Click **Pause**.
-3. Confirm paused state is obvious in list and details.
-4. Wait through one expected interval.
-5. Confirm no new checks run while paused.
-6. Click **Resume**.
-7. Confirm checks resume normally.
+1. Use an account already on Starter.
+2. Visit pricing page.
+3. Click Starter again, if your UI allows it.
+4. Try multiple routes:
 
-### Expected result
+   * pricing page
+   * dashboard banner
+   * billing page
+5. Open a second tab and repeat.
 
-* State changes are immediate and visible
-* Resume works without re-creating monitor
+### Expected
+
+* current plan is disabled or labeled **Current Plan**
+* no second Starter subscription is created
+* user is routed to manage billing or upgrade path instead
 
 ---
 
-## Test 10: Delete monitor
+## 9. Starter to Pro upgrade
 
-**Purpose:** Destructive actions need to be safe and clean.
+**Goal:** Plan upgrade works and entitlements change correctly.
 
 ### Steps
 
-1. Open monitor details or actions menu.
-2. Click **Delete**.
-3. Confirm modal appears.
-4. Cancel once.
-5. Retry delete and confirm.
-6. Go back to monitor list.
+1. Log in as Starter user.
+2. Go to pricing/billing.
+3. Click **Upgrade to Pro**.
+4. Complete plan change using your flow or Customer Portal.
+5. Return to app and refresh.
 
-### Expected result
+### Expected
 
-* Confirmation step exists
-* Cancel works
-* After deletion, monitor is gone
-* No ghost card remains in UI
-* User is redirected sanely
+* plan changes to **Pro**
+* Pro limits/features unlock
+* no stale Starter state after page refresh
+* Stripe subscription reflects the new price
+* invoice/proration behavior matches what you intentionally configured
 
----
-
-# Status and incident understanding
-
-## Test 11: Monitor list clarity
-
-**Purpose:** A user should understand system state from one screen.
-
-### Check that each monitor card/row shows
-
-* monitor name
-* type
-* current status
-* last checked time
-* key metric like latency / expiry / DNS state
-* actions menu
-
-### Expected result
-
-A user can glance and know what is healthy vs broken.
-
-### Bad sign
-
-Pretty cards with no useful information. Startup disease.
+If you allow changes through Customer Portal, Stripe says the portal supports subscription updates and billing management. ([Stripe Docs][6])
 
 ---
 
-## Test 12: Monitor details page clarity
+## 10. Pro to Starter downgrade
 
-**Purpose:** When a monitor fails, can the user understand why?
+**Goal:** Downgrade works and limits are handled sanely.
 
 ### Steps
 
-1. Open a healthy monitor.
-2. Confirm details page shows:
+1. Log in as Pro user.
+2. Go to billing.
+3. Click **Manage Billing** or downgrade CTA.
+4. Change to Starter.
+5. Return to app.
 
-   * status
-   * timeline/history
-   * last check
-   * response details or result details
-   * region information
-3. Trigger or simulate a failure.
-4. Refresh and review details again.
+### Expected
 
-### Expected result
+* plan reflects your configured downgrade timing:
 
-The page answers:
+  * immediate, or
+  * end of current billing period
+* UI explains when downgrade takes effect
+* app does not silently drop features early unless intended
 
-* what failed
-* when
-* where
-* how severe
-* whether it recovered
+### Extra check
 
----
+If the user exceeds Starter limits, verify how your app handles it:
 
-## Test 13: Simulate a failing monitor
-
-**Purpose:** You need to test the actual pain path, not only success states.
-
-### Ways to test
-
-Use a deliberately failing endpoint:
-
-* bad domain
-* endpoint returning 500
-* endpoint timing out
-* expired or invalid SSL test domain
-* wrong DNS record expectation
-
-### Steps
-
-1. Create failing monitor.
-2. Wait for first failure.
-3. Check list page.
-4. Check details page.
-5. Check email/alert if alerts are enabled.
-
-### Expected result
-
-* failure is visible fast
-* message is specific
-* alert fires once in a sane way
-* failure state is visually distinct
+* soft warning
+* grace period
+* force limit after cycle end
 
 ---
 
-# Alerts and notification flows
+## 11. Cancel subscription at period end
 
-## Test 14: Create alert contact / notification channel
+**Goal:** Users can cancel without chaos.
 
-**Purpose:** Alert setup is often where users quietly give up.
+Stripe Customer Portal supports immediate cancellation or cancellation at end of billing period, depending on your settings. ([Stripe Docs][6])
 
 ### Steps
 
-1. Open settings or notifications page.
-2. Add email notification channel.
-3. Add Slack, Discord, webhook, or SMS if supported.
-4. Save channel.
-5. Send test notification.
+1. Use paid user.
+2. Open **Manage Billing**.
+3. In Customer Portal, click cancel.
+4. Choose **cancel at period end** if enabled.
+5. Return to app.
 
-### Expected result
+### Expected
 
-* setup instructions are understandable
-* test notification arrives
-* success/failure state is clear
+* app still shows current paid plan until period end
+* UI shows “cancels on [date]” or equivalent
+* access is not revoked too early
+* Stripe subscription shows cancel-at-period-end state
+* user can resume/reactivate if you support it
 
 ---
 
-## Test 15: Attach alerting to monitor
+## 12. Immediate cancellation
 
-**Purpose:** A monitor without notifications is decorative.
+**Goal:** Immediate cancellation does not leave entitlements stuck.
 
 ### Steps
 
-1. Open monitor create or edit flow.
-2. Enable alerts.
-3. Select notification channel.
-4. Set threshold or trigger condition if supported.
-5. Save.
-6. Trigger failure.
+1. Use paid user.
+2. Cancel immediately if your portal/config allows it.
+3. Return to app.
+4. Refresh dashboard and billing page.
 
-### Expected result
+### Expected
 
-* alert fires correctly
-* user can tell which monitor triggered it
-* alert content is readable
-* no duplicate spam unless intended
+* user is downgraded to Free immediately if that is your configuration
+* paid-only features are no longer accessible
+* billing page clearly shows Free
+* no ghost paid badge remains
 
 ---
 
-## Test 16: Alert recovery message
+## 13. Resume/reactivate cancellation before period end
 
-**Purpose:** Recovery matters almost as much as failure.
+**Goal:** Reversing a pending cancellation works.
 
 ### Steps
 
-1. Trigger failure.
-2. Restore endpoint.
-3. Wait for passing checks.
-4. Confirm recovery notification is sent if supported.
+1. Set subscription to cancel at period end.
+2. Return to app and verify pending cancellation message.
+3. Reopen Customer Portal.
+4. Undo cancellation if your setup permits it.
+5. Return to app.
 
-### Expected result
+### Expected
 
-* recovery status is obvious
-* monitor no longer appears broken
-* recovery messaging is not ambiguous
+* pending-cancel label disappears
+* subscription remains active
+* no duplicate subscription created
 
 ---
 
-# Billing and plan tests, if monetization exists
+## 14. Customer Portal entry point
 
-## Test 17: Upgrade flow
-
-**Purpose:** The money page should not look like a hostage negotiation.
+**Goal:** The billing management door actually works.
 
 ### Steps
 
-1. Start with free account.
-2. Reach a plan limit if limits exist.
-3. Click upgrade CTA.
-4. View pricing page.
-5. Start checkout.
-6. Complete or simulate checkout.
-7. Return to app.
+1. Log in as paid user.
+2. Go to billing settings.
+3. Click **Manage Billing**.
+4. Confirm redirect to Stripe Customer Portal.
+5. Return to app via portal return URL.
 
-### Expected result
+### Expected
 
-* upgrade reason is clear
-* pricing is understandable
-* successful payment updates plan immediately
-* limits reflect new plan
+* portal opens for the right customer
+* invoices/payment methods/subscription appear
+* return URL works
+* wrong user is never shown another user’s billing
+
+Stripe says the portal lets customers update payment methods, manage subscriptions, and download invoices. ([Stripe Docs][6])
 
 ---
 
-## Test 18: Trial / limit messaging
+## 15. Update payment method
 
-**Purpose:** Users should understand what happens when they hit limits.
+**Goal:** Card updates work before you trust renewals.
 
 ### Steps
 
-1. Reach monitor cap or region cap.
-2. Try adding one more monitor.
-3. Review error or paywall messaging.
+1. Paid user opens Customer Portal.
+2. Update payment method.
+3. Save.
+4. Return to app.
+5. Confirm payment method update is reflected if your UI shows it.
 
-### Expected result
+### Expected
 
-* no confusing hard stop
-* message explains current plan, limit, and next step
+* update succeeds
+* no subscription interruption
+* future invoices use the new method
 
 ---
 
-# Settings and account management
+## 16. Invoice history and receipts
 
-## Test 19: Profile and account settings
+**Goal:** Paid users can see what they paid for.
 
 ### Steps
 
-1. Open account settings.
-2. Change display name.
-3. Change password.
-4. Change timezone if supported.
-5. Save.
-6. Refresh page.
+1. Use a paid user with at least one successful invoice.
+2. Open Customer Portal.
+3. Open invoices/history.
+4. Download or view invoice.
+5. Return to app.
 
-### Expected result
+### Expected
 
-* values persist
-* no silent failure
-* timezone affects timestamps correctly
+* invoice exists
+* invoice amount matches plan
+* timestamps make sense
+* invoice is for the correct customer
 
 ---
 
-## Test 20: Team/workspace flow, if supported
+## 17. Webhook-to-UI synchronization test
+
+**Goal:** The UI reflects Stripe reality promptly and correctly.
+
+Stripe recommends handling subscription lifecycle events with webhooks and verifying incoming events. ([Stripe Docs][2])
 
 ### Steps
 
-1. Create workspace/team
-2. Invite another user
-3. Accept invite
-4. Confirm correct access
-5. Remove access
+Run these flows one by one:
 
-### Expected result
+* free → starter success
+* starter → pro
+* pro → cancel
+* payment failure
+* cancel reversal
 
-* invite email works
-* membership reflects properly
-* permissions are enforced
+For each one, verify:
+
+1. Stripe Dashboard event was received.
+2. Your webhook endpoint processed it successfully.
+3. Your app DB updated plan/status.
+4. The UI reflects the update after refresh or a short delay.
+
+### Expected
+
+* no webhook 400/500 responses
+* no mismatch between Stripe and app plan state
+* no manual admin fix required
 
 ---
 
-# UX sanity tests
+## 18. Payment failure on renewal
 
-## Test 21: Empty state test
+**Goal:** Recurring billing failure path is sane.
 
-**Purpose:** New users begin with nothing. Revolutionary concept.
+Stripe documents `invoice.payment_failed` and other billing lifecycle events for subscriptions. It also recommends test clocks for simulating recurring billing behavior. ([Stripe Docs][2])
 
 ### Steps
 
-1. Use a fresh account.
-2. Land on empty dashboard.
+1. Create a paid test subscription.
+2. Use Stripe’s billing test tools/test clocks or a failure payment method to simulate renewal failure.
+3. Advance time if using test clocks.
+4. Observe app UI and email notifications.
 
-### Expected result
+### Expected
 
-Dashboard should clearly show:
+* app does **not** silently keep the account healthy forever
+* billing page shows past-due / payment issue if you support it
+* email or UI prompts user to update card
+* access behavior matches your policy:
 
-* what this page is
-* what to do next
-* one obvious CTA to add first monitor
-
-### Bad sign
-
-A blank table and emotional silence.
+  * immediate restriction, or
+  * grace period, or
+  * warning only
 
 ---
 
-## Test 22: Loading state test
+## 19. Renewal success
+
+**Goal:** Successful recurring charge keeps the account stable.
 
 ### Steps
 
-1. Load dashboard on slow connection
-2. Open monitor details
-3. Save form
-4. Trigger any long-running action
+1. Create a successful subscription.
+2. Simulate next billing cycle with a Stripe test clock or wait if needed.
+3. Confirm renewal invoice is paid.
+4. Refresh app.
 
-### Expected result
+### Expected
 
-* skeleton or spinner appears
-* buttons disable appropriately
-* user knows action is in progress
+* account remains on paid plan
+* next billing date updates
+* invoice history grows correctly
+* no accidental downgrade after renewal
+
+Stripe’s billing testing docs explicitly recommend using test clocks to simulate subscriptions, invoices, trials, and renewals before going live. ([Stripe Docs][7])
 
 ---
 
-## Test 23: Toasts and confirmation messages
+## 20. Trial flow, if you ever enable a trial
+
+If you add trials later, test:
+
+* trial start
+* trial active status
+* trial ending reminder
+* successful conversion
+* failed conversion
+* trial cancellation
+
+Stripe supports testing trial behavior and trial offers, including using test clocks. ([Stripe Docs][8])
+
+---
+
+## 21. Expired Checkout Session
+
+**Goal:** Old payment links don’t create weird dead ends.
+
+Stripe says Checkout Sessions can expire, and expired sessions can’t be completed. ([Stripe Docs][9])
 
 ### Steps
 
-Perform:
+1. Start Checkout.
+2. Leave it open until expired, or manually expire session in test tooling if you use that.
+3. Try to complete payment or revisit the link.
 
-* create monitor
-* update monitor
-* delete monitor
-* add alert channel
-* fail a form intentionally
+### Expected
 
-### Expected result
+* user sees a sane expired-session message
+* app does not act like payment succeeded
+* user can restart checkout from app cleanly
 
-Messages should be:
+---
 
-* specific
-* short
-* correct
-* not contradictory
+## 22. Logged-out access to billing URLs
 
-Example:
+**Goal:** Billing pages don’t leak or break auth.
 
-* “Monitor created”
-* “Slack channel connected”
-* “URL must start with http:// or https://”
+### Steps
+
+1. Copy a billing/settings URL while logged in.
+2. Log out.
+3. Revisit the URL.
+4. Try the success/cancel return URLs directly.
+5. Try stale portal return flow.
+
+### Expected
+
+* auth is required
+* no user billing data is exposed
+* app redirects correctly to login
+* after login, user lands somewhere sane
+
+---
+
+## 23. Cross-account billing isolation
+
+**Goal:** No account contamination.
+
+### Steps
+
+1. Log in as User A in one browser.
+2. Log in as User B in another browser.
+3. Upgrade User A.
+4. Refresh User B pages.
+5. Open Customer Portal from both.
+
+### Expected
+
+* User B never sees User A billing state
+* each portal session belongs to the correct customer
+* no shared session weirdness
+
+---
+
+## 24. UI state after cancellation and re-purchase
+
+**Goal:** A churned user can come back cleanly.
+
+### Steps
+
+1. Cancel a paid user to Free.
+2. Confirm downgrade completed.
+3. Go back to pricing page.
+4. Purchase Starter or Pro again.
+5. Return to app.
+
+### Expected
+
+* re-subscribe works
+* access is restored correctly
+* no duplicate or conflicting local billing records
+* current plan is accurate after reactivation
+
+---
+
+## 25. Billing copy and messaging test
+
+**Goal:** The UI is not confusing.
+
+Check these screens:
+
+* pricing page
+* checkout entry point
+* success page
+* cancel page
+* failed payment state
+* past due state
+* canceled-at-period-end state
+* free-tier upgrade prompt
+
+### Expected
+
+Messages are explicit, for example:
+
+* “You’re on Starter”
+* “Your Pro subscription renews on May 18”
+* “Your subscription will cancel on June 2”
+* “Payment failed. Update your card to keep your plan active.”
 
 Not:
 
-* “Success”
+* “Status: inactive-ish”
 * “Error occurred”
+* “Subscription changed” with no details
 
 ---
 
-## Test 24: Mobile responsiveness
+# Recommended Stripe-specific scenarios to test
 
-**Purpose:** Even B2B users open links on phones because civilization is collapsing.
+Since Stripe supports these testing tools/features, I would explicitly cover them:
 
-### Steps
-
-1. Open landing page on mobile
-2. Open app on mobile
-3. Add monitor on mobile
-4. Open details page
-5. Open side nav or actions menus
-
-### Expected result
-
-* no overlapping buttons
-* forms are usable
-* tables/cards remain readable
-* CTA buttons remain visible
+* **success card payment**
+* **declined card**
+* **authentication-required card**
+* **renewal success**
+* **renewal failure**
+* **Customer Portal plan change**
+* **Customer Portal cancellation**
+* **test clock renewal simulation**
+* **actual webhook-driven plan sync** ([Stripe Docs][3])
 
 ---
 
-# Suggested pre-launch test order
+# Billing feature checklist by tier
 
-Run these first, in this order:
+## Free
 
-1. Landing page to signup
-2. Email verification
-3. Login / logout
-4. Add first monitor
-5. Failing monitor + alerts
-6. Edit / pause / delete
-7. Empty states
-8. Mobile responsiveness
-9. Billing / upgrade
-10. Password reset
+Test:
 
-That is your real smoke test pack.
+* can see pricing
+* can start upgrade
+* cannot access paid-only features
+* does not accidentally enter paid state
 
----
+## Starter
 
-# What to record while testing
+Test:
 
-For every failed test, log:
+* Starter label is correct
+* Starter limits are enforced
+* upgrade to Pro works
+* cancellation to Free works
 
-* page
-* action
-* expected result
-* actual result
-* screenshot
-* severity:
+## Pro
 
-  * **P0** blocks user
-  * **P1** major friction
-  * **P2** minor annoyance
-  * **P3** cosmetic
+Test:
 
-Example:
-
-**P0**
-Dashboard → Add Monitor → Create
-Expected: monitor created
-Actual: button spins forever
-
-**P1**
-Monitor details
-Expected: user sees why DNS failed
-Actual: only red badge, no explanation
+* Pro label is correct
+* Pro limits are enforced
+* downgrade to Starter works
+* cancellation to Free works
 
 ---
 
-# Minimum must-pass list before marketing
+# What to log for every failed test
 
-Do not market until these are solid:
+For each issue, record:
 
-* user can sign up and verify account
-* user can add first monitor without confusion
-* user can see first result clearly
-* user can configure alerts
-* failure alerts actually arrive
-* monitor status pages are understandable
-* edit / pause / delete all work
-* mobile layout is not broken
-* no P0 bugs in onboarding or core monitor flow
+* **test name**
+* **user account**
+* **starting plan**
+* **browser**
+* **steps**
+* **expected**
+* **actual**
+* **Stripe event(s) seen**
+* **webhook result**
+* **severity**
+
+Severity:
+
+* **P0** billing/data-loss/access-control bug
+* **P1** major user confusion or blocked management
+* **P2** annoying but recoverable
+* **P3** cosmetic
 
 ---
 
-# One tighter version of “add a monitor” user clicks
+# Minimum pre-launch billing pass list
 
-Here is the shortest realistic click path you asked for:
+Do not launch paid billing until these all pass:
 
-1. **Login**
-2. Click **Add Monitor**
-3. Select **HTTP/HTTPS**
-4. Enter **Monitor Name**
-5. Enter **Target URL**
-6. Choose **Check Interval**
-7. Choose **Regions**
-8. Toggle **Alerts On**
-9. Select **Notification Channel**
-10. Click **Create Monitor**
-11. Confirm monitor appears in **Monitor List**
-12. Click monitor row/card
-13. Confirm **status, last check, latency, and regions** are visible
+* Free → Starter purchase
+* Free → Pro purchase
+* checkout cancel path
+* failed payment does not grant access
+* Starter → Pro change
+* Pro → Starter change
+* paid → cancel at period end
+* paid → immediate cancel if enabled
+* Customer Portal opens and works
+* renewal success test
+* renewal failure test
+* webhook events sync plan state correctly
+* cross-account isolation is clean
 
-If that flow takes too many clicks, feels unclear, or needs hidden knowledge, fix it before marketing.
+---
 
-Send screenshots or a staging URL next, and I’ll turn this into an exact test script against your actual UI.
+# Short clickable path example: “user adds billing and upgrades”
+
+This is the compact version of the most important flow:
+
+1. Log in as Free user
+2. Click **Billing**
+3. Click **Upgrade to Starter**
+4. Complete Stripe Checkout
+5. Return to app
+6. Refresh dashboard
+7. Confirm plan now says **Starter**
+8. Confirm Starter features are unlocked
+9. Click **Manage Billing**
+10. Confirm Customer Portal opens
+11. View invoice / payment method
+12. Return to app
+
+If that path has confusion, stale state, or weird delays, fix that before marketing. Billing does not get the luxury of “good enough.”
+
+If you want, I can turn this into a **copy-paste QA spreadsheet template** with columns for test ID, steps, expected result, status, severity, and notes.
+
+[1]: https://docs.stripe.com/billing/quickstart?utm_source=chatgpt.com "Build a pre-built subscription page with Stripe Checkout"
+[2]: https://docs.stripe.com/billing/subscriptions/webhooks?utm_source=chatgpt.com "Using webhooks with subscriptions"
+[3]: https://docs.stripe.com/testing?utm_source=chatgpt.com "Test card numbers"
+[4]: https://docs.stripe.com/api/checkout/sessions?utm_source=chatgpt.com "Checkout Sessions | Stripe API Reference"
+[5]: https://docs.stripe.com/billing/subscriptions/overview?utm_source=chatgpt.com "How subscriptions work"
+[6]: https://docs.stripe.com/customer-management?utm_source=chatgpt.com "Provide a customer portal to your"
+[7]: https://docs.stripe.com/billing/testing?utm_source=chatgpt.com "Test your Billing integration"
+[8]: https://docs.stripe.com/billing/subscriptions/trials?utm_source=chatgpt.com "Configure trial offers on subscriptions"
+[9]: https://docs.stripe.com/api/checkout/sessions/expire?utm_source=chatgpt.com "Expire a Checkout Session | Stripe API Reference"

@@ -53,7 +53,9 @@ async def _get_user_from_cookie(request: Request, db: AsyncSession) -> User | No
         return None
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if user is None or not user.email_verified:
+    if user is None:
+        return None
+    if settings.app_env == "production" and not user.email_verified:
         return None
     return user
 
@@ -218,7 +220,7 @@ async def login_submit(
     if not user or not verify_password(password, user.password_hash):
         return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"}, status_code=401)
 
-    if not user.email_verified:
+    if settings.app_env == "production" and not user.email_verified:
         return templates.TemplateResponse(
             "check_email.html",
             {
@@ -254,24 +256,39 @@ async def register_submit(
     if result.scalar_one_or_none():
         return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"}, status_code=409)
 
-    token, expires_at = generate_verification_token()
-    user = User(
-        email=email,
-        password_hash=hash_password(password),
-        email_verified=False,
-        verification_token=token,
-        verification_token_expires_at=expires_at,
-    )
+    is_production = settings.app_env == "production"
+
+    if is_production:
+        token, expires_at = generate_verification_token()
+        user = User(
+            email=email,
+            password_hash=hash_password(password),
+            email_verified=False,
+            verification_token=token,
+            verification_token_expires_at=expires_at,
+        )
+    else:
+        user = User(
+            email=email,
+            password_hash=hash_password(password),
+            email_verified=True,
+        )
+
     db.add(user)
     await db.commit()
     await db.refresh(user)
 
-    await send_verification_email(user.email, token)
+    if is_production:
+        await send_verification_email(user.email, token)
+        return templates.TemplateResponse(
+            "check_email.html",
+            {"request": request, "email": user.email, "info": None},
+        )
 
-    return templates.TemplateResponse(
-        "check_email.html",
-        {"request": request, "email": user.email, "info": None},
-    )
+    # Dev mode: log in immediately
+    response = RedirectResponse("/dashboard", status_code=303)
+    _set_token_cookie(response, create_access_token(str(user.id)))
+    return response
 
 
 @router.get("/verify", response_class=HTMLResponse)

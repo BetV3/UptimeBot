@@ -81,7 +81,10 @@ class User(Base):
     password_reset_expires_at = Column(DateTime(timezone=True), nullable=True)
     stripe_customer_id = Column(String(255), nullable=True, index=True)
     stripe_subscription_id = Column(String(255), nullable=True, index=True)
-    subscription_status = Column(Enum(SubscriptionStatus), nullable=True)
+    subscription_status = Column(
+        Enum(SubscriptionStatus, values_callable=lambda e: [x.value for x in e]),
+        nullable=True,
+    )
     current_period_end = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

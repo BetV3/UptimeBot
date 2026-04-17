@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     verification_token_ttl_hours: int = 24
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", ".env.local")
 
 
 @lru_cache()

@@ -120,11 +120,18 @@ async def _apply_subscription_to_user(
     sub_status = _status_from_sub(subscription.get("status"))
 
     user.stripe_subscription_id = subscription.get("id")
-    user.subscription_status = sub_status
     user.current_period_end = _period_end_from_sub(subscription)
 
-    # Only elevate the plan when the subscription is in a paying state.
+    # Don't let a stale "incomplete" event overwrite an already-active status.
+    # Stripe fires customer.subscription.created (incomplete) before the payment
+    # is confirmed, and it can arrive after checkout.session.completed has already
+    # set the status to active.
     active_states = {SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING}
+    if sub_status == SubscriptionStatus.INCOMPLETE and user.subscription_status in active_states:
+        pass  # keep the existing active/trialing status
+    else:
+        user.subscription_status = sub_status
+
     if plan and sub_status in active_states:
         user.plan = plan
     elif sub_status in {SubscriptionStatus.CANCELED, SubscriptionStatus.INCOMPLETE_EXPIRED, SubscriptionStatus.UNPAID}:
