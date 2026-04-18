@@ -29,8 +29,12 @@ def generate_verification_token() -> tuple[str, datetime]:
     return token, expires_at
 
 
-def _verification_url(token: str) -> str:
-    base = settings.app_url.rstrip("/")
+def _resolve_base_url(base_url: str | None = None) -> str:
+    return (base_url or settings.app_url).rstrip("/")
+
+
+def _verification_url(token: str, base_url: str | None = None) -> str:
+    base = _resolve_base_url(base_url)
     return f"{base}/dashboard/verify?token={token}"
 
 
@@ -82,14 +86,14 @@ def generate_password_reset_token() -> tuple[str, datetime]:
     return token, expires_at
 
 
-def _password_reset_url(token: str) -> str:
-    base = settings.app_url.rstrip("/")
+def _password_reset_url(token: str, base_url: str | None = None) -> str:
+    base = _resolve_base_url(base_url)
     return f"{base}/dashboard/reset-password?token={token}"
 
 
-async def send_password_reset_email(to_email: str, token: str) -> None:
+async def send_password_reset_email(to_email: str, token: str, base_url: str | None = None) -> None:
     """Send a password reset link. Dev mode logs the link to stdout."""
-    reset_url = _password_reset_url(token)
+    reset_url = _password_reset_url(token, base_url=base_url)
     text_body = (
         "We received a request to reset your CheckPulse password.\n\n"
         f"Reset your password here:\n{reset_url}\n\n"
@@ -158,13 +162,13 @@ async def send_password_reset_email(to_email: str, token: str) -> None:
         response.raise_for_status()
 
 
-async def send_verification_email(to_email: str, token: str) -> None:
+async def send_verification_email(to_email: str, token: str, base_url: str | None = None) -> None:
     """
     Send a verification email. In development the URL is logged to stdout so
     the dev can click it straight from the console; in production it's sent
     through the Resend HTTP API.
     """
-    verify_url = _verification_url(token)
+    verify_url = _verification_url(token, base_url=base_url)
     text_body, html_body = _render_verification_email(verify_url)
 
     # Dev mode: print the link to the log regardless of whether a Resend key

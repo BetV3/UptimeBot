@@ -1,755 +1,996 @@
-Yes. Billing is one of those areas where “it worked once on my machine” turns into refunds, angry emails, and a slow-motion trust collapse. So you want a **manual GUI billing test suite** that covers the full customer lifecycle, not just “I can pay Stripe money.”
+Yes. Before you market, you want to know whether your DNS and SSL are **boringly correct**. Nobody buys monitoring from a site that can’t keep its own domain and certificate situation under control. Very embarrassing genre.
 
-Below is an **extensive clickable billing QA pack** for CheckPulse with your 3 tiers:
+Below is an **extensive DNS and SSL test pack** for **CheckPulse**. It covers:
 
-* **Free**
-* **Starter - $12/mo**
-* **Pro - $49/mo**
+* marketing site
+* app subdomain
+* API/webhook subdomain
+* email-sending subdomain
+* redirects
+* certificates
+* browser trust
+* renewal safety
+* security headers tied to SSL
 
-I’m assuming you use **Stripe Checkout** for subscribing and the **Stripe Customer Portal** for self-serve billing. Stripe’s docs specifically support Checkout for subscriptions, Customer Portal for billing management, test cards for simulating payments, test clocks for renewals/trials, and webhooks for subscription lifecycle updates. ([Stripe Docs][1])
-
----
-
-# Test setup before you start
-
-Use:
-
-* **Stripe test mode**
-* at least **3 app accounts**
-* at least **2 browser profiles** or incognito windows
-* one account starting on **Free**
-* one account already on **Starter**
-* one account already on **Pro**
-
-Have these visible while testing:
-
-* your app UI
-* Stripe Dashboard in **test mode**
-* webhook/event logs
-* your app database/admin panel if you have one
-
-Why: Stripe subscriptions are driven by Checkout + invoices + webhook-delivered subscription events, so the UI alone is not enough to confirm correctness. Stripe notes that subscription changes and failures are communicated through subscription and invoice events, and the most reliable way to test is by creating real test subscriptions rather than only firing fake events. ([Stripe Docs][2])
+Use it as a **pre-launch checklist**.
 
 ---
 
-# Pass/fail rules
+# Scope to test
 
-## P0 blockers
+List every hostname you actually use.
 
-Do **not** market if any of these fail:
+Example inventory:
 
-* user cannot upgrade from Free to a paid plan
-* successful payment does not grant the correct plan
-* canceled Checkout leaves the app in a broken state
-* cancellation does not properly downgrade access
-* payment failure incorrectly grants access
-* Customer Portal does not open or breaks billing management
-* plan changes do not reflect in the UI after webhook processing
+* `checkpulse.com`
+* `www.checkpulse.com`
+* `app.checkpulse.com`
+* `api.checkpulse.com`
+* `notify.checkpulse.com` or `notifications.checkpulse.com`
+* any webhook/admin/staging hostnames you expose publicly
 
-## P1 major issues
-
-* wrong plan label shown
-* delayed refresh causes confusing stale status
-* invoice history missing
-* failed payment copy is vague or misleading
-* plan switching works in Stripe but not in app UI
+If you do not have this inventory written down, fix that first.
 
 ---
 
-# Core billing test suite
+# Severity levels
 
-## 1. Pricing page clarity test
+## P0
 
-**Goal:** A user understands what they’re buying.
+Must pass before marketing:
+
+* domain resolves correctly
+* `https` works
+* cert is valid and trusted
+* no broken redirect loops
+* no mixed content on key pages
+* app/login/billing all load over HTTPS
+* email/auth links point to the correct domain
+
+## P1
+
+Should fix before serious traffic:
+
+* missing HSTS
+* missing CAA
+* weak TLS config
+* inconsistent apex/www behavior
+* IPv6 broken while IPv4 works
+* stale DNS records from old providers
+
+## P2
+
+Nice to improve:
+
+* DNS TTL tuning
+* secondary vanity redirects
+* prettier certificate chain hygiene
+* optional advanced TLS polish
+
+---
+
+# Part 1: DNS testing
+
+## Test 1: Apex domain resolves correctly
+
+### Goal
+
+`checkpulse.com` resolves to the intended target.
 
 ### Steps
 
-1. Log out.
-2. Visit pricing page.
-3. Confirm all 3 tiers are visible.
-4. Confirm one plan is clearly marked as current/recommended if you do that.
-5. Confirm Free, Starter, and Pro each show:
+Run:
 
-   * price
-   * billing frequency
-   * key limits/features
-   * CTA button text
+```bash
+dig checkpulse.com
+dig A checkpulse.com
+dig AAAA checkpulse.com
+```
 
 ### Expected
 
-* no conflicting prices
-* no broken CTA
-* no vague “contact us” nonsense for standard plans
-* Starter and Pro clearly indicate monthly billing
+* A record exists if using IPv4
+* AAAA exists if using IPv6 intentionally
+* records point to the correct platform/IP/provider
+* no old provider IPs remain
+
+### Failures
+
+* NXDOMAIN
+* wrong IP/provider
+* only one family works when you intended both
+* stale records from a prior deployment
 
 ---
 
-## 2. Free user upgrade to Starter, happy path
+## Test 2: `www` resolves correctly
 
-**Goal:** The main conversion flow works.
+### Goal
+
+`www.checkpulse.com` resolves and behaves intentionally.
 
 ### Steps
 
-1. Log in as a Free user.
-2. Go to billing or pricing page.
-3. Click **Upgrade to Starter**.
-4. Confirm redirect to Stripe Checkout.
-5. Complete checkout with Stripe’s documented success test card flow. Stripe provides test card numbers for interactive testing in test mode. ([Stripe Docs][3])
-6. Complete payment.
-7. Let Stripe redirect back to your success URL.
-8. Refresh app billing page/dashboard.
+```bash
+dig www.checkpulse.com
+dig A www.checkpulse.com
+dig AAAA www.checkpulse.com
+```
+
+Then test in browser:
+
+* `http://www.checkpulse.com`
+* `https://www.checkpulse.com`
 
 ### Expected
 
-* user lands on Stripe Checkout
-* payment succeeds
-* app shows **Starter**
-* plan entitlements unlock correctly
-* Stripe shows a customer, invoice, and subscription for the user
-* your app records the Stripe customer/subscription identifiers if you store them
+Choose one canonical behavior:
 
-Stripe states that once Checkout payment succeeds, the Checkout Session contains a reference to the Customer and either the successful PaymentIntent or an active Subscription. ([Stripe Docs][4])
+* either `www` redirects to apex
+* or apex redirects to `www`
+
+Do **not** leave both as first-class copies unless you want duplicate-indexing nonsense.
 
 ---
 
-## 3. Free user upgrade to Pro, happy path
+## Test 3: App subdomain resolves correctly
 
-Same as above, but use **Upgrade to Pro**.
+### Goal
 
-### Expected
-
-* app ends on **Pro**
-* Pro entitlements unlock
-* no Starter intermediate state unless intentionally shown
-* Stripe subscription is tied to the Pro price
-
----
-
-## 4. Checkout cancel flow
-
-**Goal:** Canceling payment does not create ghost subscriptions or broken UX.
+`app.checkpulse.com` resolves consistently.
 
 ### Steps
 
-1. Log in as a Free user.
-2. Click **Upgrade to Starter**.
-3. On Stripe Checkout, click back/cancel.
-4. Return to app via cancel URL.
-5. Refresh billing page.
+```bash
+dig app.checkpulse.com
+dig A app.checkpulse.com
+dig AAAA app.checkpulse.com
+```
+
+Open:
+
+* `http://app.checkpulse.com`
+* `https://app.checkpulse.com`
 
 ### Expected
 
-* user remains on **Free**
-* no phantom upgrade banner
-* no partial access unlock
-* clear message like “Upgrade canceled” if you show one
-* no active subscription created in Stripe
+* app hostname resolves correctly
+* HTTP redirects to HTTPS
+* no cross-domain weirdness from the marketing site
 
 ---
 
-## 5. Refresh/back-button resilience after successful checkout
+## Test 4: API subdomain resolves correctly
 
-**Goal:** Success page isn’t doing fake provisioning on the client.
+### Goal
 
-Stripe’s subscription docs emphasize that lifecycle state should be handled through proper subscription/invoice/webhook handling, not blind trust in a redirect. ([Stripe Docs][2])
+If you expose `api.checkpulse.com`, it resolves correctly.
 
 ### Steps
 
-1. Complete successful checkout.
-2. On success page, hit refresh.
-3. Hit back button.
-4. Return to billing page.
-5. Open a new tab and log in again.
+```bash
+dig api.checkpulse.com
+curl -I https://api.checkpulse.com
+```
 
 ### Expected
 
-* app consistently shows the correct paid plan
-* no duplicate subscriptions
-* no “processing forever” state
-* no plan downgrade from refresh
+* DNS resolves
+* TLS is valid
+* response is intentional
+* if browser access is not meant for humans, you still return a sane response and valid certificate
 
 ---
 
-## 6. Failed payment on signup
+## Test 5: Email subdomain resolves correctly
 
-**Goal:** Failed payment does not grant access.
+### Goal
 
-Stripe supports testing failures with test cards and failure scenarios in test mode. ([Stripe Docs][3])
+Your Resend sending subdomain is configured properly.
+
+Example:
+
+* `notify.checkpulse.com`
 
 ### Steps
 
-1. Log in as Free user.
-2. Click **Upgrade to Starter**.
-3. Use a Stripe failure test payment method from the docs.
-4. Submit payment.
+```bash
+dig notify.checkpulse.com
+dig TXT notify.checkpulse.com
+```
 
 ### Expected
 
-* checkout shows failure cleanly
-* user remains on **Free**
-* app shows no paid access
-* no active subscription or entitlement is granted
-* if Stripe creates an incomplete subscription/invoice, your app still does not unlock the plan
+* domain exists if needed
+* required provider verification records are present
+* SPF/DKIM/other mail auth records are set where appropriate
 
-Stripe notes that when a subscription is created, the invoice is initially `open`, and the subscription can be `incomplete` if payment/authentication is not completed successfully. ([Stripe Docs][5])
+This matters because broken mail DNS turns account verification and billing emails into a trash fire.
 
 ---
 
-## 7. Authentication-required / 3DS-style flow
+## Test 6: Nameserver sanity
 
-**Goal:** SCA or auth-required flows behave correctly.
+### Goal
 
-Stripe documents subscription states and webhook events for payments that require customer action. ([Stripe Docs][2])
+Your domain is using the correct authoritative nameservers.
 
 ### Steps
 
-1. Start paid checkout.
-2. Use a Stripe test payment method that requires additional authentication.
-3. Complete the auth flow.
-4. Return to app.
+```bash
+dig NS checkpulse.com
+whois checkpulse.com
+```
 
 ### Expected
 
-* auth step is clear
-* after successful auth, plan becomes active
-* if auth is abandoned, plan does not activate
-* no confusing mismatch between Stripe success state and app UI
+* nameservers match your DNS provider
+* no lingering old nameservers
+* registrar and DNS setup are consistent
 
 ---
 
-## 8. Prevent duplicate paid subscriptions
+## Test 7: CNAME chains are sane
 
-**Goal:** A paying user cannot accidentally buy the same plan twice.
+### Goal
+
+Subdomains do not resolve through a ridiculous chain.
 
 ### Steps
 
-1. Use an account already on Starter.
-2. Visit pricing page.
-3. Click Starter again, if your UI allows it.
-4. Try multiple routes:
-
-   * pricing page
-   * dashboard banner
-   * billing page
-5. Open a second tab and repeat.
+```bash
+dig app.checkpulse.com
+dig www.checkpulse.com
+```
 
 ### Expected
 
-* current plan is disabled or labeled **Current Plan**
-* no second Starter subscription is created
-* user is routed to manage billing or upgrade path instead
+* short, intentional chain
+* no broken CNAME targets
+* no loop
+* no mix of old and new providers
 
 ---
 
-## 9. Starter to Pro upgrade
+## Test 8: DNS propagation from public resolvers
 
-**Goal:** Plan upgrade works and entitlements change correctly.
+### Goal
+
+Major resolvers see the same records.
 
 ### Steps
 
-1. Log in as Starter user.
-2. Go to pricing/billing.
-3. Click **Upgrade to Pro**.
-4. Complete plan change using your flow or Customer Portal.
-5. Return to app and refresh.
+Test from multiple resolvers:
+
+```bash
+dig @1.1.1.1 checkpulse.com
+dig @8.8.8.8 checkpulse.com
+dig @9.9.9.9 checkpulse.com
+dig @1.1.1.1 app.checkpulse.com
+dig @8.8.8.8 app.checkpulse.com
+```
 
 ### Expected
 
-* plan changes to **Pro**
-* Pro limits/features unlock
-* no stale Starter state after page refresh
-* Stripe subscription reflects the new price
-* invoice/proration behavior matches what you intentionally configured
-
-If you allow changes through Customer Portal, Stripe says the portal supports subscription updates and billing management. ([Stripe Docs][6])
+* answers are consistent
+* no resolver sees old IPs
+* TTLs make sense
 
 ---
 
-## 10. Pro to Starter downgrade
+## Test 9: TTL sanity
 
-**Goal:** Downgrade works and limits are handled sanely.
+### Goal
+
+TTL values are intentional.
 
 ### Steps
 
-1. Log in as Pro user.
-2. Go to billing.
-3. Click **Manage Billing** or downgrade CTA.
-4. Change to Starter.
-5. Return to app.
+```bash
+dig checkpulse.com
+dig www.checkpulse.com
+dig app.checkpulse.com
+```
 
 ### Expected
 
-* plan reflects your configured downgrade timing:
+* not absurdly low forever
+* not absurdly high during launch if you may change infra
+* common sane range for launch: roughly 300 to 3600 seconds depending on stability
 
-  * immediate, or
-  * end of current billing period
-* UI explains when downgrade takes effect
-* app does not silently drop features early unless intended
+### Bad sign
 
-### Extra check
-
-If the user exceeds Starter limits, verify how your app handles it:
-
-* soft warning
-* grace period
-* force limit after cycle end
+TTL of 30 seconds on everything forever because “fast changes.” That is just extra DNS load and chaos.
 
 ---
 
-## 11. Cancel subscription at period end
+## Test 10: No orphaned/stale records
 
-**Goal:** Users can cancel without chaos.
+### Goal
 
-Stripe Customer Portal supports immediate cancellation or cancellation at end of billing period, depending on your settings. ([Stripe Docs][6])
+Old records are removed.
+
+### Check for:
+
+* old A records
+* old CNAMEs
+* test/staging domains publicly exposed
+* obsolete MX/TXT/SPF records
+* dead verification records you no longer need
+
+### Expected
+
+Only active records remain publicly exposed.
+
+---
+
+## Test 11: CAA records
+
+### Goal
+
+Only approved certificate authorities can issue certs for your domain.
 
 ### Steps
 
-1. Use paid user.
-2. Open **Manage Billing**.
-3. In Customer Portal, click cancel.
-4. Choose **cancel at period end** if enabled.
-5. Return to app.
+```bash
+dig CAA checkpulse.com
+dig CAA app.checkpulse.com
+```
 
 ### Expected
 
-* app still shows current paid plan until period end
-* UI shows “cancels on [date]” or equivalent
-* access is not revoked too early
-* Stripe subscription shows cancel-at-period-end state
-* user can resume/reactivate if you support it
+* CAA exists if you want stricter control
+* points to your intended CA(s)
+
+This is not mandatory for launch, but it is good hygiene.
 
 ---
 
-## 12. Immediate cancellation
+## Test 12: MX, SPF, DKIM, DMARC
 
-**Goal:** Immediate cancellation does not leave entitlements stuck.
+### Goal
+
+Mail-related DNS is sane for transactional emails.
 
 ### Steps
 
-1. Use paid user.
-2. Cancel immediately if your portal/config allows it.
-3. Return to app.
-4. Refresh dashboard and billing page.
+```bash
+dig MX checkpulse.com
+dig TXT checkpulse.com
+dig TXT _dmarc.checkpulse.com
+```
+
+Also check the Resend-provided DKIM/SPF records on the sending domain.
 
 ### Expected
 
-* user is downgraded to Free immediately if that is your configuration
-* paid-only features are no longer accessible
-* billing page clearly shows Free
-* no ghost paid badge remains
+* SPF exists and is not broken by multiple SPF records
+* DKIM is configured for sending domain
+* DMARC exists, even if relaxed to start
+* no contradictory mail records
 
 ---
 
-## 13. Resume/reactivate cancellation before period end
+## Test 13: Wildcard exposure check
 
-**Goal:** Reversing a pending cancellation works.
+### Goal
+
+You are not accidentally serving unknown subdomains.
 
 ### Steps
 
-1. Set subscription to cancel at period end.
-2. Return to app and verify pending cancellation message.
-3. Reopen Customer Portal.
-4. Undo cancellation if your setup permits it.
-5. Return to app.
+Try:
+
+```bash
+dig randomgarbage123.checkpulse.com
+```
+
+Open in browser if it resolves.
 
 ### Expected
 
-* pending-cancel label disappears
-* subscription remains active
-* no duplicate subscription created
+* either NXDOMAIN
+* or intentional wildcard behavior
+
+### Bad sign
+
+Every random subdomain resolves to production without you meaning to.
 
 ---
 
-## 14. Customer Portal entry point
+## Test 14: IPv4/IPv6 parity
 
-**Goal:** The billing management door actually works.
+### Goal
+
+If you publish AAAA records, IPv6 actually works.
 
 ### Steps
 
-1. Log in as paid user.
-2. Go to billing settings.
-3. Click **Manage Billing**.
-4. Confirm redirect to Stripe Customer Portal.
-5. Return to app via portal return URL.
+```bash
+curl -4 -I https://checkpulse.com
+curl -6 -I https://checkpulse.com
+curl -4 -I https://app.checkpulse.com
+curl -6 -I https://app.checkpulse.com
+```
 
 ### Expected
 
-* portal opens for the right customer
-* invoices/payment methods/subscription appear
-* return URL works
-* wrong user is never shown another user’s billing
+* both work if AAAA exists
+* if IPv6 is broken, remove AAAA until fixed
 
-Stripe says the portal lets customers update payment methods, manage subscriptions, and download invoices. ([Stripe Docs][6])
+Broken IPv6 is a classic self-own.
 
 ---
 
-## 15. Update payment method
+# Part 2: SSL/TLS testing
 
-**Goal:** Card updates work before you trust renewals.
+## Test 15: Certificate validity on apex
+
+### Goal
+
+`https://checkpulse.com` presents a valid cert.
 
 ### Steps
 
-1. Paid user opens Customer Portal.
-2. Update payment method.
-3. Save.
-4. Return to app.
-5. Confirm payment method update is reflected if your UI shows it.
+In browser:
+
+* open `https://checkpulse.com`
+* inspect certificate
+
+Command line:
+
+```bash
+openssl s_client -connect checkpulse.com:443 -servername checkpulse.com
+```
 
 ### Expected
 
-* update succeeds
-* no subscription interruption
-* future invoices use the new method
+* cert is valid
+* hostname matches
+* not expired
+* trusted by browser
+* full chain is served
 
 ---
 
-## 16. Invoice history and receipts
+## Test 16: Certificate validity on `www`
 
-**Goal:** Paid users can see what they paid for.
+### Goal
+
+`https://www.checkpulse.com` also presents a valid cert.
 
 ### Steps
 
-1. Use a paid user with at least one successful invoice.
-2. Open Customer Portal.
-3. Open invoices/history.
-4. Download or view invoice.
-5. Return to app.
+```bash
+openssl s_client -connect www.checkpulse.com:443 -servername www.checkpulse.com
+```
 
 ### Expected
 
-* invoice exists
-* invoice amount matches plan
-* timestamps make sense
-* invoice is for the correct customer
+* valid cert
+* SAN covers `www`
+* no mismatch or fallback cert
 
 ---
 
-## 17. Webhook-to-UI synchronization test
+## Test 17: Certificate validity on app
 
-**Goal:** The UI reflects Stripe reality promptly and correctly.
+### Goal
 
-Stripe recommends handling subscription lifecycle events with webhooks and verifying incoming events. ([Stripe Docs][2])
+`https://app.checkpulse.com` has a correct cert.
 
 ### Steps
 
-Run these flows one by one:
-
-* free → starter success
-* starter → pro
-* pro → cancel
-* payment failure
-* cancel reversal
-
-For each one, verify:
-
-1. Stripe Dashboard event was received.
-2. Your webhook endpoint processed it successfully.
-3. Your app DB updated plan/status.
-4. The UI reflects the update after refresh or a short delay.
+```bash
+openssl s_client -connect app.checkpulse.com:443 -servername app.checkpulse.com
+```
 
 ### Expected
 
-* no webhook 400/500 responses
-* no mismatch between Stripe and app plan state
-* no manual admin fix required
+* hostname matches
+* chain valid
+* no staging/default certificate leakage
 
 ---
 
-## 18. Payment failure on renewal
+## Test 18: Certificate coverage for all public hosts
 
-**Goal:** Recurring billing failure path is sane.
+### Goal
 
-Stripe documents `invoice.payment_failed` and other billing lifecycle events for subscriptions. It also recommends test clocks for simulating recurring billing behavior. ([Stripe Docs][2])
+Every public hostname has coverage.
+
+### Check these explicitly:
+
+* apex
+* `www`
+* `app`
+* `api`
+* any auth/billing callback hostnames
+* any public docs/status/tool subdomains
+
+### Expected
+
+Every public host either:
+
+* has its own valid cert
+* or is covered by wildcard/SAN intentionally
+
+---
+
+## Test 19: HTTP to HTTPS redirect behavior
+
+### Goal
+
+All public site traffic upgrades cleanly.
 
 ### Steps
 
-1. Create a paid test subscription.
-2. Use Stripe’s billing test tools/test clocks or a failure payment method to simulate renewal failure.
-3. Advance time if using test clocks.
-4. Observe app UI and email notifications.
+```bash
+curl -I http://checkpulse.com
+curl -I http://www.checkpulse.com
+curl -I http://app.checkpulse.com
+```
 
 ### Expected
 
-* app does **not** silently keep the account healthy forever
-* billing page shows past-due / payment issue if you support it
-* email or UI prompts user to update card
-* access behavior matches your policy:
-
-  * immediate restriction, or
-  * grace period, or
-  * warning only
+* clean 301/308 redirect to HTTPS
+* no loops
+* no redirecting to the wrong hostname
 
 ---
 
-## 19. Renewal success
+## Test 20: Redirect chain sanity
 
-**Goal:** Successful recurring charge keeps the account stable.
+### Goal
+
+No ugly multi-hop redirect chain.
 
 ### Steps
 
-1. Create a successful subscription.
-2. Simulate next billing cycle with a Stripe test clock or wait if needed.
-3. Confirm renewal invoice is paid.
-4. Refresh app.
+Use browser dev tools or:
+
+```bash
+curl -I -L http://checkpulse.com
+```
 
 ### Expected
 
-* account remains on paid plan
-* next billing date updates
-* invoice history grows correctly
-* no accidental downgrade after renewal
+* ideally 1 to 2 redirects max
+* ends on canonical HTTPS host
 
-Stripe’s billing testing docs explicitly recommend using test clocks to simulate subscriptions, invoices, trials, and renewals before going live. ([Stripe Docs][7])
+### Bad sign
 
----
-
-## 20. Trial flow, if you ever enable a trial
-
-If you add trials later, test:
-
-* trial start
-* trial active status
-* trial ending reminder
-* successful conversion
-* failed conversion
-* trial cancellation
-
-Stripe supports testing trial behavior and trial offers, including using test clocks. ([Stripe Docs][8])
+`http -> https -> www -> apex -> app -> slash variation nonsense`
 
 ---
 
-## 21. Expired Checkout Session
+## Test 21: TLS protocol support
 
-**Goal:** Old payment links don’t create weird dead ends.
+### Goal
 
-Stripe says Checkout Sessions can expire, and expired sessions can’t be completed. ([Stripe Docs][9])
+Only sane TLS versions are enabled.
+
+### What to check
+
+Prefer:
+
+* TLS 1.2
+* TLS 1.3
+
+Avoid:
+
+* TLS 1.0
+* TLS 1.1
+
+### Tools
+
+Use SSL Labs or test with OpenSSL/curl depending on your infra.
+
+### Expected
+
+Modern protocol support only.
+
+---
+
+## Test 22: Weak cipher / weak config check
+
+### Goal
+
+No obviously weak SSL configuration.
+
+### Test with
+
+* SSL Labs
+* your reverse proxy config review
+* Mozilla SSL config generator target if relevant
+
+### Expected
+
+* no weak ciphers
+* no ancient fallback junk
+* modern forward-secret defaults if applicable
+
+---
+
+## Test 23: Certificate chain completeness
+
+### Goal
+
+Intermediate certs are served properly.
 
 ### Steps
 
-1. Start Checkout.
-2. Leave it open until expired, or manually expire session in test tooling if you use that.
-3. Try to complete payment or revisit the link.
+```bash
+openssl s_client -connect checkpulse.com:443 -servername checkpulse.com -showcerts
+```
 
 ### Expected
 
-* user sees a sane expired-session message
-* app does not act like payment succeeded
-* user can restart checkout from app cleanly
+* full chain present
+* browsers trust it cleanly
+* no “works on my machine but not on Android/older clients” nonsense
 
 ---
 
-## 22. Logged-out access to billing URLs
+## Test 24: Expiry monitoring
 
-**Goal:** Billing pages don’t leak or break auth.
+### Goal
+
+You know before certs expire.
 
 ### Steps
 
-1. Copy a billing/settings URL while logged in.
-2. Log out.
-3. Revisit the URL.
-4. Try the success/cancel return URLs directly.
-5. Try stale portal return flow.
+Check expiry date manually for all public hosts.
 
 ### Expected
 
-* auth is required
-* no user billing data is exposed
-* app redirects correctly to login
-* after login, user lands somewhere sane
+* all certs valid well beyond launch
+* you have reminders/automation in place
+* your own product should probably monitor these, which would be poetic at least
 
 ---
 
-## 23. Cross-account billing isolation
+## Test 25: Browser trust matrix
 
-**Goal:** No account contamination.
+### Goal
+
+Site is trusted across major browsers/devices.
+
+### Test on:
+
+* Chrome desktop
+* Firefox desktop
+* Safari if available
+* iPhone/Android if possible
+
+### Expected
+
+* no trust warnings
+* no interstitials
+* no partial-secure warnings
+
+---
+
+## Test 26: Mixed content check
+
+### Goal
+
+HTTPS pages do not load insecure assets.
 
 ### Steps
 
-1. Log in as User A in one browser.
-2. Log in as User B in another browser.
-3. Upgrade User A.
-4. Refresh User B pages.
-5. Open Customer Portal from both.
+Open homepage, pricing, signup, login, dashboard in browser dev tools.
 
 ### Expected
 
-* User B never sees User A billing state
-* each portal session belongs to the correct customer
-* no shared session weirdness
+* no mixed content warnings
+* all scripts/images/fonts/styles load over HTTPS
+* no insecure API calls
+
+This one kills trust fast.
 
 ---
 
-## 24. UI state after cancellation and re-purchase
+## Test 27: Secure cookies
 
-**Goal:** A churned user can come back cleanly.
+### Goal
+
+Auth/session cookies are safe under HTTPS.
+
+### Check
+
+In browser dev tools for auth cookies:
+
+* `Secure`
+* `HttpOnly` where appropriate
+* `SameSite` intentionally set
+
+### Expected
+
+Sensitive cookies should not be casually exposed.
+
+---
+
+## Test 28: HSTS header
+
+### Goal
+
+Browsers are told to prefer HTTPS.
 
 ### Steps
 
-1. Cancel a paid user to Free.
-2. Confirm downgrade completed.
-3. Go back to pricing page.
-4. Purchase Starter or Pro again.
-5. Return to app.
+```bash
+curl -I https://checkpulse.com
+curl -I https://app.checkpulse.com
+```
 
 ### Expected
 
-* re-subscribe works
-* access is restored correctly
-* no duplicate or conflicting local billing records
-* current plan is accurate after reactivation
+`Strict-Transport-Security` present on production hosts
+
+### Good starting point
+
+Something like:
+
+* `max-age=31536000; includeSubDomains`
+  Only preload if you actually know what you’re doing.
 
 ---
 
-## 25. Billing copy and messaging test
+## Test 29: Security headers related to secure delivery
 
-**Goal:** The UI is not confusing.
+### Check for
 
-Check these screens:
-
-* pricing page
-* checkout entry point
-* success page
-* cancel page
-* failed payment state
-* past due state
-* canceled-at-period-end state
-* free-tier upgrade prompt
+* `Strict-Transport-Security`
+* `Content-Security-Policy`
+* `X-Content-Type-Options`
+* `Referrer-Policy`
+* `Permissions-Policy`
+* `X-Frame-Options` or CSP frame control
 
 ### Expected
 
-Messages are explicit, for example:
-
-* “You’re on Starter”
-* “Your Pro subscription renews on May 18”
-* “Your subscription will cancel on June 2”
-* “Payment failed. Update your card to keep your plan active.”
-
-Not:
-
-* “Status: inactive-ish”
-* “Error occurred”
-* “Subscription changed” with no details
+At least baseline sane security headers exist.
 
 ---
 
-# Recommended Stripe-specific scenarios to test
+## Test 30: TLS on billing flow
 
-Since Stripe supports these testing tools/features, I would explicitly cover them:
+### Goal
 
-* **success card payment**
-* **declined card**
-* **authentication-required card**
-* **renewal success**
-* **renewal failure**
-* **Customer Portal plan change**
-* **Customer Portal cancellation**
-* **test clock renewal simulation**
-* **actual webhook-driven plan sync** ([Stripe Docs][3])
+Stripe-related redirects and returns are clean.
 
----
+### Steps
 
-# Billing feature checklist by tier
+* start upgrade flow
+* go to Checkout
+* return from success URL
+* return from cancel URL
 
-## Free
+### Expected
 
-Test:
-
-* can see pricing
-* can start upgrade
-* cannot access paid-only features
-* does not accidentally enter paid state
-
-## Starter
-
-Test:
-
-* Starter label is correct
-* Starter limits are enforced
-* upgrade to Pro works
-* cancellation to Free works
-
-## Pro
-
-Test:
-
-* Pro label is correct
-* Pro limits are enforced
-* downgrade to Starter works
-* cancellation to Free works
+* all return URLs are HTTPS
+* no certificate issues
+* no callback to wrong host
+* no auth/session breakage due to domain mismatch
 
 ---
 
-# What to log for every failed test
+## Test 31: Auth email link domain correctness
 
-For each issue, record:
+### Goal
 
-* **test name**
-* **user account**
-* **starting plan**
-* **browser**
-* **steps**
-* **expected**
-* **actual**
-* **Stripe event(s) seen**
-* **webhook result**
-* **severity**
+Verification/reset/login emails use correct HTTPS links.
 
-Severity:
+### Steps
 
-* **P0** billing/data-loss/access-control bug
-* **P1** major user confusion or blocked management
-* **P2** annoying but recoverable
-* **P3** cosmetic
+Trigger:
 
----
+* signup verification email
+* password reset email
+* billing-related email if applicable
 
-# Minimum pre-launch billing pass list
+### Expected
 
-Do not launch paid billing until these all pass:
-
-* Free → Starter purchase
-* Free → Pro purchase
-* checkout cancel path
-* failed payment does not grant access
-* Starter → Pro change
-* Pro → Starter change
-* paid → cancel at period end
-* paid → immediate cancel if enabled
-* Customer Portal opens and works
-* renewal success test
-* renewal failure test
-* webhook events sync plan state correctly
-* cross-account isolation is clean
+* links point to production HTTPS domain
+* no localhost
+* no wrong subdomain
+* no expired/mismatched cert on landing page
 
 ---
 
-# Short clickable path example: “user adds billing and upgrades”
+## Test 32: Webhook endpoint TLS
 
-This is the compact version of the most important flow:
+### Goal
 
-1. Log in as Free user
-2. Click **Billing**
-3. Click **Upgrade to Starter**
-4. Complete Stripe Checkout
-5. Return to app
-6. Refresh dashboard
-7. Confirm plan now says **Starter**
-8. Confirm Starter features are unlocked
-9. Click **Manage Billing**
-10. Confirm Customer Portal opens
-11. View invoice / payment method
-12. Return to app
+Your Stripe webhook endpoint is HTTPS-valid.
 
-If that path has confusion, stale state, or weird delays, fix that before marketing. Billing does not get the luxury of “good enough.”
+### Steps
 
-If you want, I can turn this into a **copy-paste QA spreadsheet template** with columns for test ID, steps, expected result, status, severity, and notes.
+Test the public webhook path:
 
-[1]: https://docs.stripe.com/billing/quickstart?utm_source=chatgpt.com "Build a pre-built subscription page with Stripe Checkout"
-[2]: https://docs.stripe.com/billing/subscriptions/webhooks?utm_source=chatgpt.com "Using webhooks with subscriptions"
-[3]: https://docs.stripe.com/testing?utm_source=chatgpt.com "Test card numbers"
-[4]: https://docs.stripe.com/api/checkout/sessions?utm_source=chatgpt.com "Checkout Sessions | Stripe API Reference"
-[5]: https://docs.stripe.com/billing/subscriptions/overview?utm_source=chatgpt.com "How subscriptions work"
-[6]: https://docs.stripe.com/customer-management?utm_source=chatgpt.com "Provide a customer portal to your"
-[7]: https://docs.stripe.com/billing/testing?utm_source=chatgpt.com "Test your Billing integration"
-[8]: https://docs.stripe.com/billing/subscriptions/trials?utm_source=chatgpt.com "Configure trial offers on subscriptions"
-[9]: https://docs.stripe.com/api/checkout/sessions/expire?utm_source=chatgpt.com "Expire a Checkout Session | Stripe API Reference"
+```bash
+curl -I https://yourdomain.com/api/stripe/webhook
+```
+
+### Expected
+
+* valid TLS
+* reachable from Stripe
+* no certificate mismatch
+* no HTTP-only exposure
+
+---
+
+## Test 33: API CORS + HTTPS behavior
+
+### Goal
+
+Frontend calls over HTTPS work cleanly.
+
+### Steps
+
+Use browser dev tools on:
+
+* signup
+* login
+* add monitor
+* billing
+* settings
+
+### Expected
+
+* API calls use HTTPS
+* no mixed content
+* no CORS failures from wrong origin settings
+
+---
+
+## Test 34: Mobile SSL behavior
+
+### Goal
+
+Mobile browsers trust and load the site correctly.
+
+### Steps
+
+Open:
+
+* homepage
+* login
+* dashboard
+* pricing
+* checkout return pages
+
+### Expected
+
+* no warnings
+* no broken secure assets
+* no cookie/session weirdness
+
+---
+
+## Test 35: Status and tools pages if public
+
+### Goal
+
+Any public tool pages also pass DNS/SSL.
+
+Check:
+
+* free SSL checker page
+* DNS checker page
+* status page
+* docs pages
+* blog pages
+
+### Expected
+
+All public entry points are equally clean.
+
+---
+
+# Automated / recurring tests you should set up
+
+## Daily automated DNS checks
+
+* apex A/AAAA
+* `www`
+* `app`
+* `api`
+* mail subdomain records
+* MX/SPF/DKIM/DMARC presence
+
+## Daily automated SSL checks
+
+* expiry window
+* hostname match
+* chain validity
+* HSTS presence on main hosts
+* HTTP->HTTPS redirect status
+
+## Weekly deeper checks
+
+* SSL Labs scan
+* security headers scan
+* public resolver propagation comparison
+* stale-record audit after any infra change
+
+---
+
+# Suggested command checklist
+
+Use these as your basic shell pack:
+
+```bash
+dig checkpulse.com
+dig www.checkpulse.com
+dig app.checkpulse.com
+dig api.checkpulse.com
+dig MX checkpulse.com
+dig TXT checkpulse.com
+dig TXT _dmarc.checkpulse.com
+dig CAA checkpulse.com
+
+curl -I http://checkpulse.com
+curl -I https://checkpulse.com
+curl -I http://www.checkpulse.com
+curl -I https://www.checkpulse.com
+curl -I https://app.checkpulse.com
+curl -4 -I https://checkpulse.com
+curl -6 -I https://checkpulse.com
+
+openssl s_client -connect checkpulse.com:443 -servername checkpulse.com
+openssl s_client -connect www.checkpulse.com:443 -servername www.checkpulse.com
+openssl s_client -connect app.checkpulse.com:443 -servername app.checkpulse.com
+```
+
+---
+
+# Minimum must-pass before marketing
+
+Do not start real promotion until these pass:
+
+* apex resolves correctly
+* `www` canonical redirect works
+* app subdomain resolves correctly
+* all public hosts serve valid certs
+* HTTP always redirects to HTTPS
+* no mixed content on homepage, signup, login, dashboard, billing
+* auth/billing email links point to correct HTTPS domain
+* HSTS present on main production hosts
+* Resend sending domain records are valid
+* Stripe webhook endpoint is HTTPS-valid
+
+---
+
+# What to log for each test
+
+For every failure, track:
+
+* hostname
+* test name
+* expected result
+* actual result
+* screenshot or command output
+* severity
+* owner
+* fixed date
+
+---
+
+# Best next step
+
+If you want, I can turn this into either:
+
+1. a **QA spreadsheet/checklist format** you can copy into Sheets, or
+2. a **domain-specific test plan** if you paste your actual hostnames like:
+
+   * apex
+   * `www`
+   * app
+   * API
+   * email subdomain
+   * status/docs/tool subdomains
+
+The second option is better because then I can make the checklist match your actual setup instead of the usual placeholder-domain theater.

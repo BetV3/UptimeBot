@@ -8,6 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.core.config import get_settings
+from app.core.middleware import TransportMiddleware
 from app.api.routes import alerts, api_keys, auth, billing, dashboard, health, incidents, internal, monitors, projects, status
 
 settings = get_settings()
@@ -22,6 +23,7 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
+app.add_middleware(TransportMiddleware)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

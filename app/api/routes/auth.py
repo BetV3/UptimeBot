@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.http import external_base_url
 from app.models.models import User
 from app.schemas.auth import UserCreate, UserResponse, Token, TokenRefresh
 from app.services.auth import (
@@ -53,7 +54,7 @@ async def register(request: Request, body: UserCreate, db: AsyncSession = Depend
     await db.refresh(user)
 
     if is_production:
-        await send_verification_email(user.email, token)
+        await send_verification_email(user.email, token, base_url=external_base_url(request))
         return {"status": "verification_email_sent", "email": user.email}
 
     return {"status": "user_created", "email": user.email}

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.http import external_base_url, should_secure_cookie
 from app.models.models import (
     AlertChannel, AlertType, Check, CheckStatus, Incident,
     Monitor, MonitorStatus, MonitorType, HttpMethod, PlanType, Project, StatusPage, User,
@@ -61,12 +62,27 @@ async def _get_user_from_cookie(request: Request, db: AsyncSession) -> User | No
 
 
 def _set_token_cookie(response: RedirectResponse, token: str):
-    response.set_cookie("access_token", token, httponly=True, samesite="lax", max_age=60 * 60 * 24 * 7)
+    response.set_cookie(
+        "access_token",
+        token,
+        httponly=True,
+        max_age=60 * 60 * 24 * 7,
+        path="/",
+        samesite="lax",
+        secure=should_secure_cookie(),
+    )
 
 
 def _redirect_with_flash(url: str, message: str) -> RedirectResponse:
     response = RedirectResponse(url, status_code=303)
-    response.set_cookie("flash_error", message, max_age=30, path="/", samesite="lax")
+    response.set_cookie(
+        "flash_error",
+        message,
+        max_age=30,
+        path="/",
+        samesite="lax",
+        secure=should_secure_cookie(),
+    )
     return response
 
 
@@ -279,7 +295,7 @@ async def register_submit(
     await db.refresh(user)
 
     if is_production:
-        await send_verification_email(user.email, token)
+        await send_verification_email(user.email, token, base_url=external_base_url(request))
         return templates.TemplateResponse(
             "check_email.html",
             {"request": request, "email": user.email, "info": None},
@@ -352,7 +368,7 @@ async def resend_verification(
         user.verification_token = token
         user.verification_token_expires_at = expires_at
         await db.commit()
-        await send_verification_email(user.email, token)
+        await send_verification_email(user.email, token, base_url=external_base_url(request))
 
     return templates.TemplateResponse(
         "check_email.html",
@@ -367,7 +383,7 @@ async def resend_verification(
 @router.get("/logout")
 async def logout():
     response = RedirectResponse("/dashboard/login", status_code=303)
-    response.delete_cookie("access_token")
+    response.delete_cookie("access_token", path="/", samesite="lax", secure=should_secure_cookie())
     return response
 
 
@@ -430,7 +446,14 @@ async def account_change_password(
     await db.commit()
 
     response = RedirectResponse("/dashboard/account", status_code=303)
-    response.set_cookie("flash_notice", "Password updated.", max_age=30, path="/", samesite="lax")
+    response.set_cookie(
+        "flash_notice",
+        "Password updated.",
+        max_age=30,
+        path="/",
+        samesite="lax",
+        secure=should_secure_cookie(),
+    )
     return response
 
 
@@ -558,7 +581,7 @@ async def forgot_password_submit(
         user.password_reset_token = token
         user.password_reset_expires_at = expires_at
         await db.commit()
-        await send_password_reset_email(user.email, token)
+        await send_password_reset_email(user.email, token, base_url=external_base_url(request))
 
     return templates.TemplateResponse(
         "forgot_password.html",
@@ -632,7 +655,14 @@ async def reset_password_submit(
     await db.commit()
 
     response = RedirectResponse("/dashboard/login", status_code=303)
-    response.set_cookie("flash_notice", "Password updated - sign in with your new password.", max_age=30, path="/", samesite="lax")
+    response.set_cookie(
+        "flash_notice",
+        "Password updated - sign in with your new password.",
+        max_age=30,
+        path="/",
+        samesite="lax",
+        secure=should_secure_cookie(),
+    )
     return response
 
 

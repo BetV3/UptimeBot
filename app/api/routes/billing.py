@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.http import external_base_url
 from app.models.models import PlanType, SubscriptionStatus, User
 from app.services.auth import decode_token
 
@@ -95,6 +96,10 @@ def _parse_plan(plan_value: str) -> PlanType:
 def _period_end_from_sub(subscription: dict) -> datetime | None:
     epoch = subscription.get("current_period_end")
     if epoch is None:
+        items = subscription.get("items", {}).get("data", [])
+        if items:
+            epoch = items[0].get("current_period_end")
+    if epoch is None:
         return None
     return datetime.fromtimestamp(int(epoch), tz=timezone.utc)
 
@@ -159,6 +164,7 @@ async def create_checkout_session(
         raise HTTPException(status_code=503, detail=f"Price id for {plan_enum.value} is not configured.")
 
     customer_id = await _ensure_stripe_customer(user, db)
+    app_base_url = external_base_url(request)
 
     session = stripe.checkout.Session.create(
         mode="subscription",
@@ -167,8 +173,8 @@ async def create_checkout_session(
         metadata={"user_id": str(user.id), "plan": plan_enum.value},
         subscription_data={"metadata": {"user_id": str(user.id), "plan": plan_enum.value}},
         line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{settings.app_url}/dashboard/billing?upgraded=1",
-        cancel_url=f"{settings.app_url}/dashboard/billing?cancelled=1",
+        success_url=f"{app_base_url}/dashboard/billing?upgraded=1",
+        cancel_url=f"{app_base_url}/dashboard/billing?cancelled=1",
         allow_promotion_codes=True,
     )
     return RedirectResponse(session.url, status_code=303)
@@ -187,7 +193,7 @@ async def create_portal_session(
 
     portal = stripe.billing_portal.Session.create(
         customer=user.stripe_customer_id,
-        return_url=f"{settings.app_url}/dashboard/billing",
+        return_url=f"{external_base_url(request)}/dashboard/billing",
     )
     return RedirectResponse(portal.url, status_code=303)
 

@@ -14,3 +14,4 @@ celerybeat-schedule
 *.yml
 .env.local
 *.png
+.codex
