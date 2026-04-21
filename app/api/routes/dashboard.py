@@ -876,6 +876,7 @@ async def create_monitor_submit(
         interval_seconds=interval, timeout_seconds=timeout,
         target_host=host_clean, target_port=port_clean,
         warn_days_before_expiry=warn_clean,
+        next_check_at=func.now(),
     )
     db.add(monitor)
     await db.commit()
@@ -957,7 +958,9 @@ async def delete_alert_submit(channel_id: str, request: Request, db: AsyncSessio
 
 @router.post("/alerts/{channel_id}/test")
 async def test_alert_submit(channel_id: str, request: Request, db: AsyncSession = Depends(get_db)):
-    from app.services.alerts import send_test_alert
+    import asyncio
+
+    from app.services.alerts import send_test_alert_sync
 
     user = await _get_user_from_cookie(request, db)
     if not user:
@@ -975,7 +978,7 @@ async def test_alert_submit(channel_id: str, request: Request, db: AsyncSession 
 
     project_id = str(channel.project_id)
     try:
-        await send_test_alert(channel, project_name)
+        await asyncio.to_thread(send_test_alert_sync, channel, project_name)
     except Exception as e:
         return _redirect_with_flash(
             f"/dashboard/projects/{project_id}",
@@ -1108,6 +1111,7 @@ async def resume_monitor_submit(monitor_id: str, request: Request, db: AsyncSess
     if not monitor:
         raise HTTPException(status_code=404)
     monitor.is_active = True
+    monitor.next_check_at = func.now()
     await db.commit()
     return RedirectResponse(f"/dashboard/monitors/{monitor_id}", status_code=303)
 

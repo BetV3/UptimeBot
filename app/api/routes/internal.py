@@ -1,17 +1,26 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, status
-from sqlalchemy import select, update, and_, func
+from sqlalchemy import delete, select, update, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models.models import Check, CheckRegion, CheckStatus, Incident, Monitor, MonitorStatus, PendingCheck, WorkerHeartbeat
+from app.models.models import Check, CheckRegion, CheckStatus, Monitor, PendingCheck, WorkerHeartbeat
 from app.schemas.internal import CheckResultsBatch
-from app.services.alerts import dispatch_alerts
+from app.workers.tasks import finalize_check_result
 
 router = APIRouter()
 settings = get_settings()
+
+# A pending_check whose lease has been taken this many times without completing
+# gets reaped by the sweeper task. 3 attempts ≈ give transient failures two
+# retries before giving up.
+MAX_ATTEMPTS = 3
+
+# Slack added to monitor.timeout_seconds when computing a lease's expiry. Gives
+# the worker time to POST /internal/results after the check returns.
+LEASE_SLACK_SECONDS = 30
 
 
 async def verify_worker_secret(x_worker_secret: str = Header(...)):
@@ -24,38 +33,64 @@ async def get_jobs(
     region: CheckRegion = Query(...),
     limit: int = Query(default=50, le=200),
     db: AsyncSession = Depends(get_db),
+    x_worker_id: str = Header(default="unknown"),
 ):
-    # Fetch unclaimed pending checks for this region
-    result = await db.execute(
-        select(PendingCheck)
-        .where(
-            PendingCheck.region == region,
-            PendingCheck.claimed_at.is_(None),
+    # Atomically lease eligible pending_checks. A row is eligible when it is
+    # not dead, under the attempt cap, and either unleased or its lease has
+    # expired. FOR UPDATE SKIP LOCKED lets multiple pollers coexist without
+    # stepping on each other.
+    claim_sql = text(
+        """
+        WITH candidates AS (
+            SELECT pc.id, m.timeout_seconds
+            FROM pending_checks pc
+            JOIN monitors m ON m.id = pc.monitor_id
+            WHERE pc.region = :region
+              AND pc.dead = false
+              AND pc.attempts < :max_attempts
+              AND (pc.leased_at IS NULL OR pc.lease_expires_at < now())
+            ORDER BY pc.scheduled_at ASC
+            LIMIT :limit
+            FOR UPDATE OF pc SKIP LOCKED
         )
-        .order_by(PendingCheck.scheduled_at.asc())
-        .limit(limit)
+        UPDATE pending_checks pc
+        SET leased_at = now(),
+            lease_expires_at = now() + make_interval(secs => candidates.timeout_seconds + :slack),
+            worker_id = :worker_id,
+            attempts = pc.attempts + 1
+        FROM candidates
+        WHERE pc.id = candidates.id
+        RETURNING pc.id
+        """
     )
-    pending = result.scalars().all()
-
-    if not pending:
+    claimed = await db.execute(
+        claim_sql,
+        {
+            "region": region.value,
+            "limit": limit,
+            "max_attempts": MAX_ATTEMPTS,
+            "slack": LEASE_SLACK_SECONDS,
+            "worker_id": x_worker_id,
+        },
+    )
+    claimed_ids = [row[0] for row in claimed.fetchall()]
+    if not claimed_ids:
+        await db.commit()
         return {"jobs": []}
 
-    # Mark them as claimed
-    ids = [pc.id for pc in pending]
-    now = datetime.now(timezone.utc)
-    await db.execute(
-        update(PendingCheck)
-        .where(PendingCheck.id.in_(ids))
-        .values(claimed_at=now)
+    # Load the claimed pending_checks + their monitors for the response payload.
+    pending_result = await db.execute(
+        select(PendingCheck).where(PendingCheck.id.in_(claimed_ids))
     )
-    await db.commit()
+    pending = pending_result.scalars().all()
 
-    # Build response with monitor details
     monitor_ids = list({pc.monitor_id for pc in pending})
     monitors_result = await db.execute(
         select(Monitor).where(Monitor.id.in_(monitor_ids))
     )
     monitors_map = {m.id: m for m in monitors_result.scalars().all()}
+
+    await db.commit()
 
     jobs = []
     for pc in pending:
@@ -85,11 +120,13 @@ async def get_jobs(
 async def post_results(
     body: CheckResultsBatch,
     db: AsyncSession = Depends(get_db),
+    x_worker_id: str = Header(default="unknown"),
 ):
     if not body.results:
         return {"saved": 0}
 
-    # Save check results
+    # Save check results (always recorded — even a stale submission is useful
+    # history; consensus logic treats it as one of the latest-per-region rows).
     for r in body.results:
         check = Check(
             monitor_id=r.monitor_id,
@@ -104,92 +141,38 @@ async def post_results(
         )
         db.add(check)
 
-    # Delete the claimed pending checks
+    # Delete the pending_checks this worker owns. A stale submission (whose
+    # lease was reclaimed by someone else) will not match on worker_id and
+    # therefore won't wipe the other worker's in-flight lease.
+    now = datetime.now(timezone.utc)
     pending_ids = [r.pending_check_id for r in body.results]
     await db.execute(
-        update(PendingCheck)
-        .where(PendingCheck.id.in_(pending_ids))
-        .values(claimed_at=datetime.now(timezone.utc))
+        delete(PendingCheck)
+        .where(
+            PendingCheck.id.in_(pending_ids),
+            PendingCheck.worker_id == x_worker_id,
+        )
     )
 
-    await db.flush()
-
-    # Update monitor statuses using consensus logic
-    # Group results by monitor to determine status
+    # Mark each monitor as having just received a result. next_check_at is
+    # advanced by the scheduler when it enqueues, not here.
     monitor_ids = list({r.monitor_id for r in body.results})
-    for monitor_id in monitor_ids:
-        await _update_monitor_status(monitor_id, db)
+    await db.execute(
+        update(Monitor)
+        .where(Monitor.id.in_(monitor_ids))
+        .values(last_checked_at=now)
+    )
 
     await db.commit()
+
+    # Dispatch one finalize_check_result per unique monitor. The task runs
+    # under a per-monitor advisory lock so concurrent submissions from
+    # different regions serialize their consensus rollup. Commit first so
+    # the Celery worker sees the checks we just wrote.
+    for monitor_id in monitor_ids:
+        finalize_check_result.delay(str(monitor_id))
+
     return {"saved": len(body.results)}
-
-
-async def _update_monitor_status(monitor_id: str, db: AsyncSession):
-    """Update monitor status based on the most recent check round.
-
-    Consensus logic: look at the latest check from each region.
-    If 2+ regions report DOWN, the monitor is DOWN. Otherwise UP.
-    Also handles incident detection and alert dispatch on transitions.
-    """
-    # Get current monitor state
-    monitor_result = await db.execute(
-        select(Monitor).where(Monitor.id == monitor_id)
-    )
-    monitor = monitor_result.scalar_one_or_none()
-    if not monitor:
-        return
-
-    old_status = monitor.current_status
-
-    # Get the most recent check per region for this monitor
-    regions = [CheckRegion.US, CheckRegion.EU, CheckRegion.ASIA]
-    down_count = 0
-    total_checked = 0
-
-    for region in regions:
-        result = await db.execute(
-            select(Check.status)
-            .where(Check.monitor_id == monitor_id, Check.region == region)
-            .order_by(Check.checked_at.desc())
-            .limit(1)
-        )
-        latest = result.scalar_one_or_none()
-        if latest is not None:
-            total_checked += 1
-            if latest == CheckStatus.DOWN:
-                down_count += 1
-
-    if total_checked == 0:
-        return
-
-    new_status = MonitorStatus.DOWN if down_count >= 2 else MonitorStatus.UP
-    monitor.current_status = new_status
-
-    # Detect status transitions and manage incidents
-    now = datetime.now(timezone.utc)
-
-    if old_status != MonitorStatus.DOWN and new_status == MonitorStatus.DOWN:
-        # UP/UNKNOWN -> DOWN: create incident
-        incident = Incident(monitor_id=monitor.id, started_at=now)
-        db.add(incident)
-        await db.flush()
-        await dispatch_alerts(monitor, incident, "down", db)
-
-    elif old_status == MonitorStatus.DOWN and new_status == MonitorStatus.UP:
-        # DOWN -> UP: resolve open incident
-        result = await db.execute(
-            select(Incident)
-            .where(
-                Incident.monitor_id == monitor.id,
-                Incident.resolved_at.is_(None),
-            )
-            .order_by(Incident.started_at.desc())
-            .limit(1)
-        )
-        incident = result.scalar_one_or_none()
-        if incident:
-            incident.resolved_at = now
-            await dispatch_alerts(monitor, incident, "resolved", db)
 
 
 @router.post("/heartbeat", dependencies=[Depends(verify_worker_secret)])

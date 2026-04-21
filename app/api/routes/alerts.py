@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.models import AlertChannel, AlertType, Project, User
 from app.schemas.alerts import AlertChannelCreate, AlertChannelUpdate, AlertChannelResponse
-from app.services.alerts import send_test_alert
+from app.services.alerts import send_test_alert_sync
 from app.services.auth import get_current_user
 
 router = APIRouter()
@@ -127,7 +128,7 @@ async def test_alert_channel(
     project_name = proj_result.scalar() or "Unknown"
 
     try:
-        await send_test_alert(channel, project_name)
+        await asyncio.to_thread(send_test_alert_sync, channel, project_name)
         return {"status": "sent"}
     except Exception as e:
         raise HTTPException(

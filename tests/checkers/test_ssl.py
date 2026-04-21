@@ -114,3 +114,20 @@ def test_unparseable_not_after(patched_cert):
     result = SslChecker().run(_job())
     assert result.status == "down"
     assert "Unparseable" in result.error
+
+
+def test_retry_succeeds_after_transient_failure(patched_cert):
+    patched_cert.side_effect = [socket.timeout("flaky"), _cert(days_from_now=60)]
+    result = SslChecker().run(_job())
+    assert result.status == "up"
+    assert result.extra["cert_days_remaining"] >= 59
+
+
+def test_no_retry_on_ssl_error(patched_cert):
+    # SSLError is real signal (cert validation failure). Should NOT retry.
+    patched_cert.side_effect = ssl_lib.SSLError("handshake failed")
+    result = SslChecker().run(_job())
+    assert result.status == "down"
+    assert "TLS error" in result.error
+    # One call, no retry.
+    assert patched_cert.call_count == 1

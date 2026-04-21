@@ -5,6 +5,19 @@ import httpx
 from .base import CheckResult
 
 
+# Errors that are worth a single retry — transient network flakes. Status-code
+# mismatches are NOT here because they represent real signal; retrying would
+# just mask legitimate outages.
+TRANSIENT_ERRORS = (
+    httpx.TimeoutException,
+    httpx.ConnectError,
+    httpx.ReadError,
+    httpx.RemoteProtocolError,
+)
+
+RETRY_BACKOFF_SECONDS = 0.5
+
+
 class HttpChecker:
     def run(self, job: dict, client: httpx.Client) -> CheckResult:
         url = job["url"]
@@ -16,13 +29,13 @@ class HttpChecker:
 
         try:
             start = time.monotonic()
-            resp = client.request(
+            resp = self._request_with_retry(
+                client,
                 method=method,
                 url=url,
                 headers=headers,
                 content=body,
                 timeout=timeout,
-                follow_redirects=True,
             )
             elapsed_ms = int((time.monotonic() - start) * 1000)
         except httpx.TimeoutException:
@@ -37,3 +50,11 @@ class HttpChecker:
             status_code=resp.status_code,
             error=None if is_up else f"Expected {expected}, got {resp.status_code}",
         )
+
+    @staticmethod
+    def _request_with_retry(client: httpx.Client, **kwargs) -> httpx.Response:
+        try:
+            return client.request(follow_redirects=True, **kwargs)
+        except TRANSIENT_ERRORS:
+            time.sleep(RETRY_BACKOFF_SECONDS)
+            return client.request(follow_redirects=True, **kwargs)

@@ -7,6 +7,14 @@ from typing import Any
 from .base import CheckResult
 
 
+# Retry on socket-level flakes but NOT on ssl.SSLError — a cert validation
+# failure is real signal. ConnectionError covers refused/reset/aborted without
+# swallowing SSLError (which extends OSError but not ConnectionError).
+TRANSIENT_ERRORS = (socket.timeout, socket.gaierror, ConnectionError)
+
+RETRY_BACKOFF_SECONDS = 0.5
+
+
 def _parse_cert_datetime(raw: str) -> datetime:
     # Example: "Jun  1 12:00:00 2026 GMT"
     return datetime.strptime(raw, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
@@ -35,7 +43,7 @@ class SslChecker:
 
         try:
             start = time.monotonic()
-            cert = self._fetch_peer_cert(host, port, timeout)
+            cert = self._fetch_peer_cert_with_retry(host, port, timeout)
             elapsed_ms = int((time.monotonic() - start) * 1000)
         except socket.timeout:
             return CheckResult(status="down", error=f"Timeout after {timeout}s")
@@ -87,6 +95,13 @@ class SslChecker:
             response_time_ms=elapsed_ms,
             extra=extra,
         )
+
+    def _fetch_peer_cert_with_retry(self, host: str, port: int, timeout: int) -> dict:
+        try:
+            return self._fetch_peer_cert(host, port, timeout)
+        except TRANSIENT_ERRORS:
+            time.sleep(RETRY_BACKOFF_SECONDS)
+            return self._fetch_peer_cert(host, port, timeout)
 
     def _fetch_peer_cert(self, host: str, port: int, timeout: int) -> dict:
         ctx = ssl_lib.create_default_context()

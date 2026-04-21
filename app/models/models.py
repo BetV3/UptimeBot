@@ -125,6 +125,8 @@ class Monitor(Base):
     warn_days_before_expiry = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     current_status = Column(Enum(MonitorStatus), default=MonitorStatus.UNKNOWN, nullable=False)
+    last_checked_at = Column(DateTime(timezone=True), nullable=True)
+    next_check_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     project = relationship("Project", back_populates="monitors")
@@ -219,6 +221,38 @@ class PendingCheck(Base):
     monitor_id = Column(UUID(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False, index=True)
     region = Column(Enum(CheckRegion), nullable=False)
     scheduled_at = Column(DateTime(timezone=True), server_default=func.now())
-    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    leased_at = Column(DateTime(timezone=True), nullable=True)
+    lease_expires_at = Column(DateTime(timezone=True), nullable=True)
+    worker_id = Column(String(255), nullable=True)
+    attempts = Column(Integer, nullable=False, default=0, server_default="0")
+    dead = Column(Boolean, nullable=False, default=False, server_default="false")
 
     monitor = relationship("Monitor")
+
+
+class AlertDeliveryKind(str, enum.Enum):
+    DOWN = "down"
+    RESOLVED = "resolved"
+
+
+class AlertDeliveryState(str, enum.Enum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+
+class AlertDelivery(Base):
+    __tablename__ = "alert_deliveries"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    incident_id = Column(UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False)
+    alert_channel_id = Column(UUID(as_uuid=True), ForeignKey("alert_channels.id", ondelete="CASCADE"), nullable=False)
+    kind = Column(String(16), nullable=False)
+    state = Column(String(16), nullable=False, default=AlertDeliveryState.PENDING.value, server_default="pending")
+    attempts = Column(Integer, nullable=False, default=0, server_default="0")
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+
+    incident = relationship("Incident")
+    alert_channel = relationship("AlertChannel")

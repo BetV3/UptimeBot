@@ -63,6 +63,8 @@ def test_respects_expected_status(httpx_mock: HTTPXMock, client):
 
 
 def test_down_on_timeout(httpx_mock: HTTPXMock, client):
+    # Registered twice: the checker retries once on transient failures.
+    httpx_mock.add_exception(httpx.ConnectTimeout("slow"))
     httpx_mock.add_exception(httpx.ConnectTimeout("slow"))
     result = HttpChecker().run(_job(timeout_seconds=1), client)
     assert result.status == "down"
@@ -70,10 +72,20 @@ def test_down_on_timeout(httpx_mock: HTTPXMock, client):
 
 
 def test_down_on_network_error(httpx_mock: HTTPXMock, client):
+    # Registered twice: the checker retries once on transient failures.
+    httpx_mock.add_exception(httpx.ConnectError("dns fail"))
     httpx_mock.add_exception(httpx.ConnectError("dns fail"))
     result = HttpChecker().run(_job(), client)
     assert result.status == "down"
     assert "dns fail" in result.error
+
+
+def test_retry_succeeds_after_transient_failure(httpx_mock: HTTPXMock, client):
+    httpx_mock.add_exception(httpx.ConnectError("flaky"))
+    httpx_mock.add_response(url="https://example.com/health", status_code=200)
+    result = HttpChecker().run(_job(), client)
+    assert result.status == "up"
+    assert result.status_code == 200
 
 
 def test_follows_redirects(httpx_mock: HTTPXMock, client):

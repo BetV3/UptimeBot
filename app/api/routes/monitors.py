@@ -86,6 +86,7 @@ async def create_monitor(
         timeout_seconds=body.timeout_seconds,
         headers=body.headers,
         body=body.body,
+        next_check_at=func.now(),
     )
     db.add(monitor)
     await db.commit()
@@ -171,6 +172,7 @@ async def resume_monitor(
 ):
     monitor = await _get_user_monitor(monitor_id, current_user, db)
     monitor.is_active = True
+    monitor.next_check_at = func.now()
     await db.commit()
     await db.refresh(monitor)
     return _monitor_to_response(monitor)

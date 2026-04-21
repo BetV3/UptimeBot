@@ -17,8 +17,14 @@ services:
 
   redis:
     image: redis:7-alpine
+    # AOF with everysec fsync: recover in-flight Celery tasks on restart
+    # with at most ~1s of loss. Without this, a hard crash between the
+    # API dispatching a task and the worker picking it up is silent.
+    command: redis-server --appendonly yes --appendfsync everysec --dir /data
     ports:
       - "6380:6379"
+    volumes:
+      - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -43,7 +49,21 @@ services:
 
   celery-worker:
     build: .
-    command: celery -A app.workers.celery_app worker --loglevel=info
+    command: celery -A app.workers.celery_app worker --loglevel=info -Q default
+    volumes:
+      - .:/code
+    env_file:
+      - .env
+      - .env.local
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-alerts-worker:
+    build: .
+    command: celery -A app.workers.celery_app worker --loglevel=info -Q alerts --concurrency=4
     volumes:
       - .:/code
     env_file:
@@ -69,5 +89,22 @@ services:
       redis:
         condition: service_healthy
 
+  flower:
+    build: .
+    # FLOWER_BASIC_AUTH must be set in .env.local as "user:password"; the
+    # service will not start without it in prod.
+    command: celery -A app.workers.celery_app flower --port=5555 --url_prefix=flower
+    ports:
+      - "5555:5555"
+    volumes:
+      - .:/code
+    env_file:
+      - .env
+      - .env.local
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:
+  redisdata:

@@ -1,0 +1,45 @@
+[Unit]
+Description=CheckPulse regional check worker
+Documentation=https://github.com/BetV3/UptimeBot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=checkpulse
+Group=checkpulse
+
+# Path to the checkout on the VPS. Adjust if deploying elsewhere.
+WorkingDirectory=/opt/checkpulse/worker
+
+# Secrets and per-VPS config (REGION, API_URL, WORKER_SECRET, WORKER_ID).
+# Keep this file chmod 600, root:checkpulse.
+EnvironmentFile=/etc/checkpulse/worker.env
+
+# Runs run.py from the worker checkout. Assumes /opt/checkpulse/venv has
+# the dependencies in worker/requirements.txt installed.
+ExecStart=/opt/checkpulse/venv/bin/python /opt/checkpulse/worker/run.py
+
+# Restart on any non-zero exit; back off so a crash loop doesn't spam.
+Restart=on-failure
+RestartSec=5s
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Hardening: no new privileges, read-only system paths, limited writes.
+# /var/log/checkpulse is the only writable path we need (for the worker's
+# stderr/stdout if journald ever gets overwhelmed). Adjust if your log
+# setup differs.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/log/checkpulse
+
+# Journald captures stdout/stderr; 'journalctl -u checkpulse-worker -f'
+# is how you tail logs on the VPS.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
