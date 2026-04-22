@@ -37,6 +37,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = (".env", ".env.local")
+        extra = "ignore"
 
 
 @lru_cache()
