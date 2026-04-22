@@ -17,7 +17,7 @@ class PlanLimits:
 PLAN_LIMITS: dict[PlanType, PlanLimits] = {
     PlanType.FREE: PlanLimits(max_projects=1, max_monitors=3, min_interval_seconds=300),
     PlanType.STARTER: PlanLimits(max_projects=3, max_monitors=10, min_interval_seconds=60),
-    PlanType.PRO: PlanLimits(max_projects=None, max_monitors=50, min_interval_seconds=30),
+    PlanType.PRO: PlanLimits(max_projects=10, max_monitors=50, min_interval_seconds=30),
 }
 
 

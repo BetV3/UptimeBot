@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CheckPulse — Reliability Platform for Bot Developers</title>
+    <title>CheckPulse — Monitoring for agencies managing client websites</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -913,13 +913,13 @@
         <div class="container">
             <div class="hero-grid">
                 <div>
-                    <h1>Your bot goes down.<br>Your users complain.<br>You find out last.</h1>
-                    <p class="hero-sub">CheckPulse detects the failures your users actually feel and communicates incidents automatically &mdash; before your community notices.</p>
+                    <h1>Monitoring for agencies<br>managing client<br>websites.</h1>
+                    <p class="hero-sub">Catch uptime, DNS, SSL, and regional latency issues across client sites before your clients do.</p>
                     <div class="hero-ctas">
-                        <a href="/dashboard/register" class="btn btn-primary btn-large">Start Monitoring Free</a>
+                        <a href="/dashboard/register" class="btn btn-primary btn-large">Start Free</a>
                         <a href="#how-it-works" class="btn btn-outline btn-large">See How It Works</a>
                     </div>
-                    <p class="hero-trust">Free forever for 1 bot. No credit card required.</p>
+                    <p class="hero-trust">Free to start. No credit card required.</p>
                 </div>
                 <div class="terminal">
                     <div class="terminal-bar">
@@ -929,18 +929,18 @@
                         <span class="terminal-title">checkpulse-cli</span>
                     </div>
                     <div class="terminal-body" id="terminal-body">
-                        <div class="terminal-line"><span class="cmd">$ checkpulse check --all-regions</span></div>
-                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="ok">&#10003;</span> Bot API &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">142ms</span> &nbsp;<span class="ok">200 OK</span></div>
-                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="ok">&#10003;</span> Bot API &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">198ms</span> &nbsp;<span class="ok">200 OK</span></div>
-                        <div class="terminal-line"><span class="region">[AP-South]</span> <span class="ok">&#10003;</span> Bot API &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">231ms</span> &nbsp;<span class="ok">200 OK</span></div>
-                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="ok">&#10003;</span> Gateway Shard 0 &nbsp;<span class="dim">&nbsp;42ms</span> &nbsp;<span class="ok">Connected</span></div>
-                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="ok">&#10003;</span> Gateway Shard 0 &nbsp;<span class="dim">&nbsp;67ms</span> &nbsp;<span class="ok">Connected</span></div>
-                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="fail">&#10007;</span> Cmd Handler &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">Timeout</span></div>
-                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="fail">&#10007;</span> Cmd Handler &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">Timeout</span></div>
+                        <div class="terminal-line"><span class="cmd">$ checkpulse check --all-sites</span></div>
+                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="ok">&#10003;</span> acme-client.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">142ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="ok">&#10003;</span> acme-client.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">198ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[AP-South]</span> <span class="ok">&#10003;</span> acme-client.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">231ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="ok">&#10003;</span> studio-portfolio.net &nbsp;<span class="dim">&nbsp;87ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="ok">&#10003;</span> studio-portfolio.net &nbsp;<span class="dim">104ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="fail">&#10007;</span> boutique-shop.co &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">DNS timeout</span></div>
+                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="fail">&#10007;</span> boutique-shop.co &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">DNS timeout</span></div>
                         <div class="terminal-line">&nbsp;</div>
-                        <div class="terminal-line"><span class="warn">&#9888; Incident created:</span> <span class="text">Cmd Handler degraded (2/3 regions)</span></div>
-                        <div class="terminal-line"><span class="dim">&nbsp;&nbsp;&#8627; Discord webhook sent to #ops-alerts</span></div>
-                        <div class="terminal-line"><span class="dim">&nbsp;&nbsp;&#8627; Trust page updated</span></div>
+                        <div class="terminal-line"><span class="warn">&#9888; Incident created:</span> <span class="text">boutique-shop.co DNS failing (2/3 regions)</span></div>
+                        <div class="terminal-line"><span class="dim">&nbsp;&nbsp;&#8627; Slack alert sent to #client-ops</span></div>
+                        <div class="terminal-line"><span class="dim">&nbsp;&nbsp;&#8627; Status page updated</span></div>
                         <div class="terminal-line cursor-blink"><span class="cmd">$</span></div>
                     </div>
                 </div>
@@ -953,25 +953,25 @@
     <!-- ── Problem ── -->
     <section class="problem" id="problem">
         <div class="container">
-            <h2 class="fade-in">Generic monitoring tools don't understand bots.</h2>
+            <h2 class="fade-in">Managing multiple client sites gets messy fast.</h2>
             <div class="problem-grid">
                 <div class="problem-card fade-in stagger-1">
                     <div class="problem-icon">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
-                    <p>They check if a URL returns 200. They don't know if your slash commands are timing out.</p>
+                    <p>A site goes down, an SSL cert expires, a DNS record changes &mdash; and you find out when the client emails support.</p>
                 </div>
                 <div class="problem-card fade-in stagger-2">
                     <div class="problem-icon">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     </div>
-                    <p>They send you an email. They don't post an incident embed in your support server.</p>
+                    <p>Monitoring is pieced together across tools, spreadsheets, and manual checks that quietly fall out of date.</p>
                 </div>
                 <div class="problem-card fade-in stagger-3">
                     <div class="problem-icon">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
-                    <p>They can't tell the difference between your bot failing and Discord itself being down.</p>
+                    <p>When something breaks, it's hard to tell whether it's downtime, DNS, SSL, or just one slow region.</p>
                 </div>
             </div>
         </div>
@@ -982,53 +982,49 @@
     <!-- ── Features ── -->
     <section class="features" id="features">
         <div class="container">
-            <h2 class="fade-in">Built for how bots actually break.</h2>
+            <h2 class="fade-in">Built for multi-site responsibility, not just single-site uptime.</h2>
             <div class="features-grid">
                 <div class="feature-card fade-in stagger-1">
                     <div class="feature-icon purple">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                     </div>
-                    <h3>Bot-Native Health Checks</h3>
-                    <p>Monitor interaction ack latency, gateway heartbeat health, command success rates, and webhook delivery &mdash; not just HTTP status codes.</p>
+                    <h3>Uptime monitoring</h3>
+                    <p>Know when a client site goes down without waiting for the support email. One dashboard across every property you're responsible for.</p>
                 </div>
                 <div class="feature-card fade-in stagger-2">
                     <div class="feature-icon cyan">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
-                    <h3>Metrics SDK</h3>
-                    <p>Drop a few lines of code into your bot. We track command success rates, response times, and processing lag from the inside.</p>
-                    <div class="feature-code">
-                        <span class="kw">import</span> checkpulse<br>
-                        checkpulse.<span class="fn">track_command</span>(<span class="str">"/play"</span>, latency_ms=<span class="num">120</span>, success=<span class="num">True</span>)
-                    </div>
+                    <h3>DNS monitoring</h3>
+                    <p>Spot broken or changed DNS records before they quietly take traffic down. Catch propagation issues on the same day they happen.</p>
                 </div>
                 <div class="feature-card fade-in stagger-3">
                     <div class="feature-icon purple">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                     </div>
-                    <h3>Auto Incident Communication</h3>
-                    <p>When something breaks, we push rich Discord embeds to your support server, update your trust page, and notify via Telegram, email, or webhook. Automatically.</p>
+                    <h3>SSL monitoring</h3>
+                    <p>Stay ahead of certificate expiry and chain-of-trust failures. No more preventable browser warnings scaring your clients' visitors.</p>
                 </div>
                 <div class="feature-card fade-in stagger-4">
                     <div class="feature-icon cyan">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
-                    <h3>Platform Correlation</h3>
-                    <p>We monitor Discord and Telegram's own infrastructure. When the platform is degraded, we annotate your incidents so users stop blaming your bot.</p>
+                    <h3>Regional latency</h3>
+                    <p>Checks run from the US, Europe, and Asia. Understand whether slowness is global or isolated before escalating the wrong thing.</p>
                 </div>
                 <div class="feature-card fade-in stagger-5">
                     <div class="feature-icon purple">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                     </div>
-                    <h3>Trust Pages</h3>
-                    <p>A public page your community can check instead of DMing you. Shows real-time status, 90-day uptime, incident history, and platform context.</p>
+                    <h3>Smart alerts</h3>
+                    <p>Slack, email, or webhook &mdash; routed per site so the right person sees it. We only alert when 2 of 3 regions confirm the issue, so you don't get paged for a flaky route.</p>
                 </div>
                 <div class="feature-card fade-in stagger-6">
                     <div class="feature-icon cyan">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     </div>
-                    <h3>Multi-Region Checks</h3>
-                    <p>Every check runs from US, Europe, and Asia. We only alert when 2+ regions confirm the problem. No more false alarms from one flaky route.</p>
+                    <h3>Client status pages</h3>
+                    <p>A clean public page per client with real-time status, 90-day uptime, and incident history. Share the link instead of fielding "is it up?" emails.</p>
                 </div>
             </div>
         </div>
@@ -1043,18 +1039,18 @@
             <div class="steps">
                 <div class="step fade-in stagger-1">
                     <div class="step-num">1</div>
-                    <h3>Register your bot</h3>
-                    <p>Pick Discord or Telegram, name your bot, get your API key.</p>
+                    <h3>Add a client site</h3>
+                    <p>Paste the URL, name the project, pick the client. Works for any number of properties.</p>
                 </div>
                 <div class="step fade-in stagger-2">
                     <div class="step-num">2</div>
-                    <h3>Add monitors + alerts</h3>
-                    <p>Paste your health endpoint, connect your Discord webhook, set thresholds.</p>
+                    <h3>Pick what to track</h3>
+                    <p>Uptime, DNS, SSL, and regional latency &mdash; toggle what matters for each site.</p>
                 </div>
                 <div class="step fade-in stagger-3">
                     <div class="step-num">3</div>
-                    <h3>Install the SDK (optional)</h3>
-                    <p>Add 3 lines to your bot for command-level observability.</p>
+                    <h3>Route the alerts</h3>
+                    <p>Slack, email, or webhook &mdash; per site, so the right person gets paged for the right client.</p>
                 </div>
             </div>
         </div>
@@ -1065,7 +1061,7 @@
     <!-- ── Trust Page Mockup ── -->
     <section class="trust-demo" id="trust-demo">
         <div class="container">
-            <h2 class="fade-in">What your trust page looks like</h2>
+            <h2 class="fade-in">One status page per client.</h2>
             <div class="trust-mockup fade-in">
                 <div class="trust-browser-bar">
                     <div class="dots">
@@ -1073,14 +1069,14 @@
                         <div class="dot a"></div>
                         <div class="dot g"></div>
                     </div>
-                    <div class="trust-url-bar">checkpulse.dev/status/melody-bot</div>
+                    <div class="trust-url-bar">checkpulse.dev/status/acme-studio</div>
                 </div>
                 <div class="trust-content">
                     <div class="trust-header">
-                        <div class="trust-bot-logo">M</div>
+                        <div class="trust-bot-logo">A</div>
                         <div>
-                            <div class="trust-bot-name">Melody Bot</div>
-                            <div class="trust-bot-sub">Music bot for Discord</div>
+                            <div class="trust-bot-name">Acme Studio</div>
+                            <div class="trust-bot-sub">Client sites &middot; managed by Acme Studio</div>
                         </div>
                     </div>
                     <div class="trust-status-banner">
@@ -1091,21 +1087,21 @@
                         <div class="trust-monitor">
                             <div class="trust-monitor-left">
                                 <div class="trust-monitor-dot up"></div>
-                                <span class="trust-monitor-name">Bot API</span>
+                                <span class="trust-monitor-name">acme-client.com</span>
                             </div>
                             <span class="trust-monitor-uptime">99.97%</span>
                         </div>
                         <div class="trust-monitor">
                             <div class="trust-monitor-left">
                                 <div class="trust-monitor-dot up"></div>
-                                <span class="trust-monitor-name">Gateway Shard 0</span>
+                                <span class="trust-monitor-name">studio-portfolio.net</span>
                             </div>
                             <span class="trust-monitor-uptime">99.99%</span>
                         </div>
                         <div class="trust-monitor">
                             <div class="trust-monitor-left">
                                 <div class="trust-monitor-dot up"></div>
-                                <span class="trust-monitor-name">Command Handler</span>
+                                <span class="trust-monitor-name">boutique-shop.co</span>
                             </div>
                             <span class="trust-monitor-uptime">99.94%</span>
                         </div>
@@ -1116,14 +1112,14 @@
                     </div>
                     <div class="trust-incident">
                         <div class="trust-incident-header">
-                            <span class="trust-incident-title">Command Handler latency spike</span>
+                            <span class="trust-incident-title">boutique-shop.co DNS resolution failing</span>
                             <span class="trust-incident-badge resolved">Resolved</span>
                         </div>
                         <div class="trust-incident-detail">Mar 28, 2026 &mdash; 14:32 UTC &middot; Duration: 8 min &middot; 2 regions affected</div>
                     </div>
                     <div class="trust-platform">
                         <div class="trust-platform-dot"></div>
-                        <span class="trust-platform-text">Discord API: Operational</span>
+                        <span class="trust-platform-text">Checks running from 3 regions &middot; US, EU, Asia</span>
                     </div>
                 </div>
             </div>
@@ -1145,13 +1141,12 @@
                         <span class="pricing-amount">$0</span>
                         <span class="pricing-period">/month</span>
                     </div>
-                    <div class="pricing-desc">Perfect for side projects and hobby bots.</div>
+                    <div class="pricing-desc">For evaluation and light monitoring.</div>
                     <ul class="pricing-features">
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1 bot</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1 site</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 3 monitors</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 5-minute intervals</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Basic trust page</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Discord + email alerts</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Email alerts</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 7-day history</li>
                     </ul>
                     <a href="/dashboard/register" class="btn btn-outline">Start Free</a>
@@ -1164,14 +1159,14 @@
                         <span class="pricing-amount">$12</span>
                         <span class="pricing-period">/month</span>
                     </div>
-                    <div class="pricing-desc">For bot developers who take uptime seriously.</div>
+                    <div class="pricing-desc">For solo operators and small production setups.</div>
                     <ul class="pricing-features">
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 3 bots</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 3 sites</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 10 monitors</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1-minute intervals</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> All monitor types + SDK</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Platform correlation</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Custom domain</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Uptime, DNS, SSL, latency</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Slack, email &amp; webhook alerts</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Basic status page</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 90-day history</li>
                     </ul>
                     <a href="/dashboard/billing?upgrade=starter" class="btn btn-primary">Start Starter</a>
@@ -1183,12 +1178,13 @@
                         <span class="pricing-amount">$49</span>
                         <span class="pricing-period">/month</span>
                     </div>
-                    <div class="pricing-desc">For teams running multiple production bots.</div>
+                    <div class="pricing-desc">For agencies and multi-site operators managing client properties.</div>
                     <ul class="pricing-features">
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Unlimited bots</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 10 sites</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 50 monitors</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 30-second intervals</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Branded trust pages</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Custom domain</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Branded status pages</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Priority support</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1-year history</li>
                     </ul>
@@ -1204,23 +1200,23 @@
     <!-- ── Social Proof ── -->
     <section class="social-proof">
         <div class="container">
-            <h2 class="fade-in">Built by infrastructure engineers for bot creators.</h2>
+            <h2 class="fade-in">Built for people responsible for many sites.</h2>
             <div class="badges fade-in">
                 <div class="badge">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Checks from 3 continents
+                    Checks from 3 regions
                 </div>
                 <div class="badge">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                     Sub-60-second incident detection
                 </div>
                 <div class="badge">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    Discord and Telegram native
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    Uptime, DNS, SSL &amp; latency
                 </div>
                 <div class="badge">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-                    Open-source SDK
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    A status page for every client
                 </div>
             </div>
         </div>
@@ -1232,9 +1228,9 @@
     <section class="final-cta">
         <div class="container">
             <div class="cta-card fade-in">
-                <h2>Your bot deserves better than "is it down?"</h2>
-                <p>Start monitoring in under 60 seconds. Free forever for 1 bot.</p>
-                <a href="/dashboard/register" class="btn btn-primary btn-large">Get Started Free</a>
+                <h2>Catch issues before your clients do.</h2>
+                <p>Start monitoring your client sites in under 60 seconds. Free to try.</p>
+                <a href="/dashboard/register" class="btn btn-primary btn-large">Start Free</a>
             </div>
         </div>
     </section>

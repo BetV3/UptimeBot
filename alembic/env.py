@@ -1,11 +1,17 @@
+import sys
+from pathlib import Path
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
+# Make the repo root importable so `from app...` works regardless of cwd
+# or how alembic was invoked (console script vs `python -m alembic`).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 # Import Base so Alembic sees all models
 from app.core.database import Base
-from app.models.models import *  # noqa: F401, F403
-from app.core.config import get_settings
+from app.models.models import *  # noqa: F401, F403, E402
+from app.core.config import get_settings  # noqa: E402
 
 config = context.config
 
