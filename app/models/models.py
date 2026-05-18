@@ -27,7 +27,17 @@ class HttpMethod(str, enum.Enum):
 class MonitorType(str, enum.Enum):
     HTTP = "http"
     SSL = "ssl"
-    # DNS, API added in later phases as dedicated columns land.
+    DNS = "dns"
+    # API added in a later phase as dedicated columns land.
+
+
+class DnsRecordType(str, enum.Enum):
+    A = "A"
+    AAAA = "AAAA"
+    CNAME = "CNAME"
+    MX = "MX"
+    TXT = "TXT"
+    NS = "NS"
 
 
 class MonitorStatus(str, enum.Enum):
@@ -123,6 +133,9 @@ class Monitor(Base):
     target_host = Column(String(255), nullable=True)
     target_port = Column(Integer, nullable=True)
     warn_days_before_expiry = Column(Integer, nullable=True)
+    dns_record_type = Column(Enum(DnsRecordType), nullable=True)
+    dns_expected_value = Column(Text, nullable=True)
+    dns_resolver = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     current_status = Column(Enum(MonitorStatus), default=MonitorStatus.UNKNOWN, nullable=False)
     last_checked_at = Column(DateTime(timezone=True), nullable=True)
@@ -147,6 +160,7 @@ class Check(Base):
     cert_days_remaining = Column(Integer, nullable=True)
     cert_subject = Column(String(512), nullable=True)
     cert_issuer = Column(String(512), nullable=True)
+    dns_resolved_values = Column(Text, nullable=True)
     checked_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     monitor = relationship("Monitor", back_populates="checks")
