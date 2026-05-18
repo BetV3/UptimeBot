@@ -36,6 +36,8 @@
         <span class="text-ink-dim break-all">
         {% if monitor.type == 'ssl' %}
             {{ monitor.target_host }}:{{ monitor.target_port }} &middot; warn at {{ monitor.warn_days_before_expiry if monitor.warn_days_before_expiry is not none else '—' }}d &middot; every {{ monitor.interval_seconds }}s
+        {% elif monitor.type == 'dns' %}
+            {{ monitor.target_host }} &middot; {{ monitor.dns_record_type }} &middot; every {{ monitor.interval_seconds }}s
         {% else %}
             {{ monitor.url }} &middot; {{ monitor.method }} &middot; every {{ monitor.interval_seconds }}s
         {% endif %}
@@ -73,6 +75,38 @@
             <div class="text-sm text-ink-muted font-mono break-all">{{ latest_cert.issuer or '—' }}</div>
         </div>
     </div>
+</div>
+{% endif %}
+
+{% if monitor.type == 'dns' %}
+<div class="bc-card p-5 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xs font-mono uppercase tracking-wider text-ink-muted">// DNS</h2>
+        {% if latest_dns %}
+            {% if latest_dns.status == 'up' %}
+            <span class="bc-pill bc-pill--up">Matching</span>
+            {% else %}
+            <span class="bc-pill bc-pill--down">Mismatch</span>
+            {% endif %}
+        {% endif %}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Record</div>
+            <div class="text-sm text-ink font-mono break-all">{{ monitor.target_host }} <span class="text-ink-dim">/</span> {{ monitor.dns_record_type }}</div>
+        </div>
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Expected</div>
+            <div class="text-sm text-ink-muted font-mono break-all">{{ monitor.dns_expected_value or '—' }}</div>
+        </div>
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Last resolved</div>
+            <div class="text-sm text-ink-muted font-mono break-all">{{ latest_dns.resolved_values if latest_dns else '—' }}</div>
+        </div>
+    </div>
+    {% if monitor.dns_resolver %}
+    <div class="mt-4 text-xs font-mono text-ink-dim">Resolver: {{ monitor.dns_resolver }}</div>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -203,6 +237,29 @@
                 <div>
                     <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Warn Days Before Expiry</label>
                     <input type="number" name="warn_days_before_expiry" value="{{ monitor.warn_days_before_expiry if monitor.warn_days_before_expiry is not none else '' }}" min="0" max="365">
+                </div>
+                {% elif monitor.type == 'dns' %}
+                <div class="grid grid-cols-[1fr_140px] gap-3">
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Hostname</label>
+                        <input type="text" name="target_host" value="{{ monitor.target_host or '' }}" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Record Type</label>
+                        <select name="dns_record_type">
+                            {% for rt in ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS'] %}
+                            <option value="{{ rt }}" {% if monitor.dns_record_type == rt %}selected{% endif %}>{{ rt }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Expected Value(s)</label>
+                    <input type="text" name="dns_expected_value" value="{{ monitor.dns_expected_value or '' }}" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Resolver (optional)</label>
+                    <input type="text" name="dns_resolver" value="{{ monitor.dns_resolver or '' }}" placeholder="8.8.8.8">
                 </div>
                 {% else %}
                 <div>

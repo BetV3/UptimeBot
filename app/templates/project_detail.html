@@ -57,7 +57,7 @@
                     <div class="min-w-0 flex-1">
                         <div class="font-medium text-ink group-hover:text-brand transition truncate">{{ m.name }}</div>
                         <div class="text-xs text-ink-dim font-mono truncate">
-                            {% if m.type == 'ssl' %}{{ m.target_host }}:{{ m.target_port }}{% else %}{{ m.url }}{% endif %}
+                            {% if m.type == 'ssl' %}{{ m.target_host }}:{{ m.target_port }}{% elif m.type == 'dns' %}{{ m.target_host }} ({{ m.dns_record_type }}){% else %}{{ m.url }}{% endif %}
                         </div>
                     </div>
                 </div>
@@ -210,6 +210,7 @@
                     <select name="type" id="monitor-type" onchange="updateMonitorFields()">
                         <option value="http">HTTP / HTTPS</option>
                         <option value="ssl">SSL Certificate</option>
+                        <option value="dns">DNS Record</option>
                     </select>
                 </div>
                 <div>
@@ -251,6 +252,35 @@
                         <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Warn Days Before Expiry</label>
                         <input type="number" name="warn_days_before_expiry" value="14" min="0" max="365">
                         <p class="text-xs text-ink-dim mt-1.5">Monitor reports down when the cert is expired or within this many days of expiring.</p>
+                    </div>
+                </div>
+                <div id="dns-monitor-fields" class="hidden space-y-4">
+                    <div class="grid grid-cols-[1fr_140px] gap-3">
+                        <div>
+                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Hostname</label>
+                            <input type="text" name="target_host" placeholder="example.com">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Record Type</label>
+                            <select name="dns_record_type">
+                                <option value="A">A</option>
+                                <option value="AAAA">AAAA</option>
+                                <option value="CNAME">CNAME</option>
+                                <option value="MX">MX</option>
+                                <option value="TXT">TXT</option>
+                                <option value="NS">NS</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Expected Value(s)</label>
+                        <input type="text" name="dns_expected_value" placeholder="1.2.3.4, 5.6.7.8">
+                        <p class="text-xs text-ink-dim mt-1.5">Comma-separated. Monitor is up only if every value below is present in the resolved record set.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Resolver (optional)</label>
+                        <input type="text" name="dns_resolver" placeholder="8.8.8.8">
+                        <p class="text-xs text-ink-dim mt-1.5">Leave blank to use the worker's system resolver.</p>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -371,6 +401,7 @@ function updateMonitorFields() {
     const type = document.getElementById('monitor-type').value;
     document.getElementById('http-monitor-fields').classList.toggle('hidden', type !== 'http');
     document.getElementById('ssl-monitor-fields').classList.toggle('hidden', type !== 'ssl');
+    document.getElementById('dns-monitor-fields').classList.toggle('hidden', type !== 'dns');
 }
 
 function updateAlertFields() {

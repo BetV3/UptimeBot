@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.http import external_base_url, should_secure_cookie
 from app.models.models import (
-    AlertChannel, AlertType, Check, CheckStatus, Incident,
+    AlertChannel, AlertType, Check, CheckStatus, DnsRecordType, Incident,
     Monitor, MonitorStatus, MonitorType, HttpMethod, PlanType, Project, StatusPage, User,
 )
 from app.services.auth import (
@@ -193,6 +193,53 @@ def _validate_ssl_fields(
         raise HTTPException(status_code=400, detail="Timeout can't exceed 60 seconds.")
 
     return name, host, port, warn_days
+
+
+def _validate_dns_fields(
+    name: str, host: str, record_type: str, expected_value: str, resolver: str,
+    interval: int, timeout: int,
+) -> tuple[str, str, DnsRecordType, str, str | None]:
+    name = (name or "").strip()
+    host = (host or "").strip()
+    expected_value = (expected_value or "").strip()
+    resolver = (resolver or "").strip()
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Monitor name can't be blank.")
+    if len(name) > MONITOR_NAME_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Monitor name is too long — keep it to {MONITOR_NAME_MAX} characters or fewer.",
+        )
+    if not host:
+        raise HTTPException(status_code=400, detail="Target host can't be blank.")
+    if "://" in host or "/" in host:
+        raise HTTPException(
+            status_code=400,
+            detail="Target host should be a hostname like example.com — no scheme or path.",
+        )
+    if "." not in host:
+        raise HTTPException(
+            status_code=400,
+            detail=f"“{host}” isn't a valid hostname.",
+        )
+
+    try:
+        rtype = DnsRecordType(record_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"“{record_type}” isn't a supported DNS record type.")
+
+    if not expected_value:
+        raise HTTPException(status_code=400, detail="Expected value can't be blank.")
+    if len(expected_value) > 2000:
+        raise HTTPException(status_code=400, detail="Expected value is too long.")
+
+    if timeout >= interval:
+        raise HTTPException(status_code=400, detail="Timeout must be less than the check interval.")
+    if timeout > 60:
+        raise HTTPException(status_code=400, detail="Timeout can't exceed 60 seconds.")
+
+    return name, host, rtype, expected_value, (resolver or None)
 
 
 async def _check_duplicate_monitor_name(
@@ -794,6 +841,7 @@ async def project_detail_page(project_id: str, request: Request, db: AsyncSessio
                 "id": str(m.id), "name": m.name, "url": m.url,
                 "type": m.type.value,
                 "target_host": m.target_host, "target_port": m.target_port,
+                "dns_record_type": m.dns_record_type.value if m.dns_record_type else None,
                 "current_status": m.current_status.value, "is_active": m.is_active,
             }
             for m in monitors
@@ -824,6 +872,9 @@ async def create_monitor_submit(
     target_host: str = Form(""),
     target_port: str = Form("443"),
     warn_days_before_expiry: str = Form("14"),
+    dns_record_type: str = Form("A"),
+    dns_expected_value: str = Form(""),
+    dns_resolver: str = Form(""),
     interval_seconds: str = Form(""),
     timeout_seconds: str = Form(""),
     db: AsyncSession = Depends(get_db),
@@ -847,13 +898,15 @@ async def create_monitor_submit(
         interval = _parse_int_field(interval_seconds, "Check interval")
         timeout = _parse_int_field(timeout_seconds, "Timeout")
 
+        host_clean, port_clean, warn_clean = None, None, None
+        dns_rtype_clean, dns_expected_clean, dns_resolver_clean = None, None, None
+
         if monitor_type == MonitorType.HTTP:
             expected = _parse_int_field(expected_status, "Expected status", min_value=100, max_value=599)
             name_clean, url_clean, http_method = _validate_monitor_fields(
                 name, url, interval, timeout, method
             )
-            host_clean, port_clean, warn_clean = None, None, None
-        else:
+        elif monitor_type == MonitorType.SSL:
             port = _parse_int_field(target_port, "Port", min_value=1, max_value=65535)
             warn_raw = (warn_days_before_expiry or "").strip()
             warn = _parse_int_field(warn_days_before_expiry, "Warn days", min_value=0, max_value=365) if warn_raw else None
@@ -861,6 +914,14 @@ async def create_monitor_submit(
                 name, target_host, port, warn, interval, timeout
             )
             url_clean = f"https://{host_clean}:{port_clean}"
+            http_method = HttpMethod.GET
+            expected = 200
+        else:  # DNS
+            name_clean, host_clean, dns_rtype_clean, dns_expected_clean, dns_resolver_clean = _validate_dns_fields(
+                name, target_host, dns_record_type, dns_expected_value, dns_resolver,
+                interval, timeout,
+            )
+            url_clean = f"dns://{host_clean}/{dns_rtype_clean.value}"
             http_method = HttpMethod.GET
             expected = 200
 
@@ -878,6 +939,9 @@ async def create_monitor_submit(
         interval_seconds=interval, timeout_seconds=timeout,
         target_host=host_clean, target_port=port_clean,
         warn_days_before_expiry=warn_clean,
+        dns_record_type=dns_rtype_clean,
+        dns_expected_value=dns_expected_clean,
+        dns_resolver=dns_resolver_clean,
         next_check_at=func.now(),
     )
     db.add(monitor)
@@ -1051,6 +1115,17 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
                 }
                 break
 
+    latest_dns = None
+    if monitor.type == MonitorType.DNS:
+        for c in check_rows:
+            if c.dns_resolved_values:
+                latest_dns = {
+                    "resolved_values": c.dns_resolved_values,
+                    "status": c.status.value,
+                    "checked_at": c.checked_at.isoformat(),
+                }
+                break
+
     # Chart data — last 24h of checks with response times
     since_24h = now - timedelta(hours=24)
     chart_result = await db.execute(
@@ -1073,12 +1148,16 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
             "target_host": monitor.target_host,
             "target_port": monitor.target_port,
             "warn_days_before_expiry": monitor.warn_days_before_expiry,
+            "dns_record_type": monitor.dns_record_type.value if monitor.dns_record_type else None,
+            "dns_expected_value": monitor.dns_expected_value,
+            "dns_resolver": monitor.dns_resolver,
             "current_status": monitor.current_status.value, "is_active": monitor.is_active,
             "interval_seconds": monitor.interval_seconds,
             "timeout_seconds": monitor.timeout_seconds,
         },
         "summary": summary, "checks": checks, "chart_data": chart_data,
         "latest_cert": latest_cert,
+        "latest_dns": latest_dns,
         "flash_error": request.cookies.get("flash_error"),
     })
     _consume_flash(request, response)
@@ -1145,6 +1224,9 @@ async def edit_monitor_submit(
     target_host: str = Form(""),
     target_port: str = Form("443"),
     warn_days_before_expiry: str = Form("14"),
+    dns_record_type: str = Form("A"),
+    dns_expected_value: str = Form(""),
+    dns_resolver: str = Form(""),
     interval_seconds: str = Form(""),
     timeout_seconds: str = Form(""),
     db: AsyncSession = Depends(get_db),
@@ -1163,13 +1245,15 @@ async def edit_monitor_submit(
         interval = _parse_int_field(interval_seconds, "Check interval")
         timeout = _parse_int_field(timeout_seconds, "Timeout")
 
+        host_clean, port_clean, warn_clean = None, None, None
+        dns_rtype_clean, dns_expected_clean, dns_resolver_clean = None, None, None
+
         if monitor.type == MonitorType.HTTP:
             expected = _parse_int_field(expected_status, "Expected status", min_value=100, max_value=599)
             name_clean, url_clean, http_method = _validate_monitor_fields(
                 name, url, interval, timeout, method
             )
-            host_clean, port_clean, warn_clean = None, None, None
-        else:
+        elif monitor.type == MonitorType.SSL:
             port = _parse_int_field(target_port, "Port", min_value=1, max_value=65535)
             warn_raw = (warn_days_before_expiry or "").strip()
             warn = _parse_int_field(warn_days_before_expiry, "Warn days", min_value=0, max_value=365) if warn_raw else None
@@ -1177,6 +1261,14 @@ async def edit_monitor_submit(
                 name, target_host, port, warn, interval, timeout
             )
             url_clean = f"https://{host_clean}:{port_clean}"
+            http_method = monitor.method
+            expected = monitor.expected_status
+        else:  # DNS
+            name_clean, host_clean, dns_rtype_clean, dns_expected_clean, dns_resolver_clean = _validate_dns_fields(
+                name, target_host, dns_record_type, dns_expected_value, dns_resolver,
+                interval, timeout,
+            )
+            url_clean = f"dns://{host_clean}/{dns_rtype_clean.value}"
             http_method = monitor.method
             expected = monitor.expected_status
 
@@ -1198,6 +1290,9 @@ async def edit_monitor_submit(
     monitor.target_host = host_clean
     monitor.target_port = port_clean
     monitor.warn_days_before_expiry = warn_clean
+    monitor.dns_record_type = dns_rtype_clean
+    monitor.dns_expected_value = dns_expected_clean
+    monitor.dns_resolver = dns_resolver_clean
     await db.commit()
     return RedirectResponse(f"/dashboard/monitors/{monitor_id}", status_code=303)
 
