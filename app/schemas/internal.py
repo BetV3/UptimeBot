@@ -12,6 +12,7 @@ class CheckResult(BaseModel):
     cert_days_remaining: int | None = None
     cert_subject: str | None = None
     cert_issuer: str | None = None
+    dns_resolved_values: str | None = None
 
 
 class CheckResultsBatch(BaseModel):

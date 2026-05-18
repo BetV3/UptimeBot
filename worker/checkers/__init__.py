@@ -1,10 +1,12 @@
 from .base import CheckResult, Checker
+from .dns import DnsChecker
 from .http import HttpChecker
 from .ssl import SslChecker
 
 _CHECKERS: dict[str, Checker] = {
     "http": HttpChecker(),
     "ssl": SslChecker(),
+    "dns": DnsChecker(),
 }
 
 
@@ -15,4 +17,4 @@ def get_checker(monitor_type: str) -> Checker:
     return checker
 
 
-__all__ = ["CheckResult", "Checker", "HttpChecker", "SslChecker", "get_checker"]
+__all__ = ["CheckResult", "Checker", "DnsChecker", "HttpChecker", "SslChecker", "get_checker"]

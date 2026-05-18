@@ -110,6 +110,9 @@ async def get_jobs(
             "target_host": monitor.target_host,
             "target_port": monitor.target_port,
             "warn_days_before_expiry": monitor.warn_days_before_expiry,
+            "dns_record_type": monitor.dns_record_type.value if monitor.dns_record_type else None,
+            "dns_expected_value": monitor.dns_expected_value,
+            "dns_resolver": monitor.dns_resolver,
             "region": pc.region.value,
         })
 
@@ -138,6 +141,7 @@ async def post_results(
             cert_days_remaining=r.cert_days_remaining,
             cert_subject=r.cert_subject,
             cert_issuer=r.cert_issuer,
+            dns_resolved_values=r.dns_resolved_values,
         )
         db.add(check)
 
