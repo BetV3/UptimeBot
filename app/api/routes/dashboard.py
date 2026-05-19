@@ -1099,6 +1099,7 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
             "status_code": c.status_code,
             "response_time_ms": c.response_time_ms,
             "cert_days_remaining": c.cert_days_remaining,
+            "error": c.error,
         }
         for c in check_rows
     ]
@@ -1107,8 +1108,17 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
     if monitor.type == MonitorType.SSL:
         for c in check_rows:
             if c.cert_days_remaining is not None or c.cert_subject or c.cert_issuer:
+                # days_remaining is floor-truncated to whole days at check time,
+                # so the derived date can be up to ~1 day earlier than the real
+                # notAfter. Fine for a user-facing "Expires on" display.
+                expires_on = None
+                if c.cert_days_remaining is not None:
+                    expires_on = (
+                        c.checked_at + timedelta(days=c.cert_days_remaining)
+                    ).strftime("%b %d, %Y")
                 latest_cert = {
                     "days_remaining": c.cert_days_remaining,
+                    "expires_on": expires_on,
                     "subject": c.cert_subject,
                     "issuer": c.cert_issuer,
                     "checked_at": c.checked_at.isoformat(),

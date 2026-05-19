@@ -59,12 +59,16 @@
             {% endif %}
         {% endif %}
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
         <div>
             <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Days remaining</div>
             <div class="font-mono text-2xl font-bold {% if latest_cert.days_remaining is not none and latest_cert.days_remaining < 0 %}text-bad{% elif latest_cert.days_remaining is not none and monitor.warn_days_before_expiry is not none and latest_cert.days_remaining <= monitor.warn_days_before_expiry %}text-warn{% else %}text-ink{% endif %}">
                 {% if latest_cert.days_remaining is not none %}{{ latest_cert.days_remaining }}{% else %}&mdash;{% endif %}
             </div>
+        </div>
+        <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Expires on</div>
+            <div class="text-sm text-ink-muted font-mono">{{ latest_cert.expires_on or '—' }}</div>
         </div>
         <div>
             <div class="text-xs font-mono uppercase tracking-wider text-ink-dim mb-2">Subject</div>
@@ -123,11 +127,13 @@
     {% endfor %}
 </div>
 
+{% if monitor.type != 'ssl' %}
 <!-- Response Time Chart -->
 <div class="bc-card p-5 mb-6">
     <h2 class="text-xs font-mono uppercase tracking-wider text-ink-muted mb-4">// Response Time (last 24h)</h2>
     <canvas id="chart" height="140" class="w-full max-w-full block"></canvas>
 </div>
+{% endif %}
 
 <!-- Recent Checks -->
 <div class="mb-4">
@@ -143,8 +149,13 @@
                 <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Time</th>
                 <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Region</th>
                 <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Status</th>
+                {% if monitor.type == 'ssl' %}
+                <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Days</th>
+                <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Error</th>
+                {% else %}
                 <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Code</th>
                 <th class="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim font-medium">Response</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody class="divide-y divide-bg-surface/50">
@@ -161,8 +172,13 @@
                     <span class="bc-pill bc-pill--down">DOWN</span>
                     {% endif %}
                 </td>
+                {% if monitor.type == 'ssl' %}
+                <td class="px-4 py-3 text-ink-muted font-mono text-xs">{{ c.cert_days_remaining if c.cert_days_remaining is not none else '—' }}</td>
+                <td class="px-4 py-3 text-ink-muted font-mono text-xs break-all">{{ c.error or '—' }}</td>
+                {% else %}
                 <td class="px-4 py-3 text-ink-muted font-mono text-xs">{{ c.status_code or '—' }}</td>
                 <td class="px-4 py-3 text-ink-muted font-mono text-xs">{{ c.response_time_ms or '—' }}{% if c.response_time_ms %}ms{% endif %}</td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>

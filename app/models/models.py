@@ -152,7 +152,7 @@ class Check(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     monitor_id = Column(UUID(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False, index=True)
-    region = Column(Enum(CheckRegion), nullable=False)
+    region = Column(Enum(CheckRegion, values_callable=lambda e: [x.value for x in e]), nullable=False)
     status = Column(Enum(CheckStatus), nullable=False)
     response_time_ms = Column(Integer, nullable=True)
     status_code = Column(Integer, nullable=True)
@@ -222,7 +222,7 @@ class WorkerHeartbeat(Base):
     __tablename__ = "worker_heartbeats"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    region = Column(Enum(CheckRegion), nullable=False, unique=True)
+    region = Column(Enum(CheckRegion, values_callable=lambda e: [x.value for x in e]), nullable=False, unique=True)
     hostname = Column(String(255), nullable=True)
     last_seen = Column(DateTime(timezone=True), server_default=func.now())
     version = Column(String(50), nullable=True)
@@ -233,7 +233,7 @@ class PendingCheck(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     monitor_id = Column(UUID(as_uuid=True), ForeignKey("monitors.id", ondelete="CASCADE"), nullable=False, index=True)
-    region = Column(Enum(CheckRegion), nullable=False)
+    region = Column(Enum(CheckRegion, values_callable=lambda e: [x.value for x in e]), nullable=False)
     scheduled_at = Column(DateTime(timezone=True), server_default=func.now())
     leased_at = Column(DateTime(timezone=True), nullable=True)
     lease_expires_at = Column(DateTime(timezone=True), nullable=True)

@@ -399,10 +399,23 @@
 <script>
 function updateMonitorFields() {
     const type = document.getElementById('monitor-type').value;
-    document.getElementById('http-monitor-fields').classList.toggle('hidden', type !== 'http');
-    document.getElementById('ssl-monitor-fields').classList.toggle('hidden', type !== 'ssl');
-    document.getElementById('dns-monitor-fields').classList.toggle('hidden', type !== 'dns');
+    // Disabled inputs don't submit, so hidden sections won't collide on shared
+    // field names like `target_host` (present in both SSL and DNS sections).
+    const sections = {
+        http: document.getElementById('http-monitor-fields'),
+        ssl: document.getElementById('ssl-monitor-fields'),
+        dns: document.getElementById('dns-monitor-fields'),
+    };
+    for (const [key, el] of Object.entries(sections)) {
+        const active = key === type;
+        el.classList.toggle('hidden', !active);
+        el.querySelectorAll('input, select, textarea').forEach(field => {
+            field.disabled = !active;
+        });
+    }
 }
+
+document.addEventListener('DOMContentLoaded', updateMonitorFields);
 
 function updateAlertFields() {
     const type = document.getElementById('alert-type').value;

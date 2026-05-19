@@ -20,13 +20,17 @@ def _parse_cert_datetime(raw: str) -> datetime:
     return datetime.strptime(raw, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
 
 
-def _format_name(fields: tuple) -> str:
+def _format_name(fields: tuple, prefer: tuple = ()) -> str:
     # fields looks like ((('commonName', 'example.com'),), (('organizationName', 'Acme'),))
-    parts = []
-    for rdn in fields:
-        for k, v in rdn:
-            parts.append(f"{k}={v}")
-    return ", ".join(parts)[:510]
+    # When `prefer` is given, return the first matching component's value
+    # (e.g. just the CN for subject, just the O for issuer). Falls back to a
+    # verbose key=value rendering if none of the preferred keys are present.
+    flat = [(k, v) for rdn in fields for k, v in rdn]
+    for key in prefer:
+        for k, v in flat:
+            if k == key:
+                return str(v)[:510]
+    return ", ".join(f"{k}={v}" for k, v in flat)[:510]
 
 
 class SslChecker:
@@ -65,8 +69,8 @@ class SslChecker:
 
         now = datetime.now(timezone.utc)
         days_remaining = int((expires_at - now).total_seconds() // 86400)
-        subject = _format_name(cert.get("subject", ()))
-        issuer = _format_name(cert.get("issuer", ()))
+        subject = _format_name(cert.get("subject", ()), prefer=("commonName",))
+        issuer = _format_name(cert.get("issuer", ()), prefer=("organizationName", "commonName"))
 
         extra = {
             "cert_days_remaining": days_remaining,

@@ -67,18 +67,50 @@
             font-size: 0.85em;
         }
 
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 0.9375rem;
+            padding: 12px 28px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.25);
+        }
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            box-shadow: 0 0 30px rgba(124, 58, 237, 0.25);
+            transform: translateY(-1px);
+        }
+
         /* ── Navigation ── */
         .nav {
-            position: sticky;
+            position: fixed;
             top: 0;
-            z-index: 40;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            transition: background 0.3s ease, backdrop-filter 0.3s ease, border-color 0.3s ease;
+            border-bottom: 1px solid transparent;
+        }
+        .nav.scrolled {
             background: rgba(10, 14, 26, 0.8);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--border);
+            border-bottom-color: var(--border);
         }
         .nav-inner {
-            max-width: 960px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 0 24px;
             height: 64px;
@@ -88,12 +120,12 @@
         }
         .nav-logo {
             font-family: var(--font-mono);
-            font-size: 1.125rem;
+            font-size: 1.25rem;
             font-weight: 700;
             color: var(--text);
         }
         .nav-logo span { color: var(--primary); }
-        .nav-links { display: flex; align-items: center; gap: 24px; }
+        .nav-links { display: flex; align-items: center; gap: 32px; }
         .nav-links a {
             font-size: 0.875rem;
             font-weight: 500;
@@ -102,28 +134,24 @@
         }
         .nav-links a:hover { color: var(--text); }
         .nav-links .active { color: var(--primary); }
-        .btn-primary {
-            display: inline-flex;
-            align-items: center;
-            background: var(--primary);
-            color: #fff !important;
-            font-weight: 600;
-            font-size: 0.8125rem;
-            padding: 8px 18px;
-            border-radius: 6px;
-            box-shadow: 0 0 20px rgba(124, 58, 237, 0.25);
-            transition: all 0.2s;
+        .nav-cta {
+            font-size: 0.875rem !important;
+            padding: 8px 20px !important;
         }
-        .btn-primary:hover {
-            background: var(--primary-hover);
-            box-shadow: 0 0 28px rgba(124, 58, 237, 0.4);
+        .nav-mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
         }
 
         /* ── Main content ── */
         main {
             max-width: 760px;
             margin: 0 auto;
-            padding: 60px 24px 80px;
+            padding: 124px 24px 80px;
         }
         .page-head {
             margin-bottom: 56px;
@@ -277,53 +305,81 @@
         .plans-table td:first-child { color: var(--text); font-weight: 500; }
 
         /* ── Footer ── */
-        footer {
-            padding: 40px 24px;
+        .footer {
+            padding: 40px 0;
             border-top: 1px solid var(--border-solid);
         }
-        .footer-inner {
-            max-width: 960px;
+        .footer-container {
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 0 24px;
+        }
+        .footer-inner {
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
         .footer-logo {
             font-family: var(--font-mono);
-            font-size: 0.9375rem;
+            font-size: 1rem;
             font-weight: 700;
             color: var(--text);
         }
         .footer-logo span { color: var(--primary); }
-        .footer-links {
-            display: flex;
-            gap: 24px;
-            font-size: 0.8125rem;
-        }
+        .footer-links { display: flex; gap: 24px; }
         .footer-links a {
+            font-size: 0.8125rem;
             color: var(--text-dim);
             transition: color 0.2s;
         }
         .footer-links a:hover { color: var(--text-muted); }
+        .footer-tagline {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            .nav-links.open {
+                display: flex;
+                flex-direction: column;
+                position: absolute;
+                top: 64px;
+                left: 0;
+                right: 0;
+                background: rgba(10, 14, 26, 0.95);
+                backdrop-filter: blur(16px);
+                padding: 24px;
+                gap: 20px;
+                border-bottom: 1px solid var(--border-solid);
+            }
+            .nav-mobile-toggle { display: block; }
+            .footer-inner { flex-direction: column; gap: 20px; text-align: center; }
+        }
 
         @media (max-width: 640px) {
-            .nav-links a:not(.btn-primary):not(.active) { display: none; }
-            main { padding: 40px 20px 60px; }
+            main { padding: 100px 20px 60px; }
             .page-head h1 { font-size: 1.75rem; }
             .step-body { margin-left: 0; }
-            .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
         }
     </style>
 </head>
 <body>
 
-    <nav class="nav">
+    <nav class="nav" id="nav">
         <div class="nav-inner">
             <a href="/" class="nav-logo">Check<span>Pulse</span></a>
-            <div class="nav-links">
+            <button class="nav-mobile-toggle" id="nav-toggle" aria-label="Toggle menu">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="nav-links" id="nav-links">
+                <a href="/#features">Features</a>
+                <a href="/#pricing">Pricing</a>
                 <a href="/docs/getting-started" class="active">Docs</a>
                 <a href="/dashboard/login">Login</a>
-                <a href="/dashboard/register" class="btn-primary">Start Free</a>
+                <a href="/dashboard/register" class="btn btn-primary nav-cta">Start Free</a>
             </div>
         </div>
     </nav>
@@ -341,7 +397,7 @@
                 <h2>Create an account</h2>
             </div>
             <div class="step-body">
-                <p><a href="/dashboard/register" class="link">Sign up</a> with your email. No credit card required &mdash; the free plan includes 3 monitors with 5-minute check intervals.</p>
+                <p><a href="/dashboard/register" class="link">Sign up</a> with your email. No credit card required &mdash; the free plan covers 1 site with 3 monitors and 5-minute checks, so you can try it against a real client property today.</p>
             </div>
         </section>
 
@@ -351,7 +407,7 @@
                 <h2>Create a project</h2>
             </div>
             <div class="step-body">
-                <p>A project groups related monitors together. For example, you might have one project per client site. From the <a href="/dashboard" class="link">dashboard</a>, enter a name and click <strong>Create</strong>.</p>
+                <p>A project represents a single client site &mdash; everything you monitor for that property lives in one place, with its own status page and alert routing. From the <a href="/dashboard" class="link">dashboard</a>, name the project after the client (e.g. <code>acme-studio</code>) and click <strong>Create</strong>.</p>
             </div>
         </section>
 
@@ -361,15 +417,16 @@
                 <h2>Add a monitor</h2>
             </div>
             <div class="step-body">
-                <p>Inside your project, add a monitor by providing:</p>
+                <p>Inside the project, add a monitor for the client's site. Most agencies start with the homepage, then add monitors for checkout, login, or API endpoints that matter to the business. Each monitor takes:</p>
                 <ul>
-                    <li><strong>Name</strong> &mdash; A friendly label (e.g. "Bot Health Check")</li>
-                    <li><strong>URL</strong> &mdash; The endpoint to check (e.g. <code>https://mybot.example.com/health</code>)</li>
+                    <li><strong>Name</strong> &mdash; A friendly label (e.g. "Acme Homepage" or "Checkout")</li>
+                    <li><strong>URL</strong> &mdash; The endpoint to check (e.g. <code>https://acme-client.com</code>)</li>
+                    <li><strong>Type</strong> &mdash; HTTP uptime, DNS, or SSL</li>
                     <li><strong>Method</strong> &mdash; GET (default), POST, or HEAD</li>
                     <li><strong>Expected Status</strong> &mdash; The HTTP status code that means "up" (default: 200)</li>
                     <li><strong>Interval</strong> &mdash; How often to check, in seconds (depends on your plan)</li>
                 </ul>
-                <p>Once created, CheckPulse will start checking your endpoint from 3 regions (US, EU, Asia) automatically. A monitor is only marked <strong>down</strong> when 2+ regions confirm the failure.</p>
+                <p>Once created, CheckPulse runs the check from 3 regions (US, EU, Asia) automatically. A monitor is only marked <strong>down</strong> when 2+ regions confirm the failure &mdash; so a flaky route in one region won't wake you up at 3am.</p>
             </div>
         </section>
 
@@ -379,19 +436,19 @@
                 <h2>Set up alerts</h2>
             </div>
             <div class="step-body">
-                <p>On your project page, add an alert channel so you get notified when something goes wrong:</p>
+                <p>Alerts are routed <strong>per project</strong>, so each client's incidents reach the right team without crosstalk. On the project page, add one or more channels:</p>
                 <div class="channel-list">
                     <div class="channel-item">
-                        <h3>Discord Webhook</h3>
-                        <p>In your Discord server: Server Settings &rarr; Integrations &rarr; Webhooks &rarr; New Webhook. Copy the URL and paste it into CheckPulse. You'll get rich embed notifications in your channel.</p>
-                    </div>
-                    <div class="channel-item">
-                        <h3>Telegram</h3>
-                        <p>Create a bot via <code>@BotFather</code>, get the bot token, then send a message to the bot and grab your chat ID. Enter both in CheckPulse.</p>
+                        <h3>Slack</h3>
+                        <p>In Slack: <strong>Apps &rarr; Incoming Webhooks &rarr; Add to Workspace</strong>, pick the channel for this client (e.g. <code>#acme-ops</code>), and paste the webhook URL into CheckPulse.</p>
                     </div>
                     <div class="channel-item">
                         <h3>Email</h3>
-                        <p>Provide your SMTP server details and the email address to notify. Works with any SMTP provider (Gmail, Mailgun, Resend, etc.).</p>
+                        <p>Provide your SMTP details and the address to notify &mdash; the client's account manager, an on-call alias, whatever fits. Works with Gmail, Mailgun, Resend, or any SMTP provider.</p>
+                    </div>
+                    <div class="channel-item">
+                        <h3>Webhook</h3>
+                        <p>Send a JSON payload to any HTTPS endpoint. Useful for piping incidents into PagerDuty, Linear, a client's helpdesk, or your own automation.</p>
                     </div>
                 </div>
             </div>
@@ -403,13 +460,13 @@
                 <h2>Enable your status page</h2>
             </div>
             <div class="step-body">
-                <p>Each project gets a public status page automatically. From your project page, click <strong>Status Page</strong> to customize:</p>
+                <p>Every project comes with a public status page you can hand to the client. From the project page, click <strong>Status Page</strong> to brand it:</p>
                 <ul>
-                    <li><strong>Display name</strong> and <strong>logo</strong></li>
-                    <li><strong>Accent color</strong> to match your brand</li>
-                    <li>Toggle the page <strong>public</strong> when you're ready</li>
+                    <li><strong>Display name</strong> and <strong>logo</strong> &mdash; use the client's branding, not yours</li>
+                    <li><strong>Accent color</strong> to match the client's site</li>
+                    <li>Toggle the page <strong>public</strong> when you're ready to share the link</li>
                 </ul>
-                <p>Your status page will be available at <code>/status/your-project-slug</code> and shows live monitor status, 90-day uptime bars, and recent incidents.</p>
+                <p>The page lives at <code>/status/your-project-slug</code> and shows live monitor status, 90-day uptime bars, and recent incidents &mdash; so clients can self-serve "is it up?" instead of emailing support.</p>
             </div>
         </section>
 
@@ -429,36 +486,59 @@ curl /projects -H <span class="ok">"Authorization: Bearer &lt;token&gt;"</span>
 
         <section class="divider">
             <h2 class="section-heading">Plans</h2>
+            <p class="section-heading-sub">Pick the plan that fits how many client sites you're responsible for. All plans include multi-region monitoring and SSL checks.</p>
             <table class="plans-table">
                 <thead>
                     <tr>
                         <th></th>
                         <th>Free</th>
-                        <th>Pro ($12/mo)</th>
-                        <th>Studio ($49/mo)</th>
+                        <th>Starter ($12/mo)</th>
+                        <th>Pro ($49/mo)</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td>Bots</td><td>1</td><td>3</td><td>10</td></tr>
-                    <tr><td>Monitors</td><td>3</td><td>15</td><td>50</td></tr>
+                    <tr><td>Sites</td><td>1</td><td>3</td><td>10</td></tr>
+                    <tr><td>Monitors</td><td>3</td><td>10</td><td>50</td></tr>
                     <tr><td>Min interval</td><td>5 min</td><td>1 min</td><td>30 sec</td></tr>
-                    <tr><td>Regions</td><td>3</td><td>3</td><td>3</td></tr>
+                    <tr><td>Monitor types</td><td>Uptime</td><td>Uptime, DNS, SSL, latency</td><td>Uptime, DNS, SSL, latency</td></tr>
+                    <tr><td>Status page</td><td>Basic</td><td>Basic</td><td>Branded + custom domain</td></tr>
                     <tr><td>History</td><td>7 days</td><td>90 days</td><td>1 year</td></tr>
                 </tbody>
             </table>
         </section>
     </main>
 
-    <footer>
-        <div class="footer-inner">
-            <a href="/" class="footer-logo">Check<span>Pulse</span></a>
-            <div class="footer-links">
-                <a href="/">Home</a>
-                <a href="/dashboard/login">Login</a>
-                <a href="/dashboard/register">Sign Up</a>
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-inner">
+                <a href="/" class="footer-logo">Check<span>Pulse</span></a>
+                <div class="footer-links">
+                    <a href="/#features">Features</a>
+                    <a href="/#pricing">Pricing</a>
+                    <a href="/docs/getting-started">Docs</a>
+                    <a href="/dashboard/login">Login</a>
+                </div>
+                <div class="footer-tagline">Built with care in Texas.</div>
             </div>
         </div>
     </footer>
+
+    <script>
+        const nav = document.getElementById('nav');
+        let ticking = false;
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    nav.classList.toggle('scrolled', window.scrollY > 20);
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        });
+        document.getElementById('nav-toggle').addEventListener('click', () => {
+            document.getElementById('nav-links').classList.toggle('open');
+        });
+    </script>
 
 </body>
 </html>
