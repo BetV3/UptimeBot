@@ -264,41 +264,101 @@ click the verification email link (lands in your real inbox? if not,
 SPF/DKIM/DMARC haven't propagated — wait), sign in. You should land
 on `/dashboard`.
 
-## 9. Three regional worker VPSes
+## 9. Three regional worker VPSes (Docker / GHCR)
+
+The workers run as a Docker container pulled from GitHub Container
+Registry. The `.github/workflows/worker-image.yml` workflow builds and
+pushes `ghcr.io/<your-gh-user>/uptimebot-worker:latest` on every push
+to `master` that touches `worker/`. Each VPS only needs Docker + a
+2-line compose file + a 5-line env file.
+
+(If you'd rather run from a venv + systemd, the artifacts for that
+path are still in the repo: `deploy/checkpulse-worker.service` and
+`deploy/worker.env.example`. See git history before commit `<this one>`
+for the systemd version of this section.)
+
+### Per-VPS setup
 
 For each region (us, eu, asia):
 
-- Provision a smaller droplet: **Basic / Regular / 1 vCPU / 1 GB**
-  (~$6/mo). Region = the region you want this worker to represent.
+- Provision a small VPS: **1 vCPU / 1 GB / 25 GB SSD** (~$5–6/mo).
+  Region = the geographic location; the `REGION` env var below is the
+  logical label the central API uses to bucket consensus.
 - Hostname: `checkpulse-worker-<region>`.
-- SSH in, install Python + git:
+- OS: Ubuntu 24.04 LTS.
+
+SSH in as root and install Docker:
 
 ```
-apt-get update && apt-get install -y python3-venv python3-pip git
-adduser --system --no-create-home --shell /sbin/nologin checkpulse
+apt-get update
+apt-get install -y docker.io docker-compose-v2
+systemctl enable --now docker
+
+# Firewall — workers are outbound-only, so just allow SSH.
+ufw allow OpenSSH
+ufw --force enable
 ```
 
-- Follow `PROD_DEPLOY.md §C4` for the systemd install:
-  1. `mkdir -p /opt/checkpulse /var/log/checkpulse /etc/checkpulse`
-  2. Clone the repo into `/opt/checkpulse/worker` (or sync just the
-     `worker/` subdirectory).
-  3. `python3 -m venv /opt/checkpulse/venv && /opt/checkpulse/venv/bin/pip install -r worker/requirements.txt`
-  4. Copy `deploy/worker.env.example` → `/etc/checkpulse/worker.env`,
-     fill in `REGION`, `API_URL=https://api.checkpulse.dev`,
-     `WORKER_SECRET` (same value as the app host's `.env`),
-     optionally `WORKER_ID=checkpulse-<region>-1`.
-  5. `chmod 600 /etc/checkpulse/worker.env && chown root:checkpulse /etc/checkpulse/worker.env`
-  6. `cp deploy/checkpulse-worker.service /etc/systemd/system/`
-  7. `systemctl daemon-reload && systemctl enable --now checkpulse-worker`
-  8. `journalctl -u checkpulse-worker -f` — watch for "registered region=…" line
-
-Repeat for all three regions. On the app host:
+Drop the compose file + env file under `/opt/checkpulse`:
 
 ```
-docker compose exec db psql -U uptimebot -c \
+mkdir -p /opt/checkpulse
+cd /opt/checkpulse
+
+# Pull the compose file from the repo (single file — no clone needed).
+curl -fsSL https://raw.githubusercontent.com/BetV3/UptimeBot/master/deploy/worker.docker-compose.yml \
+  -o docker-compose.yml
+
+# Per-region env file. CHANGE REGION + WORKER_ID per host.
+cat > worker.env <<EOF
+REGION=us
+API_URL=https://api.checkpulse.dev
+WORKER_SECRET=<PASTE_SAME_VALUE_AS_CENTRAL_HOST_ENV>
+WORKER_ID=checkpulse-us-1
+POLL_INTERVAL=10
+EOF
+chmod 600 worker.env
+```
+
+Pull and start the container:
+
+```
+docker compose pull
+docker compose up -d
+docker compose logs -f worker
+# expect lines like:
+#   Starting worker region=us api=https://api.checkpulse.dev worker_id=checkpulse-us-1
+#   No jobs available. Sleeping 10s...
+```
+
+Repeat for `eu` and `asia` regions, changing only `REGION` and
+`WORKER_ID` in `worker.env`.
+
+### Verify all three workers are heartbeating
+
+On the **central app host**:
+
+```
+docker compose exec db psql -U uptimebot -d uptimebot -c \
   "SELECT region, count(*) FROM pending_checks WHERE leased_at > now() - interval '5 minutes' GROUP BY region;"
-# expect a non-zero row for each of us, eu, asia within a minute
+# expect a non-zero row for each of us, eu, asia within a minute of
+# the first worker booting (once you've created at least one monitor)
 ```
+
+### Rolling updates
+
+When the GitHub Actions workflow pushes a new `:latest` tag (any push
+to master that touches `worker/`), redeploy each VPS one at a time:
+
+```
+cd /opt/checkpulse
+docker compose pull
+docker compose up -d
+docker image prune -f   # reclaim disk from the old image
+```
+
+Do one region at a time so the consensus logic always has at least two
+active regions during the rollout.
 
 ## 10. DB backups (DigitalOcean Spaces)
 
