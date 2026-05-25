@@ -258,11 +258,11 @@
                     <div class="grid grid-cols-[1fr_140px] gap-3">
                         <div>
                             <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Hostname</label>
-                            <input type="text" name="target_host" placeholder="example.com">
+                            <input type="text" name="target_host" id="dns-host-input" placeholder="example.com">
                         </div>
                         <div>
                             <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Record Type</label>
-                            <select name="dns_record_type">
+                            <select name="dns_record_type" id="dns-record-type-select">
                                 <option value="A">A</option>
                                 <option value="AAAA">AAAA</option>
                                 <option value="CNAME">CNAME</option>
@@ -273,13 +273,28 @@
                         </div>
                     </div>
                     <div>
+                        <button type="button" id="dns-resolve-btn" class="bc-btn-secondary text-xs">Resolve current values</button>
+                        <div id="dns-resolve-results" class="hidden mt-3 rounded-md border border-bg-surface/60 bg-bg-surface/20 px-3 py-3">
+                            <p id="dns-resolve-meta" class="text-xs font-mono text-ink-dim mb-2"></p>
+                            <div id="dns-resolve-checkboxes" class="space-y-1.5"></div>
+                        </div>
+                    </div>
+                    <div>
                         <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Expected Value(s)</label>
-                        <input type="text" name="dns_expected_value" placeholder="1.2.3.4, 5.6.7.8">
-                        <p class="text-xs text-ink-dim mt-1.5">Comma-separated. Monitor is up only if every value below is present in the resolved record set.</p>
+                        <input type="text" name="dns_expected_value" id="dns-expected-input" placeholder="1.2.3.4, 5.6.7.8">
+                        <p class="text-xs text-ink-dim mt-1.5">Comma-separated. Tick boxes above to fill this in, or type manually.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Match Mode</label>
+                        <select name="dns_match_mode">
+                            <option value="all" selected>All — every expected value must appear</option>
+                            <option value="any">Any — at least one expected value must appear</option>
+                        </select>
+                        <p class="text-xs text-ink-dim mt-1.5">Use <span class="font-mono">any</span> for records whose answer set rotates (round-robin third-party DNS).</p>
                     </div>
                     <div>
                         <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Resolver (optional)</label>
-                        <input type="text" name="dns_resolver" placeholder="8.8.8.8">
+                        <input type="text" name="dns_resolver" id="dns-resolver-input" placeholder="8.8.8.8">
                         <p class="text-xs text-ink-dim mt-1.5">Leave blank to use the worker's system resolver.</p>
                     </div>
                 </div>
@@ -416,6 +431,80 @@ function updateMonitorFields() {
 }
 
 document.addEventListener('DOMContentLoaded', updateMonitorFields);
+
+const dnsResolveBtn = document.getElementById('dns-resolve-btn');
+if (dnsResolveBtn) {
+    dnsResolveBtn.addEventListener('click', async () => {
+        const host = document.getElementById('dns-host-input').value.trim();
+        const recordType = document.getElementById('dns-record-type-select').value;
+        const resolver = document.getElementById('dns-resolver-input').value.trim();
+        const results = document.getElementById('dns-resolve-results');
+        const meta = document.getElementById('dns-resolve-meta');
+        const boxes = document.getElementById('dns-resolve-checkboxes');
+        if (!host) {
+            results.classList.remove('hidden');
+            meta.textContent = 'Enter a hostname first.';
+            boxes.innerHTML = '';
+            return;
+        }
+        const originalLabel = dnsResolveBtn.textContent;
+        dnsResolveBtn.disabled = true;
+        dnsResolveBtn.textContent = 'Resolving…';
+        try {
+            const params = new URLSearchParams({ host, record_type: recordType });
+            if (resolver) params.set('resolver', resolver);
+            const resp = await fetch(`/dashboard/api/dns-resolve?${params}`, {
+                headers: { Accept: 'application/json' },
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                results.classList.remove('hidden');
+                meta.textContent = `Lookup failed: ${data.detail || 'unknown error'}`;
+                boxes.innerHTML = '';
+                return;
+            }
+            results.classList.remove('hidden');
+            let metaText = `${data.values.length} ${data.record_type} record${data.values.length === 1 ? '' : 's'}`;
+            if (data.ttl !== null && data.ttl !== undefined) {
+                metaText += ` · TTL ${data.ttl}s`;
+                if (data.ttl < 300) {
+                    metaText += ' — record rotates frequently, consider "any" match mode';
+                }
+            }
+            meta.textContent = metaText;
+            boxes.innerHTML = '';
+            const expectedInput = document.getElementById('dns-expected-input');
+            const current = new Set(
+                (expectedInput.value || '').split(',').map(s => s.trim()).filter(Boolean)
+            );
+            data.values.forEach(value => {
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-2 cursor-pointer';
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.value = value;
+                input.checked = current.has(value);
+                input.addEventListener('change', () => {
+                    const selected = Array.from(boxes.querySelectorAll('input:checked')).map(c => c.value);
+                    expectedInput.value = selected.join(', ');
+                });
+                const span = document.createElement('span');
+                span.className = 'font-mono text-sm text-ink-muted';
+                span.textContent = value;
+                label.appendChild(input);
+                label.appendChild(span);
+                boxes.appendChild(label);
+            });
+        } catch (err) {
+            results.classList.remove('hidden');
+            meta.textContent = `Lookup failed: ${err.message || 'network error'}`;
+            boxes.innerHTML = '';
+        } finally {
+            dnsResolveBtn.disabled = false;
+            dnsResolveBtn.textContent = originalLabel;
+        }
+    });
+}
 
 function updateAlertFields() {
     const type = document.getElementById('alert-type').value;

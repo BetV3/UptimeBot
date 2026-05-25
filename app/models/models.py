@@ -40,6 +40,14 @@ class DnsRecordType(str, enum.Enum):
     NS = "NS"
 
 
+class DnsMatchMode(str, enum.Enum):
+    # "all" — every expected value must appear in the resolved answer (strict;
+    # right for records you control). "any" — at least one expected value must
+    # appear (loose; survives round-robin rotation of third-party records).
+    ALL = "all"
+    ANY = "any"
+
+
 class MonitorStatus(str, enum.Enum):
     UP = "up"
     DOWN = "down"
@@ -136,6 +144,12 @@ class Monitor(Base):
     dns_record_type = Column(Enum(DnsRecordType), nullable=True)
     dns_expected_value = Column(Text, nullable=True)
     dns_resolver = Column(String(255), nullable=True)
+    dns_match_mode = Column(
+        Enum(DnsMatchMode, values_callable=lambda e: [x.value for x in e]),
+        nullable=False,
+        default=DnsMatchMode.ALL,
+        server_default=DnsMatchMode.ALL.value,
+    )
     is_active = Column(Boolean, default=True, nullable=False)
     current_status = Column(Enum(MonitorStatus), default=MonitorStatus.UNKNOWN, nullable=False)
     last_checked_at = Column(DateTime(timezone=True), nullable=True)

@@ -18,8 +18,9 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.http import external_base_url, should_secure_cookie
 from app.models.models import (
-    AlertChannel, AlertType, Check, CheckStatus, DnsRecordType, Incident,
-    Monitor, MonitorStatus, MonitorType, HttpMethod, PlanType, Project, StatusPage, User,
+    AlertChannel, AlertType, Check, CheckStatus, DnsMatchMode, DnsRecordType,
+    Incident, Monitor, MonitorStatus, MonitorType, HttpMethod, PlanType,
+    Project, StatusPage, User,
 )
 from app.services.auth import (
     create_access_token, create_refresh_token,
@@ -197,8 +198,8 @@ def _validate_ssl_fields(
 
 def _validate_dns_fields(
     name: str, host: str, record_type: str, expected_value: str, resolver: str,
-    interval: int, timeout: int,
-) -> tuple[str, str, DnsRecordType, str, str | None]:
+    match_mode: str, interval: int, timeout: int,
+) -> tuple[str, str, DnsRecordType, str, str | None, DnsMatchMode]:
     name = (name or "").strip()
     host = (host or "").strip()
     expected_value = (expected_value or "").strip()
@@ -234,12 +235,17 @@ def _validate_dns_fields(
     if len(expected_value) > 2000:
         raise HTTPException(status_code=400, detail="Expected value is too long.")
 
+    try:
+        match = DnsMatchMode((match_mode or "all").lower())
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"“{match_mode}” isn't a supported match mode.")
+
     if timeout >= interval:
         raise HTTPException(status_code=400, detail="Timeout must be less than the check interval.")
     if timeout > 60:
         raise HTTPException(status_code=400, detail="Timeout can't exceed 60 seconds.")
 
-    return name, host, rtype, expected_value, (resolver or None)
+    return name, host, rtype, expected_value, (resolver or None), match
 
 
 async def _check_duplicate_monitor_name(
@@ -875,6 +881,7 @@ async def create_monitor_submit(
     dns_record_type: str = Form("A"),
     dns_expected_value: str = Form(""),
     dns_resolver: str = Form(""),
+    dns_match_mode: str = Form("all"),
     interval_seconds: str = Form(""),
     timeout_seconds: str = Form(""),
     db: AsyncSession = Depends(get_db),
@@ -900,6 +907,7 @@ async def create_monitor_submit(
 
         host_clean, port_clean, warn_clean = None, None, None
         dns_rtype_clean, dns_expected_clean, dns_resolver_clean = None, None, None
+        dns_match_clean = DnsMatchMode.ALL
 
         if monitor_type == MonitorType.HTTP:
             expected = _parse_int_field(expected_status, "Expected status", min_value=100, max_value=599)
@@ -917,9 +925,12 @@ async def create_monitor_submit(
             http_method = HttpMethod.GET
             expected = 200
         else:  # DNS
-            name_clean, host_clean, dns_rtype_clean, dns_expected_clean, dns_resolver_clean = _validate_dns_fields(
+            (
+                name_clean, host_clean, dns_rtype_clean, dns_expected_clean,
+                dns_resolver_clean, dns_match_clean,
+            ) = _validate_dns_fields(
                 name, target_host, dns_record_type, dns_expected_value, dns_resolver,
-                interval, timeout,
+                dns_match_mode, interval, timeout,
             )
             url_clean = f"dns://{host_clean}/{dns_rtype_clean.value}"
             http_method = HttpMethod.GET
@@ -942,11 +953,61 @@ async def create_monitor_submit(
         dns_record_type=dns_rtype_clean,
         dns_expected_value=dns_expected_clean,
         dns_resolver=dns_resolver_clean,
+        dns_match_mode=dns_match_clean,
         next_check_at=func.now(),
     )
     db.add(monitor)
     await db.commit()
     return RedirectResponse(f"/dashboard/projects/{project_id}", status_code=303)
+
+
+# Resolve a hostname on demand so the new-monitor form can show current
+# answer values for the user to pick from. Auth-gated to avoid turning this
+# into an open DNS-over-HTTP relay.
+@router.get("/api/dns-resolve")
+async def dns_resolve(
+    request: Request,
+    host: str,
+    record_type: str = "A",
+    resolver: str = "",
+    db: AsyncSession = Depends(get_db),
+):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    host = (host or "").strip().rstrip(".").lower()
+    resolver = (resolver or "").strip()
+    if not host or "://" in host or "/" in host or "." not in host:
+        raise HTTPException(status_code=400, detail="Provide a plain hostname like example.com.")
+    try:
+        rtype = DnsRecordType(record_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"“{record_type}” isn't a supported DNS record type.")
+
+    import dns.exception
+    import dns.resolver
+
+    r = dns.resolver.Resolver()
+    if resolver:
+        r.nameservers = [resolver]
+    r.timeout = 5
+    r.lifetime = 5
+
+    try:
+        answers = r.resolve(host, rtype.value)
+    except dns.resolver.NXDOMAIN:
+        raise HTTPException(status_code=404, detail=f"NXDOMAIN: {host}")
+    except dns.resolver.NoAnswer:
+        raise HTTPException(status_code=404, detail=f"No {rtype.value} record for {host}.")
+    except dns.exception.Timeout:
+        raise HTTPException(status_code=504, detail="DNS lookup timed out.")
+    except dns.exception.DNSException as e:
+        raise HTTPException(status_code=502, detail=f"DNS error: {str(e)[:200]}")
+
+    values = sorted({str(rdata).rstrip(".").lower() for rdata in answers})
+    ttl = getattr(answers.rrset, "ttl", None)
+    return {"values": values, "ttl": ttl, "record_type": rtype.value, "host": host}
 
 
 @router.post("/projects/{project_id}/alerts")
@@ -1161,6 +1222,7 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
             "dns_record_type": monitor.dns_record_type.value if monitor.dns_record_type else None,
             "dns_expected_value": monitor.dns_expected_value,
             "dns_resolver": monitor.dns_resolver,
+            "dns_match_mode": monitor.dns_match_mode.value if monitor.dns_match_mode else "all",
             "current_status": monitor.current_status.value, "is_active": monitor.is_active,
             "interval_seconds": monitor.interval_seconds,
             "timeout_seconds": monitor.timeout_seconds,
@@ -1237,6 +1299,7 @@ async def edit_monitor_submit(
     dns_record_type: str = Form("A"),
     dns_expected_value: str = Form(""),
     dns_resolver: str = Form(""),
+    dns_match_mode: str = Form("all"),
     interval_seconds: str = Form(""),
     timeout_seconds: str = Form(""),
     db: AsyncSession = Depends(get_db),
@@ -1257,6 +1320,7 @@ async def edit_monitor_submit(
 
         host_clean, port_clean, warn_clean = None, None, None
         dns_rtype_clean, dns_expected_clean, dns_resolver_clean = None, None, None
+        dns_match_clean = monitor.dns_match_mode or DnsMatchMode.ALL
 
         if monitor.type == MonitorType.HTTP:
             expected = _parse_int_field(expected_status, "Expected status", min_value=100, max_value=599)
@@ -1274,9 +1338,12 @@ async def edit_monitor_submit(
             http_method = monitor.method
             expected = monitor.expected_status
         else:  # DNS
-            name_clean, host_clean, dns_rtype_clean, dns_expected_clean, dns_resolver_clean = _validate_dns_fields(
+            (
+                name_clean, host_clean, dns_rtype_clean, dns_expected_clean,
+                dns_resolver_clean, dns_match_clean,
+            ) = _validate_dns_fields(
                 name, target_host, dns_record_type, dns_expected_value, dns_resolver,
-                interval, timeout,
+                dns_match_mode, interval, timeout,
             )
             url_clean = f"dns://{host_clean}/{dns_rtype_clean.value}"
             http_method = monitor.method
@@ -1303,6 +1370,7 @@ async def edit_monitor_submit(
     monitor.dns_record_type = dns_rtype_clean
     monitor.dns_expected_value = dns_expected_clean
     monitor.dns_resolver = dns_resolver_clean
+    monitor.dns_match_mode = dns_match_clean
     await db.commit()
     return RedirectResponse(f"/dashboard/monitors/{monitor_id}", status_code=303)
 

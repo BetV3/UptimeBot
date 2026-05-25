@@ -31,6 +31,7 @@ class DnsChecker:
         record_type = job.get("dns_record_type")
         expected_raw = job.get("dns_expected_value") or ""
         resolver_ip = job.get("dns_resolver")
+        match_mode = (job.get("dns_match_mode") or "all").lower()
         timeout = int(job.get("timeout_seconds") or 10)
 
         if not host:
@@ -60,6 +61,22 @@ class DnsChecker:
         resolved = [_normalize(str(rdata)) for rdata in answers]
         resolved_joined = ", ".join(resolved)[:2000]
         extra = {"dns_resolved_values": resolved_joined}
+
+        if match_mode == "any":
+            # Loose mode: monitor is up if at least one expected value still
+            # appears. Useful for round-robin third-party records.
+            if any(v in resolved for v in expected):
+                return CheckResult(
+                    status="up",
+                    response_time_ms=elapsed_ms,
+                    extra=extra,
+                )
+            return CheckResult(
+                status="down",
+                response_time_ms=elapsed_ms,
+                error=f"None of {', '.join(expected)} in {resolved_joined or '(empty)'}",
+                extra=extra,
+            )
 
         missing = [v for v in expected if v not in resolved]
         if missing:

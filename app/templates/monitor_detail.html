@@ -108,9 +108,10 @@
             <div class="text-sm text-ink-muted font-mono break-all">{{ latest_dns.resolved_values if latest_dns else '—' }}</div>
         </div>
     </div>
-    {% if monitor.dns_resolver %}
-    <div class="mt-4 text-xs font-mono text-ink-dim">Resolver: {{ monitor.dns_resolver }}</div>
-    {% endif %}
+    <div class="mt-4 text-xs font-mono text-ink-dim flex flex-wrap gap-x-4 gap-y-1">
+        <span>Match mode: {{ monitor.dns_match_mode }}</span>
+        {% if monitor.dns_resolver %}<span>Resolver: {{ monitor.dns_resolver }}</span>{% endif %}
+    </div>
 </div>
 {% endif %}
 
@@ -272,6 +273,13 @@
                 <div>
                     <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Expected Value(s)</label>
                     <input type="text" name="dns_expected_value" value="{{ monitor.dns_expected_value or '' }}" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Match Mode</label>
+                    <select name="dns_match_mode">
+                        <option value="all" {% if monitor.dns_match_mode == 'all' %}selected{% endif %}>All — every expected value must appear</option>
+                        <option value="any" {% if monitor.dns_match_mode == 'any' %}selected{% endif %}>Any — at least one expected value must appear</option>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Resolver (optional)</label>

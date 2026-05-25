@@ -113,6 +113,7 @@ async def get_jobs(
             "dns_record_type": monitor.dns_record_type.value if monitor.dns_record_type else None,
             "dns_expected_value": monitor.dns_expected_value,
             "dns_resolver": monitor.dns_resolver,
+            "dns_match_mode": monitor.dns_match_mode.value if monitor.dns_match_mode else "all",
             "region": pc.region.value,
         })
 
