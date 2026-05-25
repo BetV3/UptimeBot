@@ -320,15 +320,58 @@ def finalize_check_result(monitor_id: str):
     }
 
 
+# Per-plan check history retention (days). Matches the marketing copy on the
+# landing/docs pages and the Privacy Policy. Keep in sync if you change either.
+CHECK_RETENTION_DAYS = {
+    "FREE": 7,
+    "STARTER": 90,
+    "PRO": 365,
+}
+
+
 @celery_app.task(name="app.workers.tasks.cleanup_old_checks")
 def cleanup_old_checks():
-    """Delete check records older than 90 days to manage storage."""
+    """Delete check records past each plan's retention window.
+
+    Runs one DELETE per plan, joining checks → monitors → projects → users
+    so each row is matched against its owner's plan. Plans missing from the
+    table (e.g. legacy values) fall through to the strictest 7-day window so
+    we don't quietly accumulate forever.
+    """
+    now = datetime.now(timezone.utc)
+    deleted = {}
     with Session(sync_engine) as session:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+        for plan, days in CHECK_RETENTION_DAYS.items():
+            cutoff = now - timedelta(days=days)
+            result = session.execute(
+                text("""
+                    DELETE FROM checks c
+                    USING monitors m, projects p, users u
+                    WHERE c.monitor_id = m.id
+                      AND m.project_id = p.id
+                      AND p.user_id = u.id
+                      AND u.plan = :plan
+                      AND c.checked_at < :cutoff
+                """),
+                {"plan": plan, "cutoff": cutoff},
+            )
+            deleted[plan.lower()] = result.rowcount or 0
+
+        # Catch-all for any user whose plan column doesn't match the table
+        # above (shouldn't happen, but better safe than a slow leak).
+        catchall_cutoff = now - timedelta(days=min(CHECK_RETENTION_DAYS.values()))
         result = session.execute(
-            text("DELETE FROM checks WHERE checked_at < :cutoff"),
-            {"cutoff": cutoff},
+            text("""
+                DELETE FROM checks c
+                USING monitors m, projects p, users u
+                WHERE c.monitor_id = m.id
+                  AND m.project_id = p.id
+                  AND p.user_id = u.id
+                  AND u.plan NOT IN ('FREE', 'STARTER', 'PRO')
+                  AND c.checked_at < :cutoff
+            """),
+            {"cutoff": catchall_cutoff},
         )
-        deleted = result.rowcount
+        deleted["other"] = result.rowcount or 0
         session.commit()
         return {"deleted": deleted}
