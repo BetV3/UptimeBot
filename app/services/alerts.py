@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models.models import (
     AlertChannel,
     AlertDelivery,
@@ -25,7 +26,29 @@ from app.models.models import (
     AlertType,
     Incident,
     Monitor,
+    MonitorType,
 )
+
+RESEND_API_URL = "https://api.resend.com/emails"
+
+
+def _monitor_target(monitor: Monitor) -> tuple[str, str]:
+    """Return (label, value) for the most useful per-type identifier.
+
+    For HTTP monitors the synthetic URL is the real thing being checked.
+    For SSL/DNS, `monitor.url` is a synthetic placeholder that wraps the real
+    target — host:port for SSL, host (record_type) for DNS — so we surface
+    that instead.
+    """
+    if monitor.type == MonitorType.SSL:
+        host = monitor.target_host or ""
+        port = monitor.target_port or 443
+        return "Host", f"{host}:{port}"
+    if monitor.type == MonitorType.DNS:
+        host = monitor.target_host or ""
+        record_type = monitor.dns_record_type.value if monitor.dns_record_type else "?"
+        return "Record", f"{host} ({record_type})"
+    return "URL", monitor.url
 
 logger = logging.getLogger(__name__)
 
@@ -116,11 +139,12 @@ def send_delivery_sync(
 
 def _send_discord(config: dict, monitor: Monitor, incident: Incident, event: str, project_name: str):
     webhook_url = config["webhook_url"]
+    _, target = _monitor_target(monitor)
 
     if event == "down":
         color = 0xED4245  # red
         title = f"🔴 {monitor.name} is DOWN"
-        description = f"Monitor `{monitor.url}` is not responding."
+        description = f"Monitor `{target}` is not responding."
         timestamp = incident.started_at.isoformat()
     else:
         color = 0x57F287  # green
@@ -129,7 +153,7 @@ def _send_discord(config: dict, monitor: Monitor, incident: Incident, event: str
         if incident.resolved_at and incident.started_at:
             secs = int((incident.resolved_at - incident.started_at).total_seconds())
             duration = f"\nDowntime: {_format_duration(secs)}"
-        description = f"Monitor `{monitor.url}` has recovered.{duration}"
+        description = f"Monitor `{target}` has recovered.{duration}"
         timestamp = incident.resolved_at.isoformat() if incident.resolved_at else datetime.now(timezone.utc).isoformat()
 
     payload = {
@@ -169,11 +193,12 @@ def _send_discord_test(config: dict, project_name: str):
 def _send_telegram(config: dict, monitor: Monitor, incident: Incident, event: str, project_name: str):
     bot_token = config["bot_token"]
     chat_id = config["chat_id"]
+    label, target = _monitor_target(monitor)
 
     if event == "down":
         text = (
             f"🔴 <b>{monitor.name} is DOWN</b>\n"
-            f"URL: <code>{monitor.url}</code>\n"
+            f"{label}: <code>{target}</code>\n"
             f"Project: {project_name}\n"
             f"Time: {incident.started_at.strftime('%Y-%m-%d %H:%M:%S UTC')}"
         )
@@ -184,7 +209,7 @@ def _send_telegram(config: dict, monitor: Monitor, incident: Incident, event: st
             duration = f"\nDowntime: {_format_duration(secs)}"
         text = (
             f"🟢 <b>{monitor.name} is back UP</b>\n"
-            f"URL: <code>{monitor.url}</code>\n"
+            f"{label}: <code>{target}</code>\n"
             f"Project: {project_name}{duration}"
         )
 
@@ -207,17 +232,56 @@ def _send_telegram_test(config: dict, project_name: str):
 # --- Email ---
 
 
+def _email_uses_smtp(config: dict) -> bool:
+    """Channel uses its own SMTP server when smtp_host is configured; otherwise
+    we send via the platform's Resend account."""
+    return bool((config.get("smtp_host") or "").strip())
+
+
+def _send_via_resend(to_email: str, subject: str, text: str) -> None:
+    """Sync Resend send. In dev (no key, non-prod), log to stdout instead so we
+    don't burn credits on local testing."""
+    settings = get_settings()
+    if settings.app_env != "production" or not settings.resend_api_key:
+        logger.warning(
+            "\n==================== EMAIL ALERT (dev) ====================\n"
+            "To:      %s\nSubject: %s\n%s\n"
+            "============================================================",
+            to_email, subject, text,
+        )
+        return
+
+    payload = {
+        "from": settings.email_from_address,
+        "to": [to_email],
+        "subject": subject,
+        "text": text,
+    }
+    headers = {
+        "Authorization": f"Bearer {settings.resend_api_key}",
+        "Content-Type": "application/json",
+    }
+    with httpx.Client(timeout=10) as client:
+        resp = client.post(RESEND_API_URL, json=payload, headers=headers)
+        resp.raise_for_status()
+
+
 def _send_email(config: dict, monitor: Monitor, incident: Incident, event: str, project_name: str):
+    _, target = _monitor_target(monitor)
     if event == "down":
         subject = f"🔴 {monitor.name} is DOWN — {project_name}"
-        body = f"Monitor {monitor.name} ({monitor.url}) is not responding.\nDetected at: {incident.started_at.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+        body = f"Monitor {monitor.name} ({target}) is not responding.\nDetected at: {incident.started_at.strftime('%Y-%m-%d %H:%M:%S UTC')}"
     else:
         duration = ""
         if incident.resolved_at and incident.started_at:
             secs = int((incident.resolved_at - incident.started_at).total_seconds())
             duration = f"\nDowntime: {_format_duration(secs)}"
         subject = f"🟢 {monitor.name} is back UP — {project_name}"
-        body = f"Monitor {monitor.name} ({monitor.url}) has recovered.{duration}"
+        body = f"Monitor {monitor.name} ({target}) has recovered.{duration}"
+
+    if not _email_uses_smtp(config):
+        _send_via_resend(config["to_email"], subject, body)
+        return
 
     msg = MIMEText(body)
     msg["Subject"] = subject
@@ -231,8 +295,15 @@ def _send_email(config: dict, monitor: Monitor, incident: Incident, event: str, 
 
 
 def _send_email_test(config: dict, project_name: str):
-    msg = MIMEText(f"This is a test notification from CheckPulse.\nProject: {project_name}")
-    msg["Subject"] = f"✅ CheckPulse Test Alert — {project_name}"
+    subject = f"✅ CheckPulse Test Alert — {project_name}"
+    body = f"This is a test notification from CheckPulse.\nProject: {project_name}"
+
+    if not _email_uses_smtp(config):
+        _send_via_resend(config["to_email"], subject, body)
+        return
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
     msg["From"] = config["from_email"]
     msg["To"] = config["to_email"]
 
@@ -247,6 +318,7 @@ def _send_email_test(config: dict, project_name: str):
 
 def _send_slack(config: dict, monitor: Monitor, incident: Incident, event: str, project_name: str):
     webhook_url = config["webhook_url"]
+    label, target = _monitor_target(monitor)
 
     if event == "down":
         color = "#ED4245"
@@ -267,7 +339,7 @@ def _send_slack(config: dict, monitor: Monitor, incident: Incident, event: str, 
             "fallback": fallback,
             "text": text,
             "fields": [
-                {"title": "URL", "value": f"`{monitor.url}`", "short": True},
+                {"title": label, "value": f"`{target}`", "short": True},
                 {"title": "Project", "value": project_name, "short": True},
             ],
             "footer": "CheckPulse",
@@ -299,9 +371,15 @@ def _send_slack_test(config: dict, project_name: str):
 
 def _send_webhook(config: dict, monitor: Monitor, incident: Incident, event: str, project_name: str):
     webhook_url = config["url"]
+    _, target = _monitor_target(monitor)
     payload = {
         "event": event,
-        "monitor": {"name": monitor.name, "url": monitor.url},
+        "monitor": {
+            "name": monitor.name,
+            "url": monitor.url,
+            "type": monitor.type.value,
+            "target": target,
+        },
         "project": project_name,
         "incident": {
             "started_at": incident.started_at.isoformat(),

@@ -1017,6 +1017,7 @@ async def create_alert_submit(
     webhook_url: str = Form(""),
     bot_token: str = Form(""),
     chat_id: str = Form(""),
+    use_custom_smtp: str = Form(""),
     smtp_host: str = Form(""),
     smtp_port: int = Form(587),
     smtp_user: str = Form(""),
@@ -1038,23 +1039,54 @@ async def create_alert_submit(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404)
 
-    config = {}
-    if type == "discord_webhook":
-        config = {"webhook_url": webhook_url}
-    elif type == "telegram":
-        config = {"bot_token": bot_token, "chat_id": chat_id}
-    elif type == "email":
-        config = {
-            "smtp_host": smtp_host, "smtp_port": smtp_port,
-            "smtp_user": smtp_user, "smtp_pass": smtp_pass,
-            "from_email": from_email, "to_email": to_email,
-        }
-    elif type == "slack":
-        config = {"webhook_url": slack_webhook_url}
-    elif type == "webhook":
-        config = {"url": generic_webhook_url}
-        if webhook_secret:
-            config["headers"] = {"Authorization": webhook_secret}
+    try:
+        config: dict = {}
+        if type == "discord_webhook":
+            if not webhook_url.strip():
+                raise HTTPException(status_code=400, detail="Discord webhook URL is required.")
+            config = {"webhook_url": webhook_url.strip()}
+        elif type == "telegram":
+            if not bot_token.strip() or not chat_id.strip():
+                raise HTTPException(status_code=400, detail="Bot token and chat ID are required.")
+            config = {"bot_token": bot_token.strip(), "chat_id": chat_id.strip()}
+        elif type == "email":
+            to_clean = (to_email or "").strip()
+            if not to_clean:
+                raise HTTPException(status_code=400, detail="Destination email is required.")
+            if use_custom_smtp:
+                # Advanced mode: user wants alerts sent from their own SMTP server.
+                missing = [
+                    name for name, val in [
+                        ("SMTP host", smtp_host), ("SMTP user", smtp_user),
+                        ("SMTP password", smtp_pass), ("From email", from_email),
+                    ] if not (val or "").strip()
+                ]
+                if missing:
+                    raise HTTPException(status_code=400, detail=f"Custom SMTP requires: {', '.join(missing)}.")
+                config = {
+                    "smtp_host": smtp_host.strip(), "smtp_port": smtp_port,
+                    "smtp_user": smtp_user.strip(), "smtp_pass": smtp_pass,
+                    "from_email": from_email.strip(), "to_email": to_clean,
+                }
+            else:
+                # Simple mode: routes through CheckPulse's Resend account.
+                config = {"to_email": to_clean}
+        elif type == "slack":
+            if not slack_webhook_url.strip():
+                raise HTTPException(status_code=400, detail="Slack webhook URL is required.")
+            config = {"webhook_url": slack_webhook_url.strip()}
+        elif type == "webhook":
+            if not generic_webhook_url.strip():
+                raise HTTPException(status_code=400, detail="Webhook URL is required.")
+            config = {"url": generic_webhook_url.strip()}
+            if webhook_secret.strip():
+                config["headers"] = {"Authorization": webhook_secret.strip()}
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown alert type: {type}")
+    except HTTPException as e:
+        if _wants_json(request):
+            raise
+        return _redirect_with_flash(f"/dashboard/projects/{project_id}", e.detail)
 
     channel = AlertChannel(project_id=project_id, type=AlertType(type), config=config)
     db.add(channel)

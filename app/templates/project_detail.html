@@ -355,32 +355,37 @@
                     </div>
                 </div>
                 <div id="email-fields" class="hidden space-y-4">
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">SMTP Host</label>
-                            <input type="text" name="smtp_host" placeholder="smtp.gmail.com">
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Send to</label>
+                        <input type="email" name="to_email" placeholder="alerts@acme-agency.com">
+                        <p class="text-xs text-ink-dim mt-1.5">Where alerts get delivered. Sent from CheckPulse by default.</p>
+                    </div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="use_custom_smtp" id="use-custom-smtp" value="1" onchange="document.getElementById('email-smtp-fields').classList.toggle('hidden', !this.checked)">
+                        <span class="text-sm text-ink-muted">Send from my own SMTP server <span class="text-ink-dim">(advanced)</span></span>
+                    </label>
+                    <div id="email-smtp-fields" class="hidden space-y-4 pt-2 border-t border-bg-surface/60">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">SMTP Host</label>
+                                <input type="text" name="smtp_host" placeholder="smtp.gmail.com">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">SMTP Port</label>
+                                <input type="number" name="smtp_port" value="587">
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">SMTP Port</label>
-                            <input type="number" name="smtp_port" value="587">
+                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">SMTP User</label>
+                            <input type="text" name="smtp_user">
                         </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">SMTP User</label>
-                        <input type="text" name="smtp_user">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">SMTP Password</label>
-                        <input type="password" name="smtp_pass">
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">SMTP Password</label>
+                            <input type="password" name="smtp_pass">
+                        </div>
                         <div>
                             <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">From Email</label>
-                            <input type="email" name="from_email">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">To Email</label>
-                            <input type="email" name="to_email">
+                            <input type="email" name="from_email" placeholder="alerts@acme-agency.com">
                         </div>
                     </div>
                 </div>
