@@ -40,8 +40,10 @@ services:
       - .:/code
     env_file:
       - .env.dev
-      - .env
-      - .env.local
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
     depends_on:
       db:
         condition: service_healthy
@@ -55,8 +57,10 @@ services:
       - .:/code
     env_file:
       - .env.dev
-      - .env
-      - .env.local
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
     depends_on:
       db:
         condition: service_healthy
@@ -70,8 +74,10 @@ services:
       - .:/code
     env_file:
       - .env.dev
-      - .env
-      - .env.local
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
     depends_on:
       db:
         condition: service_healthy
@@ -85,8 +91,10 @@ services:
       - .:/code
     env_file:
       - .env.dev
-      - .env
-      - .env.local
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
     depends_on:
       db:
         condition: service_healthy
@@ -104,8 +112,10 @@ services:
       - .:/code
     env_file:
       - .env.dev
-      - .env
-      - .env.local
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
     depends_on:
       redis:
         condition: service_healthy

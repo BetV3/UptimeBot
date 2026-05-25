@@ -44,8 +44,9 @@ def test_up_when_cert_valid_and_far_from_expiry(patched_cert):
     assert result.status == "up"
     assert result.error is None
     assert result.extra["cert_days_remaining"] >= 59
-    assert "commonName=example.com" in result.extra["cert_subject"]
-    assert "commonName=Acme CA" in result.extra["cert_issuer"]
+    # _format_name prefers the CN for subject and the O for issuer.
+    assert result.extra["cert_subject"] == "example.com"
+    assert result.extra["cert_issuer"] == "Acme Inc"
 
 
 def test_down_when_cert_within_warn_window(patched_cert):
