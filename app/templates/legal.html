@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — CheckPulse{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto py-12 px-4">
+    <a href="/" class="text-sm text-ink-dim hover:text-ink transition font-mono">&larr; back to home</a>
+    <h1 class="font-mono text-3xl font-bold text-ink mt-4 mb-2">{{ title }}</h1>
+    <p class="text-sm text-ink-dim font-mono mb-10">// effective: <strong class="text-warn">2026-05-25</strong></p>
+
+    <div class="bg-ink/5 border border-ink/10 text-ink-dim font-mono text-xs rounded-md px-4 py-3 mb-10">
+        // CheckPulse is operated by an individual sole proprietor. Full entity details and mailing address are available on request — email <a class="text-brand hover:text-brand-hover underline" href="mailto:support@checkpulse.dev">support@checkpulse.dev</a>.
+    </div>
+
+    {% if doc == "privacy" %}
+    <div class="space-y-8 text-ink-muted leading-relaxed">
+        <p>
+            This Privacy Policy explains what personal data <strong class="text-ink">CheckPulse</strong>
+            (&ldquo;CheckPulse,&rdquo; &ldquo;we,&rdquo; or &ldquo;us&rdquo;) collects when you use the CheckPulse
+            uptime, DNS, and SSL monitoring service (the &ldquo;Service&rdquo;), how we use that data, who we share
+            it with, and the choices you have. By using the Service you agree to the practices described here.
+        </p>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 1. Data we collect</h2>
+            <p class="mb-3">We collect only what we need to operate the Service:</p>
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li><strong class="text-ink">Account data</strong> — email address and a bcrypt-hashed password. We never store your password in plaintext.</li>
+                <li><strong class="text-ink">Billing data</strong> — handled entirely by Stripe. We store a Stripe customer ID, your current plan, subscription status, and current period end. We do not store card numbers, CVCs, or full billing addresses.</li>
+                <li><strong class="text-ink">Monitor configuration</strong> — project names, monitor names, the URLs / hostnames / DNS records you ask us to check, and the configured alert routing rules.</li>
+                <li><strong class="text-ink">Alert channel credentials</strong> — webhook URLs, bot tokens, SMTP host / username / password, and channel IDs, stored as you provide them so we can deliver alerts on your behalf. These are sensitive secrets; treat them like passwords.</li>
+                <li><strong class="text-ink">Check results</strong> — for each scheduled check, we record the timestamp, region, status (up / down), HTTP status code, response time, certificate details (subject, issuer, days remaining) for SSL monitors, and resolved DNS values for DNS monitors.</li>
+                <li><strong class="text-ink">Email metadata</strong> — short-lived verification and password-reset tokens, plus the address we sent each transactional email to (via our email provider's logs).</li>
+            </ul>
+            <p class="mt-3">We do not log IP addresses, user agents, or browsing activity. We do not use analytics or advertising trackers.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 2. How we use your data</h2>
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li><strong class="text-ink">Authentication</strong> — to sign you in and keep your session alive.</li>
+                <li><strong class="text-ink">Service delivery</strong> — running the checks you configure, computing consensus across regions, opening and resolving incidents, and dispatching alerts to your configured channels.</li>
+                <li><strong class="text-ink">Billing</strong> — processing payments and enforcing the limits of your current plan.</li>
+                <li><strong class="text-ink">Transactional email</strong> — verification, password reset, and (optionally) email alerts you configure.</li>
+                <li><strong class="text-ink">Support</strong> — answering your questions and investigating service issues you report.</li>
+            </ul>
+            <p class="mt-3">We do not sell your data, share it with advertisers, or use it to train AI models.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 3. Sub-processors</h2>
+            <p class="mb-3">We rely on the following third parties to operate the Service:</p>
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li><strong class="text-ink">Stripe, Inc.</strong> — payments, subscription management, and webhook delivery. See <a class="text-brand hover:text-brand-hover underline" href="https://stripe.com/privacy">Stripe's privacy policy</a>.</li>
+                <li><strong class="text-ink">Resend</strong> — transactional email (verification, password reset). See <a class="text-brand hover:text-brand-hover underline" href="https://resend.com/legal/privacy-policy">Resend's privacy policy</a>.</li>
+                <li><strong class="text-ink">DigitalOcean</strong> — application hosting and managed PostgreSQL / Redis.</li>
+            </ul>
+            <p class="mt-3">All sub-processors are bound by data processing agreements requiring confidentiality and security commitments at least as protective as ours.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 4. Retention</h2>
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li><strong class="text-ink">Account data and monitor configuration</strong> — retained for as long as your account is active. Deleted when you delete your account.</li>
+                <li><strong class="text-ink">Check history</strong> — automatically pruned on a per-plan schedule: 7 days on Free, 90 days on Starter, 365 days on Pro. Older check records are deleted nightly.</li>
+                <li><strong class="text-ink">Incidents</strong> — retained for as long as the parent monitor exists.</li>
+                <li><strong class="text-ink">Verification and password reset tokens</strong> — expire automatically (verification: 24 hours; reset: 1 hour) and are invalidated immediately on use.</li>
+                <li><strong class="text-ink">Billing records</strong> — retained for as long as required by tax law in <strong class="text-ink">the State of Delaware, USA</strong>, typically 7 years.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 5. Your rights</h2>
+            <p class="mb-3">If you are in the EU/UK (GDPR / UK&nbsp;GDPR), in California (CCPA/CPRA), or in any other jurisdiction with comparable privacy law, you have the right to:</p>
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li><strong class="text-ink">Access</strong> — request a copy of the personal data we hold about you.</li>
+                <li><strong class="text-ink">Correct</strong> — update inaccurate data via your Account page or by contacting us.</li>
+                <li><strong class="text-ink">Delete</strong> — permanently erase your account and associated data using the <em>Delete account</em> button on the Account page. Cancel any active subscription first.</li>
+                <li><strong class="text-ink">Port</strong> — request your data in a machine-readable format.</li>
+                <li><strong class="text-ink">Object / restrict</strong> — to certain processing, subject to law.</li>
+                <li><strong class="text-ink">Lodge a complaint</strong> — with your local supervisory authority.</li>
+            </ul>
+            <p class="mt-3">To exercise any of these rights other than self-service deletion, email us at <strong class="text-ink">support@checkpulse.dev</strong>. We respond within 30 days.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 6. International transfers</h2>
+            <p>Our service is operated from <strong class="text-ink">the State of Delaware, USA</strong>. Our regional check workers run in the United States, Europe, and Asia. If you are located outside <strong class="text-ink">the State of Delaware, USA</strong>, your data may be transferred to and processed in any of these regions. Where required by law, we rely on Standard Contractual Clauses or equivalent safeguards.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 7. Cookies</h2>
+            <p>We set a small number of strictly-necessary cookies to keep you signed in (a JWT access token, a refresh token, and short-lived flash-message cookies). We do not use third-party tracking cookies, advertising cookies, or analytics cookies.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 8. Security</h2>
+            <p>Passwords are hashed with bcrypt. Sub-processor traffic is encrypted in transit (HTTPS / TLS). The database is hosted on managed infrastructure with at-rest encryption. We do not claim to be invulnerable; if you discover a security issue please report it to <strong class="text-ink">support@checkpulse.dev</strong> rather than disclosing it publicly.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 9. Children</h2>
+            <p>The Service is not directed at children under 16, and we do not knowingly collect personal data from anyone under 16. If you believe a child has provided us with data, contact <strong class="text-ink">support@checkpulse.dev</strong> and we will delete it.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 10. Changes to this policy</h2>
+            <p>We may update this policy as the Service evolves. Material changes will be announced by email and via a notice on this page at least 14 days before they take effect. The &ldquo;effective&rdquo; date at the top of this page reflects the current version.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 11. Contact</h2>
+            <p>
+                <strong class="text-ink">CheckPulse</strong><br>
+                <strong class="text-ink">support@checkpulse.dev</strong>
+            </p>
+        </section>
+    </div>
+    {% else %}
+    <div class="space-y-8 text-ink-muted leading-relaxed">
+        <p>
+            These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the CheckPulse uptime,
+            DNS, and SSL monitoring service (the &ldquo;Service&rdquo;) operated by
+            <strong class="text-ink">CheckPulse</strong> (&ldquo;CheckPulse,&rdquo; &ldquo;we,&rdquo; or
+            &ldquo;us&rdquo;). By creating an account or using the Service you agree to these Terms.
+        </p>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 1. Account</h2>
+            <p>You must be at least 16 years old and have legal capacity in your jurisdiction to enter into a contract. You are responsible for keeping your password confidential and for everything that happens under your account. Notify us at <strong class="text-ink">support@checkpulse.dev</strong> immediately if you suspect unauthorized access.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 2. Acceptable use</h2>
+            <p class="mb-3">You may use the Service only to monitor properties (websites, DNS records, certificates) that you own or have explicit permission to monitor. You may not:</p>
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li>Use the Service to launch denial-of-service attacks or to harass any system or person.</li>
+                <li>Configure abusive or excessive check intervals against targets you do not control.</li>
+                <li>Attempt to bypass plan limits, access another user's data, or otherwise probe the Service for vulnerabilities except through a responsible-disclosure email to <strong class="text-ink">support@checkpulse.dev</strong>.</li>
+                <li>Use the Service to violate any applicable law or any third party's rights.</li>
+            </ul>
+            <p class="mt-3">We may suspend or terminate accounts that violate these rules.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 3. Plans, billing, and cancellation</h2>
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li><strong class="text-ink">Free plan</strong> — no payment required, subject to the limits published on the pricing page.</li>
+                <li><strong class="text-ink">Paid plans</strong> — billed monthly in advance via Stripe at the rate published on the pricing page when you subscribe. Prices are in US dollars unless stated otherwise.</li>
+                <li><strong class="text-ink">Renewal</strong> — paid plans renew automatically each month until you cancel.</li>
+                <li><strong class="text-ink">Cancellation</strong> — you may cancel at any time via the Billing page. Cancellation takes effect at the end of your current billing period. You retain access to paid features until then.</li>
+                <li><strong class="text-ink">Refunds</strong> — we do not offer pro-rated refunds for partial periods. We may, at our discretion, refund a full period if the Service materially failed to function during it.</li>
+                <li><strong class="text-ink">Failed payments</strong> — Stripe will retry. If a payment ultimately fails, your account moves to <em>past_due</em> and may be downgraded to Free after the period ends.</li>
+                <li><strong class="text-ink">Price changes</strong> — we may change prices for new billing periods with at least 30 days' notice by email.</li>
+                <li><strong class="text-ink">Taxes</strong> — prices exclude any applicable taxes, which you are responsible for.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 4. Service availability</h2>
+            <p>We work hard to keep the Service running, but we provide it on a best-effort basis without a guaranteed service level for the Free plan. For paid plans we target <strong class="text-ink">99.9% monthly uptime</strong> for the dashboard and API; if you experience prolonged downtime, contact <strong class="text-ink">support@checkpulse.dev</strong> for a service credit. Scheduled maintenance windows are announced via the status page.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 5. Changes to the Service</h2>
+            <p>We may add, change, or remove features at any time. We will not materially reduce features included in a paid plan within the period you have prepaid for. Discontinued features will be announced by email at least 30 days before removal.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 6. Termination</h2>
+            <p>You may delete your account at any time from the Account page. We may suspend or terminate your account, with notice where practical, if you violate these Terms, fail to pay, or use the Service in a way that creates risk for us or other users. On termination, your data is deleted as described in our Privacy Policy.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 7. Your content</h2>
+            <p>You retain all rights to the monitor names, URLs, and other content you provide. You grant us a limited license to process that content solely as needed to operate the Service for you (run checks, deliver alerts, render dashboards and status pages you make public).</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 8. Disclaimer of warranties</h2>
+            <p>The Service is provided <strong class="text-ink">&ldquo;as is&rdquo; and &ldquo;as available.&rdquo;</strong> To the maximum extent permitted by law, we disclaim all warranties, express or implied, including merchantability, fitness for a particular purpose, and non-infringement. We do not warrant that the Service will be uninterrupted, error-free, or that every incident will be detected or every alert will be delivered.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 9. Limitation of liability</h2>
+            <p>To the maximum extent permitted by law, in no event will <strong class="text-ink">CheckPulse</strong> be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits, revenue, data, or business opportunities arising out of or relating to the Service. Our total aggregate liability for any claim arising out of these Terms or the Service is limited to the greater of (a) the fees you paid us in the 12 months preceding the claim, or (b) USD 100. The Service is intended as an early-warning tool, not a substitute for your own operational diligence; we are not liable for the downtime of the systems you ask us to monitor.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 10. Indemnification</h2>
+            <p>You agree to defend and indemnify us against any third-party claim arising from your use of the Service, your content, or your violation of these Terms.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 11. Governing law and disputes</h2>
+            <p>These Terms are governed by the laws of <strong class="text-ink">the State of Delaware, USA</strong>, without regard to its conflict-of-laws rules. The exclusive venue for any dispute is the courts located in <strong class="text-ink">the State of Delaware, USA</strong>. You and we each waive the right to a jury trial and to participate in any class action.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 12. Changes to these Terms</h2>
+            <p>We may update these Terms as the Service evolves. Material changes will be announced by email and via a notice on this page at least 14 days before they take effect. Continued use of the Service after the effective date constitutes acceptance.</p>
+        </section>
+
+        <section>
+            <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 13. Contact</h2>
+            <p>
+                <strong class="text-ink">CheckPulse</strong><br>
+                <strong class="text-ink">support@checkpulse.dev</strong>
+            </p>
+        </section>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

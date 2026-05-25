@@ -14,6 +14,7 @@ from app.api.routes import alerts, api_keys, auth, billing, dashboard, health, i
 settings = get_settings()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
+
 def _client_ip(request) -> str:
     """Resolve the rate-limit key. Behind a reverse proxy (trust_forwarded_for
     enabled), take the leftmost IP from X-Forwarded-For — that's the original
@@ -50,6 +51,24 @@ async def landing_page(request: Request):
 @limiter.exempt
 async def getting_started_page(request: Request):
     return templates.TemplateResponse("getting_started.html", {"request": request})
+
+
+@app.get("/legal/privacy", response_class=HTMLResponse)
+@limiter.exempt
+async def privacy_page(request: Request):
+    return templates.TemplateResponse(
+        "legal.html",
+        {"request": request, "title": "Privacy Policy", "doc": "privacy"},
+    )
+
+
+@app.get("/legal/terms", response_class=HTMLResponse)
+@limiter.exempt
+async def terms_page(request: Request):
+    return templates.TemplateResponse(
+        "legal.html",
+        {"request": request, "title": "Terms of Service", "doc": "terms"},
+    )
 
 # --- Routes ---
 app.include_router(health.router, tags=["Health"])
