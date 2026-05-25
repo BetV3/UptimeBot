@@ -54,7 +54,7 @@ done
 # ── 4. TLS + security headers ────────────────────────────────────────
 hdrs=$(curl -fsSI "https://${APP_HOST}/")
 echo "$hdrs" | grep -qi "^strict-transport-security:" \
-    || fail "HSTS header missing — Caddy security headers not applied"
+    || fail "HSTS header missing — TransportMiddleware not enabled, APP_ENV != production, or proxy stripped it"
 pass "HSTS header present"
 
 echo "$hdrs" | grep -qi "^x-content-type-options: *nosniff" \

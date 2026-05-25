@@ -44,7 +44,15 @@ After it's up, note the public IPv4. Then SSH in as root:
 ssh root@<droplet-ip>
 ```
 
-## 2. Harden + install Docker + Caddy
+## 2. Harden + install Docker + cloudflared
+
+This runbook uses **Cloudflare Tunnel** for ingress: cloudflared opens
+an outbound-only connection to Cloudflare's edge, Cloudflare proxies
+inbound traffic to it, and TLS terminates at Cloudflare. The droplet
+never opens ports 80/443 to the public internet.
+
+If you'd rather expose the droplet directly with Caddy + Let's Encrypt
+TLS, see the Caddy variant in git history (commit `8d97afb`).
 
 ```
 # Create a non-root user and lock down SSH
@@ -59,75 +67,93 @@ sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
 sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 systemctl restart ssh
 
-# Firewall — only SSH + HTTPS reach the outside
+# Firewall — only SSH needs to be reachable. Cloudflare Tunnel makes
+# outbound-only connections; no inbound 80/443 needed on the droplet.
 ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443/tcp
 ufw --force enable
 
 # Docker
 apt-get update
-apt-get install -y docker.io docker-compose-v2 git
+apt-get install -y docker.io docker-compose-v2 git curl
 systemctl enable --now docker
 usermod -aG docker checkpulse
 
-# Caddy (handles TLS termination + reverse proxy to FastAPI)
-apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-apt-get update && apt-get install -y caddy
+# cloudflared (Cloudflare Tunnel daemon)
+mkdir -p --mode=0755 /usr/share/keyrings
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
+  | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared bookworm main' \
+  | tee /etc/apt/sources.list.d/cloudflared.list
+apt-get update
+apt-get install -y cloudflared
 ```
 
 Re-SSH as `checkpulse` to confirm key-only auth works. Don't proceed
 until you can `ssh checkpulse@<ip>` cleanly — root login is now off.
 
-## 3. DNS records
+## 3. Create the Cloudflare Tunnel + DNS records
 
-At your registrar (or DigitalOcean DNS if you transferred), add:
-
-| Type | Name                  | Value                |
-|------|-----------------------|----------------------|
-| A    | `checkpulse.dev`      | `<droplet-ipv4>`     |
-| A    | `app.checkpulse.dev`  | `<droplet-ipv4>`     |
-| A    | `api.checkpulse.dev`  | `<droplet-ipv4>`     |
-
-(`AAAA` records are nice-to-have if the droplet has IPv6; skip for
-the first pass.)
-
-Verify before continuing — Caddy can't get TLS certs until DNS
-resolves to this host:
+As `checkpulse` (or root — the credentials end up under whichever user
+runs `tunnel login`; pick one and stick with it).
 
 ```
-dig +short checkpulse.dev
+# 1. Authenticate cloudflared with your Cloudflare account.
+# Prints a URL — open it on your laptop, sign in, pick the zone
+# (checkpulse.dev). cloudflared writes ~/.cloudflared/cert.pem.
+cloudflared tunnel login
+
+# 2. Create a named tunnel. Generates a UUID and credentials file at
+# ~/.cloudflared/<UUID>.json. Save the UUID — you'll need it below.
+cloudflared tunnel create checkpulse-prod
+
+# 3. Route DNS — Cloudflare auto-creates CNAME records pointing each
+# hostname at <UUID>.cfargotunnel.com. No manual DNS-panel edits.
+cloudflared tunnel route dns checkpulse-prod checkpulse.dev
+cloudflared tunnel route dns checkpulse-prod app.checkpulse.dev
+cloudflared tunnel route dns checkpulse-prod api.checkpulse.dev
+```
+
+Verify the records exist:
+
+```
 dig +short app.checkpulse.dev
-dig +short api.checkpulse.dev
-# all three should print the droplet IP
+# expect: <something>.cfargotunnel.com.
 ```
 
-## 4. Caddyfile + TLS
+In the Cloudflare dashboard, under **SSL/TLS → Overview**, set the
+encryption mode to **Full** (not "Flexible" — the tunnel is already
+encrypted end-to-end and "Full" is the right semantic).
 
-As `checkpulse`:
+## 4. cloudflared config + run as service
+
+As `checkpulse`, replace `<UUID>` below with the tunnel UUID from
+step 3:
 
 ```
-sudo tee /etc/caddy/Caddyfile <<'EOF'
-checkpulse.dev, app.checkpulse.dev, api.checkpulse.dev {
-    reverse_proxy localhost:8000
-    encode gzip
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        X-Content-Type-Options "nosniff"
-        Referrer-Policy "strict-origin-when-cross-origin"
-    }
-}
+sudo mkdir -p /etc/cloudflared
+sudo tee /etc/cloudflared/config.yml <<'EOF'
+tunnel: checkpulse-prod
+credentials-file: /home/checkpulse/.cloudflared/<UUID>.json
+
+ingress:
+  - hostname: api.checkpulse.dev
+    service: http://localhost:8000
+  - hostname: app.checkpulse.dev
+    service: http://localhost:8000
+  - hostname: checkpulse.dev
+    service: http://localhost:8000
+  - service: http_status:404
 EOF
 
-sudo systemctl reload caddy
-sudo journalctl -u caddy -n 50
-# expect lines like "obtained certificate" for each hostname
+sudo cloudflared service install
+sudo systemctl enable --now cloudflared
+sudo systemctl status cloudflared
+# expect: active (running), no errors in journalctl -u cloudflared -n 50
 ```
 
-Caddy auto-renews. If you see ACME challenge failures, DNS hasn't
-propagated yet — wait 5 minutes and `systemctl reload caddy` again.
+Cloudflare manages TLS certs for you — no Let's Encrypt step. If
+`cloudflared` fails to connect, the most common cause is a stale or
+wrong `credentials-file` path; check `journalctl -u cloudflared -n 100`.
 
 ## 5. Clone the repo + create `.env`
 
@@ -350,7 +376,9 @@ This is a first deploy, so "rollback" is mostly "tear down":
 
 - App host: `docker compose down -v` wipes containers + volumes.
 - Workers: `systemctl stop checkpulse-worker` on each VPS.
-- DNS: change A records back; Caddy / Let's Encrypt certs are kept.
+- Tunnel: `systemctl stop cloudflared` cuts public ingress immediately
+  without touching DNS; `cloudflared tunnel delete checkpulse-prod`
+  removes the tunnel and frees the auto-created CNAMEs.
 - Stripe: leave the live webhook + products in place; toggle the
   webhook endpoint to disabled if you need to stop incoming events.
 

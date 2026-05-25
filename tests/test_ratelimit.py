@@ -55,3 +55,41 @@ def test_trust_on_handles_extra_whitespace(monkeypatch):
     monkeypatch.setattr(get_settings(), "trust_forwarded_for", True)
     req = _fake_request({"x-forwarded-for": "  spoof  ,  1.2.3.4  ,  "})
     assert client_ip(req) == "1.2.3.4"
+
+
+def test_trust_on_prefers_cf_connecting_ip_over_xff(monkeypatch):
+    """Behind Cloudflare (Tunnel / proxied DNS / Worker), CF-Connecting-IP
+    is Cloudflare's authoritative real-client header. It wins over XFF
+    because XFF may contain multiple appended hops when CF is in front
+    of another proxy (e.g. Caddy) and "rightmost XFF" no longer cleanly
+    identifies the originating client."""
+    monkeypatch.setattr(get_settings(), "trust_forwarded_for", True)
+    req = _fake_request({
+        "cf-connecting-ip": "203.0.113.7",
+        "x-forwarded-for": "spoof, 203.0.113.7, 198.51.100.4",
+    })
+    assert client_ip(req) == "203.0.113.7"
+
+
+def test_trust_on_cf_connecting_ip_alone(monkeypatch):
+    monkeypatch.setattr(get_settings(), "trust_forwarded_for", True)
+    req = _fake_request({"cf-connecting-ip": "203.0.113.7"})
+    assert client_ip(req) == "203.0.113.7"
+
+
+def test_trust_on_empty_cf_falls_through_to_xff(monkeypatch):
+    monkeypatch.setattr(get_settings(), "trust_forwarded_for", True)
+    req = _fake_request({
+        "cf-connecting-ip": "",
+        "x-forwarded-for": "spoof, 1.2.3.4",
+    })
+    assert client_ip(req) == "1.2.3.4"
+
+
+def test_trust_off_ignores_cf_connecting_ip(monkeypatch):
+    """If we don't trust the proxy chain, an attacker hitting the app
+    directly could spoof CF-Connecting-IP just like XFF. Only trust it
+    when trust_forwarded_for is on."""
+    monkeypatch.setattr(get_settings(), "trust_forwarded_for", False)
+    req = _fake_request({"cf-connecting-ip": "203.0.113.7"}, peer_host="10.0.0.1")
+    assert client_ip(req) == "10.0.0.1"

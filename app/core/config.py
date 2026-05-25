@@ -19,12 +19,14 @@ class Settings(BaseSettings):
     # Workers
     worker_secret: str = "change-me-worker-secret"
 
-    # Set to true in production behind exactly ONE trusted reverse proxy
-    # (Caddy by default). When true, the rate limiter resolves the client
-    # IP from the rightmost X-Forwarded-For entry (the IP the proxy
-    # directly saw; the leftmost is client-supplied and spoofable). When
-    # false, falls back to the immediate TCP peer — correct for dev,
-    # never trust X-Forwarded-For without a proxy. See app/core/ratelimit.py.
+    # Set to true in production behind a trusted reverse proxy (Cloudflare
+    # Tunnel + cloudflared, Caddy, nginx, etc.). When true, the rate
+    # limiter resolves the client IP in this order: CF-Connecting-IP (set
+    # by Cloudflare and overwritten by them, so authoritative when CF is
+    # in the path), then the rightmost X-Forwarded-For entry (for a
+    # single non-CF proxy hop), then the immediate TCP peer. When false,
+    # falls back to the TCP peer unconditionally — correct for dev,
+    # never trust forwarded headers without a proxy. See app/core/ratelimit.py.
     trust_forwarded_for: bool = False
 
     # Stripe
