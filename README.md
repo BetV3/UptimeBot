@@ -61,37 +61,22 @@ cd UptimeBot
 
 ### 2. Set up environment variables
 
-Copy and edit the `.env` file:
+The repo ships `.env.dev` with working dev defaults — `docker compose up` works
+out of the box without any local edits. Personal overrides go in `.env.local`
+(gitignored). On a production host, copy `.env.example` to `.env` (also
+gitignored) and fill in real secrets — see `DEPLOY_FIRST.md` for the prod path.
 
-```bash
-cp .env .env.local  # make a copy, then edit
-```
+Files loaded by docker-compose, in priority order (later wins):
 
-At minimum, change these for production:
+| File          | Tracked? | Purpose                                              |
+|---------------|----------|------------------------------------------------------|
+| `.env.dev`    | yes      | Dev defaults — required, always loaded               |
+| `.env`        | no       | Per-host overrides (used on prod; optional in dev)   |
+| `.env.local`  | no       | Per-developer overrides for local-only tweaks        |
+| `.env.example`| yes      | Documented template for the prod `.env`              |
 
-```env
-# REQUIRED — change these from defaults
-SECRET_KEY=your-random-secret-here          # JWT signing key (use: openssl rand -hex 32)
-WORKER_SECRET=your-worker-secret-here       # Shared secret between API and check workers
-
-# Database (defaults work with Docker Compose)
-DATABASE_URL=postgresql+asyncpg://uptimebot:localdev@db:5432/uptimebot
-DATABASE_URL_SYNC=postgresql://uptimebot:localdev@db:5432/uptimebot
-
-# Redis (defaults work with Docker Compose)
-REDIS_URL=redis://redis:6379/0
-
-# App
-APP_NAME=CheckPulse
-APP_ENV=development                         # Set to "production" for prod
-APP_URL=http://localhost:8000               # Your public URL (used for Stripe redirects)
-
-# Stripe (optional — billing won't work without these)
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-STRIPE_STARTER_PRICE_ID=
-STRIPE_PRO_PRICE_ID=
-```
+The dev defaults include placeholder secrets (e.g. `SECRET_KEY=change-me-in-production-...`)
+that are obviously **not** safe for any internet-reachable deploy.
 
 ### 3. Start all services
 
@@ -244,6 +229,37 @@ The API uses consensus logic: a monitor is only marked DOWN when **2 or more reg
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | _(empty)_ |
 | `STRIPE_STARTER_PRICE_ID` | Stripe Price ID for Starter plan | _(empty)_ |
 | `STRIPE_PRO_PRICE_ID` | Stripe Price ID for Pro plan | _(empty)_ |
+| `TRUST_FORWARDED_FOR` | Read client IP from `X-Forwarded-For` (set behind a reverse proxy) | `False` |
+| `RESEND_API_KEY` | Resend API key for transactional email | _(empty — logs to stdout)_ |
+| `EMAIL_FROM_ADDRESS` | From address for transactional + alert email | `CheckPulse <no-reply@checkpulse.dev>` |
+
+For the complete prod-host env layout (including `EMAIL_FROM_ADDRESS`, the
+verification TTL, etc.) see `.env.example`.
+
+---
+
+## Deployment
+
+For a brand-new production deploy, follow `DEPLOY_FIRST.md` — a 12-step
+runbook covering DigitalOcean droplet provisioning, Docker + Caddy, DNS,
+Let's Encrypt TLS, `.env` from `.env.example`, Stripe live mode, Resend
+domain verification, regional worker VPSes, `pg_dump` → DigitalOcean
+Spaces backups, and self-monitoring.
+
+For rolling updates after the host is live:
+
+- `DEPLOY_APP.md` — central app host upgrade (DB, API, Celery workers, beat).
+- `DEPLOY_WORKER.md` — per-region VPS worker upgrade.
+- `PROD_DEPLOY.md` — phase-by-phase rationale for the recent worker-pipeline
+  rework (A1/A2/A3/B1+B2/B3/C1–C4).
+
+After deploy:
+
+- `LAUNCH_CHECKLIST.md` — pre-launch verification (Stripe E2E, email
+  deliverability, real-provider alert smoke, known gaps).
+- `deploy/smoke.sh` — HTTP-level smoke from your laptop against the live host.
+- `deploy/sanity.sql` — DB invariants run on the host via `psql`.
+- `deploy/load.md` — `hey` commands for a single-machine load smoke.
 
 ---
 
