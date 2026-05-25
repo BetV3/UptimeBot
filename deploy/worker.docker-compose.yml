@@ -1,0 +1,27 @@
+# Drop this file on each worker VPS at /opt/checkpulse/docker-compose.yml,
+# alongside a worker.env file with REGION / API_URL / WORKER_SECRET /
+# WORKER_ID. Then:
+#
+#     cd /opt/checkpulse
+#     docker compose pull
+#     docker compose up -d
+#     docker compose logs -f worker
+#
+# Updates: re-run `docker compose pull && docker compose up -d` after
+# the GitHub Actions workflow pushes a new :latest tag.
+
+services:
+  worker:
+    image: ghcr.io/betv3/uptimebot-worker:latest
+    container_name: checkpulse-worker
+    restart: unless-stopped
+    env_file:
+      - worker.env
+    # No ports, no volumes — the worker only makes outbound HTTPS calls
+    # to the central API. Health is observable via `docker logs` and
+    # the heartbeat row in the central DB's pending_checks table.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
