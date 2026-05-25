@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.http import external_base_url
+from app.core.ratelimit import client_ip
 from app.models.models import User
 from app.schemas.auth import UserCreate, UserResponse, Token, TokenRefresh
 from app.services.auth import (
@@ -20,7 +20,11 @@ from app.services.auth import (
 from app.services.email import generate_verification_token, send_verification_email
 
 router = APIRouter()
-limiter = Limiter(key_func=get_remote_address)
+# Shares the XFF-aware key resolver with the app-wide limiter so the
+# brute-force throttle on /auth/login actually keys on the real client
+# IP behind Caddy (not on Caddy's IP, which would collapse all callers
+# into one bucket).
+limiter = Limiter(key_func=client_ip)
 
 
 @router.post("/register", status_code=status.HTTP_202_ACCEPTED)
