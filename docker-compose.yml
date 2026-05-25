@@ -39,6 +39,7 @@ services:
     volumes:
       - .:/code
     env_file:
+      - .env.dev
       - .env
       - .env.local
     depends_on:
@@ -53,6 +54,7 @@ services:
     volumes:
       - .:/code
     env_file:
+      - .env.dev
       - .env
       - .env.local
     depends_on:
@@ -67,6 +69,7 @@ services:
     volumes:
       - .:/code
     env_file:
+      - .env.dev
       - .env
       - .env.local
     depends_on:
@@ -81,6 +84,7 @@ services:
     volumes:
       - .:/code
     env_file:
+      - .env.dev
       - .env
       - .env.local
     depends_on:
@@ -99,6 +103,7 @@ services:
     volumes:
       - .:/code
     env_file:
+      - .env.dev
       - .env
       - .env.local
     depends_on:

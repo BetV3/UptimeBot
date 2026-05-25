@@ -12,6 +12,7 @@ celerybeat-schedule
 .claude/
 *.log
 *.yml
+.env
 .env.local
 *.png
 .codex
