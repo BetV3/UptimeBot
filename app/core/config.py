@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     # Workers
     worker_secret: str = "change-me-worker-secret"
 
+    # Set to true in production behind a reverse proxy (nginx, Caddy, a CDN).
+    # When true, the rate limiter reads the leftmost IP from X-Forwarded-For so
+    # per-user limits actually work; when false, it falls back to the immediate
+    # TCP peer (correct for dev, never trust X-Forwarded-For without a proxy).
+    trust_forwarded_for: bool = False
+
     # Stripe
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""

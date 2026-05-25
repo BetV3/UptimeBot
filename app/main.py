@@ -14,7 +14,19 @@ from app.api.routes import alerts, api_keys, auth, billing, dashboard, health, i
 settings = get_settings()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+def _client_ip(request) -> str:
+    """Resolve the rate-limit key. Behind a reverse proxy (trust_forwarded_for
+    enabled), take the leftmost IP from X-Forwarded-For — that's the original
+    client. Without the flag, fall back to the immediate TCP peer; trusting
+    a spoofable header without a proxy would let attackers bypass limits."""
+    if settings.trust_forwarded_for:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            return forwarded.split(",", 1)[0].strip()
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=_client_ip, default_limits=["60/minute"])
 
 app = FastAPI(
     title=settings.app_name,
