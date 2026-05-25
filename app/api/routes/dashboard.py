@@ -4,6 +4,7 @@ All form actions POST to these endpoints which call the API layer directly.
 Auth is handled via JWT stored in a cookie.
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -36,6 +37,7 @@ from app.services.plans import PLAN_LIMITS, check_project_limit, check_monitor_l
 
 router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent.parent / "templates"))
 
 
@@ -508,6 +510,58 @@ async def account_change_password(
         secure=should_secure_cookie(),
     )
     return response
+
+
+@router.post("/account/delete")
+async def account_delete(
+    request: Request,
+    confirm_password: str = Form(...),
+    confirm_email: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently delete the account and all owned data (GDPR right-to-erasure).
+
+    Cascade FKs (users→projects→monitors→checks/incidents/alert_deliveries) handle
+    the data wipe. If the user has a live Stripe subscription, cancel it
+    immediately before deleting — otherwise we'd lose the stripe_subscription_id
+    and continue billing a phantom account.
+    """
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+
+    if not verify_password(confirm_password, user.password_hash):
+        return _redirect_with_flash("/dashboard/account", "Password is incorrect.")
+    if (confirm_email or "").strip().lower() != user.email.lower():
+        return _redirect_with_flash("/dashboard/account", "Email confirmation did not match.")
+
+    # Cancel the Stripe subscription before deleting the user row. If Stripe is
+    # unreachable, abort so we don't lose the subscription_id and end up with
+    # a paying ghost — the user can retry once Stripe is back. "Already
+    # canceled" or "not found" responses are fine to ignore.
+    if user.stripe_subscription_id and settings.stripe_secret_key:
+        import stripe
+        stripe.api_key = settings.stripe_secret_key
+        try:
+            stripe.Subscription.delete(user.stripe_subscription_id)
+        except stripe.error.InvalidRequestError as e:
+            # Subscription already canceled or deleted on Stripe's side — safe to proceed.
+            logger.info("Stripe subscription %s already gone: %s", user.stripe_subscription_id, e)
+        except Exception as e:
+            logger.exception("Failed to cancel Stripe subscription %s", user.stripe_subscription_id)
+            return _redirect_with_flash(
+                "/dashboard/account",
+                "Couldn't cancel your Stripe subscription — please try again in a few minutes.",
+            )
+
+    await db.delete(user)
+    await db.commit()
+
+    response = RedirectResponse("/", status_code=303)
+    response.delete_cookie("access_token", path="/", samesite="lax", secure=should_secure_cookie())
+    response.delete_cookie("refresh_token", path="/", samesite="lax", secure=should_secure_cookie())
+    return response
+
 
 
 @router.get("/billing", response_class=HTMLResponse)

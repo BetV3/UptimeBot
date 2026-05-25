@@ -56,4 +56,44 @@
         <button type="submit" class="bc-btn-primary">Update password</button>
     </form>
 </section>
+
+<section class="mt-12">
+    <h2 class="font-mono text-sm uppercase tracking-wider text-bad mb-3">// Danger zone</h2>
+    <div class="bc-card p-6 max-w-md border-bad/30">
+        <p class="text-sm text-ink-muted mb-4">
+            Permanently deletes your account and every project, monitor, check, incident, and alert channel under it. This cannot be undone.
+        </p>
+        <button type="button" onclick="document.getElementById('delete-account-modal').classList.remove('hidden')" class="bc-btn-danger">Delete account</button>
+    </div>
+</section>
+
+<div id="delete-account-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bc-card w-full max-w-md p-6 shadow-glow-lg">
+        <div class="flex items-start gap-4 mb-5">
+            <div class="w-10 h-10 rounded-md bg-bad/10 border border-bad/30 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-bad" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z"/>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h2 class="font-mono text-lg font-bold text-ink">Delete account?</h2>
+                <p class="text-sm text-ink-muted mt-1">Confirm your email and password. Any active subscription will be canceled, and all of your projects, monitors, checks, and incidents will be removed.</p>
+            </div>
+        </div>
+        <form method="post" action="/dashboard/account/delete" class="space-y-4">
+            <div>
+                <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Type your email to confirm</label>
+                <input type="email" name="confirm_email" required autocomplete="off" placeholder="{{ user.email }}">
+            </div>
+            <div>
+                <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Password</label>
+                <input type="password" name="confirm_password" required autocomplete="current-password" placeholder="••••••••">
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" onclick="document.getElementById('delete-account-modal').classList.add('hidden')" class="bc-btn-secondary">Cancel</button>
+                <button type="submit" class="bc-btn-danger">Delete permanently</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
