@@ -397,7 +397,7 @@
                 <h2>Create an account</h2>
             </div>
             <div class="step-body">
-                <p><a href="/dashboard/register" class="link">Sign up</a> with your email. No credit card required &mdash; the free plan covers 1 site with 3 monitors and 5-minute checks, so you can try it against a real client property today.</p>
+                <p><a href="/dashboard/register" class="link">Sign up</a> with your email. No credit card required &mdash; the free plan covers 1 site with 3 monitors (account-wide) and 5-minute checks, so you can try it against a real client property today.</p>
             </div>
         </section>
 
@@ -486,7 +486,8 @@ curl /projects -H <span class="ok">"Authorization: Bearer &lt;token&gt;"</span>
 
         <section class="divider">
             <h2 class="section-heading">Plans</h2>
-            <p class="section-heading-sub">Pick the plan that fits how many client sites you're responsible for. All plans include multi-region monitoring and SSL checks.</p>
+            <p class="section-heading-sub">Pick the plan that fits how many client sites you're responsible for. All plans include multi-region monitoring, SSL checks, and every alert channel (Slack, Discord, email, webhook, Telegram).</p>
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
             <table class="plans-table">
                 <thead>
                     <tr>
@@ -498,13 +499,14 @@ curl /projects -H <span class="ok">"Authorization: Bearer &lt;token&gt;"</span>
                 </thead>
                 <tbody>
                     <tr><td>Sites</td><td>1</td><td>3</td><td>10</td></tr>
-                    <tr><td>Monitors</td><td>3</td><td>10</td><td>50</td></tr>
+                    <tr><td>Monitors (total)</td><td>3</td><td>10</td><td>50</td></tr>
                     <tr><td>Min interval</td><td>5 min</td><td>1 min</td><td>30 sec</td></tr>
                     <tr><td>Monitor types</td><td>Uptime</td><td>Uptime, DNS, SSL, latency</td><td>Uptime, DNS, SSL, latency</td></tr>
                     <tr><td>Status page</td><td>Basic</td><td>Basic</td><td>Branded + custom domain</td></tr>
                     <tr><td>History</td><td>7 days</td><td>90 days</td><td>1 year</td></tr>
                 </tbody>
             </table>
+            </div>
         </section>
     </main>
 

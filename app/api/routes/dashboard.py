@@ -603,9 +603,9 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
             "tagline": "For evaluation and light monitoring.",
             "features": [
                 f"{PLAN_LIMITS[PlanType.FREE].max_projects} site",
-                f"{PLAN_LIMITS[PlanType.FREE].max_monitors} monitors",
+                f"{PLAN_LIMITS[PlanType.FREE].max_monitors} monitors total",
                 f"{PLAN_LIMITS[PlanType.FREE].min_interval_seconds // 60}-minute intervals",
-                "Email alerts",
+                "All alert channels",
                 "7-day history",
             ],
         },
@@ -616,10 +616,10 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
             "tagline": "For solo operators and small production setups.",
             "features": [
                 f"{PLAN_LIMITS[PlanType.STARTER].max_projects} sites",
-                f"{PLAN_LIMITS[PlanType.STARTER].max_monitors} monitors",
+                f"{PLAN_LIMITS[PlanType.STARTER].max_monitors} monitors across all sites",
                 f"{PLAN_LIMITS[PlanType.STARTER].min_interval_seconds}-second intervals",
                 "Uptime, DNS, SSL, latency",
-                "Slack, email & webhook alerts",
+                "All alert channels",
                 "Basic status page",
                 "90-day history",
             ],
@@ -632,7 +632,7 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
             "tagline": "For agencies and multi-site operators managing client properties.",
             "features": [
                 f"{PLAN_LIMITS[PlanType.PRO].max_projects} sites",
-                f"{PLAN_LIMITS[PlanType.PRO].max_monitors} monitors",
+                f"{PLAN_LIMITS[PlanType.PRO].max_monitors} monitors across all sites",
                 f"{PLAN_LIMITS[PlanType.PRO].min_interval_seconds}-second intervals",
                 "Custom domain",
                 "Branded status pages",

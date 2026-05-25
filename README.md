@@ -1,8 +1,8 @@
 # CheckPulse
 
-Uptime monitoring and status pages for Discord/Telegram bot developers.
+Uptime, DNS, and SSL monitoring for agencies managing client websites.
 
-Multi-region HTTP monitoring with incident detection, alerting (Discord, Telegram, Email, Slack, Webhooks), public status pages, and a web dashboard.
+Multi-region monitoring with incident detection, multi-channel alerting (Slack, Discord, Telegram, Email, Webhooks), per-client public status pages, and a web dashboard.
 
 ## Architecture
 
