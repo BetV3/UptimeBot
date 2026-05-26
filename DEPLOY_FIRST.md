@@ -1,7 +1,14 @@
-# Deploy — First Production Deploy (DigitalOcean)
+# Deploy — First Production Deploy
 
 Runbook for the brand-new prod host. Walk top to bottom; the order
 matters more than the commands inside each step.
+
+This walkthrough uses **Vultr** for compute (Cloud Compute instances +
+Object Storage) and **Cloudflare Tunnel** for ingress, which is the
+production setup as of the most recent deploy. The steps are
+provider-agnostic — any Ubuntu 24.04 host on DigitalOcean, AWS Linode,
+Hetzner, etc. works identically; just swap the provisioning UI clicks
+and the object-storage endpoint in §10.
 
 For rolling updates after this initial deploy, use `DEPLOY_APP.md`
 (central host) and `DEPLOY_WORKER.md` (regional VPSes).
@@ -13,27 +20,33 @@ For rolling updates after this initial deploy, use `DEPLOY_APP.md`
 Have all of these before starting — half of them have ~hour DNS
 propagation delays so set them in motion early.
 
-- **DigitalOcean** account, payment method on file. You'll create
-  4 droplets (1 app, 3 workers) and 1 Space bucket.
-- **Domain registered** — `checkpulse.dev` per these docs. Either
-  keep nameservers at the registrar or transfer them to DigitalOcean
-  DNS — both work, this runbook assumes registrar-side DNS.
+- **Cloud provider account** with a payment method on file. This
+  runbook walks Vultr (Cloud Compute + Object Storage); DigitalOcean,
+  Hetzner, Linode, AWS Lightsail, etc. work the same. You'll create
+  4 small Ubuntu hosts (1 central app, 3 regional workers) and one
+  S3-compatible bucket for backups.
+- **Cloudflare** account — the domain you're deploying to must have
+  its nameservers pointing at Cloudflare so Cloudflare Tunnel can
+  create CNAME records for you.
+- **Domain registered** — `checkpulse.dev` per these docs.
 - **Stripe** account, in **live mode** (test mode E2E from
   `LAUNCH_CHECKLIST.md §1` should already be green).
 - **Resend** account with `checkpulse.dev` added (verification
   records pending; you'll add them in step 7).
 - **GitHub** repo for the app code, with a deploy key or PAT for the
-  droplet to clone over.
-- An **SSH keypair** on your laptop you'll paste into DigitalOcean.
+  host to clone over.
+- An **SSH keypair** on your laptop you'll paste into the cloud
+  provider's UI.
 
 ---
 
-## 1. Provision the app droplet
+## 1. Provision the app host
 
 - Image: Ubuntu 24.04 LTS
-- Plan: **Basic / Premium Intel / 2 vCPU / 4 GB / 80 GB SSD**
-  (~$24/mo). Postgres, Redis, FastAPI, and four Celery processes
-  fit comfortably; downsize after launch if usage is low.
+- Plan: **2 vCPU / 4 GB / 80 GB SSD** (~$12–24/mo depending on
+  provider — Vultr Regular Performance, DO Basic Premium Intel,
+  Hetzner CPX21, etc.). Postgres, Redis, FastAPI, and four Celery
+  processes fit comfortably; downsize after launch if usage is low.
 - Region: closest to your main user base.
 - Authentication: SSH key (the one you have locally).
 - Hostname: `checkpulse-app-prod`.
@@ -41,17 +54,17 @@ propagation delays so set them in motion early.
 After it's up, note the public IPv4. Then SSH in as root:
 
 ```
-ssh root@<droplet-ip>
+ssh root@<host-ip>
 ```
 
 ## 2. Harden + install Docker + cloudflared
 
 This runbook uses **Cloudflare Tunnel** for ingress: cloudflared opens
 an outbound-only connection to Cloudflare's edge, Cloudflare proxies
-inbound traffic to it, and TLS terminates at Cloudflare. The droplet
+inbound traffic to it, and TLS terminates at Cloudflare. The host
 never opens ports 80/443 to the public internet.
 
-If you'd rather expose the droplet directly with Caddy + Let's Encrypt
+If you'd rather expose the host directly with Caddy + Let's Encrypt
 TLS, see the Caddy variant in git history (commit `8d97afb`).
 
 ```
@@ -68,7 +81,7 @@ sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_
 systemctl restart ssh
 
 # Firewall — only SSH needs to be reachable. Cloudflare Tunnel makes
-# outbound-only connections; no inbound 80/443 needed on the droplet.
+# outbound-only connections; no inbound 80/443 needed on the host.
 ufw allow OpenSSH
 ufw --force enable
 
@@ -188,10 +201,12 @@ APP_NAME=CheckPulse
 # STRIPE_*, RESEND_*, EMAIL_FROM_ADDRESS — filled in steps 6 + 7
 ```
 
-The committed `docker-compose.yml` hardcodes `POSTGRES_PASSWORD:
-localdev` for the `db` service. **Edit that to your generated
-password** (or refactor to read `${POSTGRES_PASSWORD}` from `.env`;
-either works, hardcoding is fine for a single-host setup).
+The committed `docker-compose.yml` reads `POSTGRES_PASSWORD` from the
+environment with a `localdev` fallback (since commit `24678d5`). Add
+`POSTGRES_PASSWORD=<the-same-value-you-just-put-in-DATABASE_URL>` as
+a separate line in your `.env`. Docker compose auto-loads `.env` from
+the working directory at substitution time, so the db container will
+boot with the prod password.
 
 ## 6. Stripe live mode
 
@@ -360,55 +375,132 @@ docker image prune -f   # reclaim disk from the old image
 Do one region at a time so the consensus logic always has at least two
 active regions during the rollout.
 
-## 10. DB backups (DigitalOcean Spaces)
+## 10. DB backups (S3-compatible object storage)
 
-Create a Space (`checkpulse-backups`, private, same region as the
-droplet). Generate access keys (DO API → Spaces Keys).
+Provision an S3-compatible bucket from your cloud provider:
 
-On the app host, as `checkpulse`:
+- **Vultr**: Products → Object Storage → Add Object Storage ($5/mo
+  for 250 GB). Endpoint hostname looks like `ewr1.vultrobjects.com`.
+  Then click into the instance → Buckets → Add Bucket
+  `checkpulse-backups`.
+- **DigitalOcean Spaces**: similar UI, endpoint
+  `nyc3.digitaloceanspaces.com` etc.
+- **AWS S3 / Backblaze B2 / Cloudflare R2**: all work, swap the
+  endpoint in `s3cmd --configure`.
+
+Save the access key + secret to your password manager.
+
+On the app host, as the user that owns the docker compose project
+(e.g. `bet`):
 
 ```
-# Install s3cmd
 sudo apt-get install -y s3cmd
-s3cmd --configure   # use DO Spaces endpoint and the access keys
+s3cmd --configure
+```
 
-# Backup script
-sudo tee /usr/local/bin/checkpulse-backup <<'EOF'
+When `s3cmd --configure` prompts, plug in the endpoint hostname from
+your provider (e.g. `ewr1.vultrobjects.com` for Vultr) and the
+access/secret keys. Confirm the connection test passes at the end.
+
+Quick smoke before scripting:
+
+```
+s3cmd ls s3://checkpulse-backups/             # empty, no error
+echo "hello" | s3cmd put - s3://checkpulse-backups/test.txt
+s3cmd ls s3://checkpulse-backups/             # one line
+s3cmd del s3://checkpulse-backups/test.txt
+```
+
+Install the backup script. The retention logic is in the script
+itself (`RETENTION_DAYS=30`) so you don't need provider-specific
+lifecycle rules:
+
+```
+sudo tee /usr/local/bin/checkpulse-backup > /dev/null <<'EOF'
 #!/bin/bash
 set -euo pipefail
-ts=$(date -u +%Y%m%d-%H%M%S)
-fn=/tmp/checkpulse-${ts}.sql.gz
-cd /home/checkpulse/checkpulse
+BUCKET="checkpulse-backups"
+PREFIX="postgres/"
+RETENTION_DAYS=30
+COMPOSE_DIR="/home/bet/checkpulse"   # adjust if your clone path differs
+
+ts="$(date -u +%Y%m%d-%H%M%S)"
+fn="/tmp/checkpulse-${ts}.sql.gz"
+
+cd "$COMPOSE_DIR"
 docker compose exec -T db pg_dump -U uptimebot uptimebot | gzip > "$fn"
-s3cmd put "$fn" s3://checkpulse-backups/postgres/
+
+if [ ! -s "$fn" ]; then
+    echo "FATAL: $fn is zero bytes — pg_dump failed" >&2
+    rm -f "$fn"
+    exit 1
+fi
+
+s3cmd put "$fn" "s3://${BUCKET}/${PREFIX}"
 rm "$fn"
-# Prune local — nothing to do, we deleted /tmp file
-# Spaces lifecycle policy (set in DO console) handles old-backup pruning.
+
+# Prune dumps older than RETENTION_DAYS.
+cutoff_epoch=$(date -u -d "${RETENTION_DAYS} days ago" +%s)
+s3cmd ls "s3://${BUCKET}/${PREFIX}" | while read -r line; do
+    file_date="$(echo "$line" | awk '{print $1" "$2}')"
+    file_name="$(echo "$line" | awk '{print $4}')"
+    [ -z "$file_name" ] && continue
+    file_epoch="$(date -u -d "$file_date" +%s)"
+    if [ "$file_epoch" -lt "$cutoff_epoch" ]; then
+        echo "Pruning old backup: $file_name"
+        s3cmd del "$file_name"
+    fi
+done
+
+echo "Backup complete: ${PREFIX}checkpulse-${ts}.sql.gz"
 EOF
 sudo chmod +x /usr/local/bin/checkpulse-backup
+sudo chown root:root /usr/local/bin/checkpulse-backup
 
-# Cron — daily at 04:30 UTC
-sudo tee /etc/cron.d/checkpulse-backup <<'EOF'
-30 4 * * * checkpulse /usr/local/bin/checkpulse-backup >> /var/log/checkpulse-backup.log 2>&1
+# Smoke-test (runs as the invoking user, picks up their ~/.s3cfg)
+/usr/local/bin/checkpulse-backup
+
+# Cron — daily at 04:30 UTC, runs as the compose-project owner.
+sudo tee /etc/cron.d/checkpulse-backup > /dev/null <<'EOF'
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+30 4 * * * bet /usr/local/bin/checkpulse-backup >> /var/log/checkpulse-backup.log 2>&1
 EOF
+sudo touch /var/log/checkpulse-backup.log
+sudo chown bet:bet /var/log/checkpulse-backup.log
 ```
-
-In DO Spaces console, set a **lifecycle policy** to delete objects
-under `postgres/` after 30 days so storage doesn't grow forever.
 
 **Restore drill** — before launch, do this once on a separate
-droplet to prove the backup is restorable:
+host (or even on the same host, on a different Postgres port) to
+prove the backup is restorable:
 
 ```
-# On a fresh test droplet
-s3cmd get s3://checkpulse-backups/postgres/checkpulse-<latest>.sql.gz .
-gunzip checkpulse-<latest>.sql.gz
-docker run --rm -e POSTGRES_PASSWORD=test -d --name pgrestore -p 5432:5432 postgres:16-alpine
-sleep 5
-docker exec -i pgrestore psql -U postgres < checkpulse-<latest>.sql
-docker exec pgrestore psql -U postgres -d uptimebot -c "SELECT count(*) FROM users;"
-# expect non-zero count
+# Pull the most recent dump and decompress.
+mkdir -p /tmp/restore-drill && cd /tmp/restore-drill
+LATEST=$(s3cmd ls s3://checkpulse-backups/postgres/ | sort | tail -1 | awk '{print $4}')
+s3cmd get "$LATEST" backup.sql.gz
+gunzip backup.sql.gz
+
+# Throwaway Postgres on port 5435 so it can't collide with the prod
+# db on 5433. POSTGRES_USER=uptimebot auto-creates an empty uptimebot
+# database that matches the dump's expected schema owner.
+docker run --rm -d --name pgrestore \
+  -e POSTGRES_USER=uptimebot \
+  -e POSTGRES_PASSWORD=restoretest \
+  -p 5435:5432 \
+  postgres:16-alpine
+sleep 12
+
+# Load and verify.
+docker exec -i pgrestore psql -U uptimebot -d uptimebot < backup.sql
+docker exec pgrestore psql -U uptimebot -d uptimebot -c \
+  "SELECT (SELECT count(*) FROM users) AS users,
+          (SELECT count(*) FROM monitors WHERE is_active=true) AS active_monitors,
+          (SELECT count(*) FROM projects) AS projects;"
+# Counts should match what you see against the prod DB right now.
+
 docker stop pgrestore
+rm -rf /tmp/restore-drill
 ```
 
 ## 11. Self-monitoring
