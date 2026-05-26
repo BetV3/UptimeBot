@@ -373,5 +373,22 @@ def cleanup_old_checks():
             {"cutoff": catchall_cutoff},
         )
         deleted["other"] = result.rowcount or 0
+
+        # Garbage-collect dead pending_checks. The reaper task marks rows
+        # dead but never deletes them; without this, the table grows
+        # ~17k rows/day per active monitor. 7 days of retention leaves
+        # enough history for forensic debugging of a recent incident;
+        # older dead rows have no operational value.
+        pc_cutoff = now - timedelta(days=7)
+        result = session.execute(
+            text("""
+                DELETE FROM pending_checks
+                WHERE dead = true
+                  AND scheduled_at < :cutoff
+            """),
+            {"cutoff": pc_cutoff},
+        )
+        deleted["pending_checks_dead"] = result.rowcount or 0
+
         session.commit()
         return {"deleted": deleted}
