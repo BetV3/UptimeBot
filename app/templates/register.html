@@ -32,6 +32,9 @@
                 <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Confirm Password</label>
                 <input type="password" name="confirm_password" required minlength="6" autocomplete="new-password" placeholder="••••••••">
             </div>
+            {% if turnstile_site_key %}
+            <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="dark"></div>
+            {% endif %}
             <button type="submit" class="w-full bc-btn-primary justify-center py-2.5">
                 Create Account
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
@@ -42,4 +45,10 @@
         </p>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if turnstile_site_key %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endif %}
 {% endblock %}

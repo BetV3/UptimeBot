@@ -1,7 +1,8 @@
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -27,6 +28,26 @@ app = FastAPI(
 app.add_middleware(TransportMiddleware)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Static assets (favicon set, web manifest). Mounted rather than served by
+# individual routes so adding an asset doesn't require a code change.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+@limiter.exempt
+async def favicon():
+    """Serve the icon from the well-known root path.
+
+    Browsers request /favicon.ico directly — before, and independently of, any
+    <link> tag — so without this route every page load logs a 404.
+    """
+    return FileResponse(
+        STATIC_DIR / "favicon.ico",
+        media_type="image/x-icon",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
 
 
 @app.get("/", response_class=HTMLResponse)

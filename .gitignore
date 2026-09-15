@@ -14,4 +14,8 @@ celerybeat-schedule
 .env
 .env.local
 *.png
+# ...except the generated favicon/app-icon set, which must ship in the image.
+# The Dockerfile does a plain `COPY . .` with no asset build step, so an
+# ignored icon means a blank tab in production.
+!app/static/*.png
 .codex

@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     app_name: str = "CheckPulse"
     app_env: str = "development"
 
+    # Cloudflare Turnstile — proof-of-humanity on the endpoints that send
+    # email. Leave both empty to disable the gate (dev/tests); setting the
+    # secret key enables enforcement. See app/core/turnstile.py for why this
+    # exists and why it fails closed.
+    turnstile_site_key: str = ""
+    turnstile_secret_key: str = ""
+
     # Email (Resend in production, stdout in dev)
     resend_api_key: str = ""
     email_from_address: str = "CheckPulse <no-reply@checkpulse.dev>"

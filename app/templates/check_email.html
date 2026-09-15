@@ -33,8 +33,17 @@
                 Click the link in that email to activate your account. The link expires in 24 hours.
             </p>
 
-            <form method="post" action="/dashboard/resend-verification" class="pt-2">
+            {% if error %}
+            <div class="bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 font-mono text-left">
+                &gt; {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="post" action="/dashboard/resend-verification" class="pt-2 space-y-3">
                 <input type="hidden" name="email" value="{{ email }}">
+                {% if turnstile_site_key %}
+                <div class="cf-turnstile flex justify-center" data-sitekey="{{ turnstile_site_key }}" data-theme="dark"></div>
+                {% endif %}
                 <button type="submit" class="w-full bc-btn-secondary justify-center py-2">
                     Resend verification email
                 </button>
@@ -46,4 +55,10 @@
         </p>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if turnstile_site_key %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endif %}
 {% endblock %}

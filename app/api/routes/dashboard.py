@@ -18,6 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.http import external_base_url, should_secure_cookie
+from app.core.turnstile import (
+    CHALLENGE_FAILED_MESSAGE,
+    turnstile_site_key,
+    verify_turnstile,
+)
 from app.models.models import (
     AlertChannel, AlertType, Check, CheckStatus, DnsMatchMode, DnsRecordType,
     Incident, Monitor, MonitorStatus, MonitorType, HttpMethod, PlanType,
@@ -309,7 +314,14 @@ async def login_submit(
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request, "error": None})
+    return templates.TemplateResponse(
+        "register.html",
+        {
+            "request": request,
+            "error": None,
+            "turnstile_site_key": turnstile_site_key(),
+        },
+    )
 
 
 @router.post("/register")
@@ -318,14 +330,45 @@ async def register_submit(
     email: str = Form(...),
     password: str = Form(...),
     confirm_password: str = Form(...),
+    cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
     db: AsyncSession = Depends(get_db),
 ):
+    # Human check first: this endpoint sends mail to an address the submitter
+    # controls only by assertion, so it must not do any work — not even a user
+    # lookup, which is an enumeration oracle — before the challenge passes.
+    if not await verify_turnstile(cf_turnstile_response, request):
+        return templates.TemplateResponse(
+            "register.html",
+            {
+                "request": request,
+                "error": CHALLENGE_FAILED_MESSAGE,
+                "turnstile_site_key": turnstile_site_key(),
+            },
+            status_code=403,
+        )
+
     if password != confirm_password:
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Passwords do not match"}, status_code=400)
+        return templates.TemplateResponse(
+            "register.html",
+            {
+                "request": request,
+                "error": "Passwords do not match",
+                "turnstile_site_key": turnstile_site_key(),
+            },
+            status_code=400,
+        )
 
     result = await db.execute(select(User).where(User.email == email))
     if result.scalar_one_or_none():
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"}, status_code=409)
+        return templates.TemplateResponse(
+            "register.html",
+            {
+                "request": request,
+                "error": "Email already registered",
+                "turnstile_site_key": turnstile_site_key(),
+            },
+            status_code=409,
+        )
 
     is_production = settings.app_env == "production"
 
@@ -411,8 +454,24 @@ async def verify_email(
 async def resend_verification(
     request: Request,
     email: str = Form(...),
+    cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
     db: AsyncSession = Depends(get_db),
 ):
+    # Same mail-relay exposure as /register: an attacker who knows a real
+    # unverified address can re-trigger delivery to it at will. Gate it.
+    if not await verify_turnstile(cf_turnstile_response, request):
+        return templates.TemplateResponse(
+            "check_email.html",
+            {
+                "request": request,
+                "email": email,
+                "info": None,
+                "error": CHALLENGE_FAILED_MESSAGE,
+                "turnstile_site_key": turnstile_site_key(),
+            },
+            status_code=403,
+        )
+
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
@@ -431,6 +490,8 @@ async def resend_verification(
             "request": request,
             "email": email,
             "info": "If that account exists and is unverified, a new link is on its way.",
+            "error": None,
+            "turnstile_site_key": turnstile_site_key(),
         },
     )
 
@@ -670,7 +731,13 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
 async def forgot_password_page(request: Request):
     return templates.TemplateResponse(
         "forgot_password.html",
-        {"request": request, "sent": False, "email": None, "error": None},
+        {
+            "request": request,
+            "sent": False,
+            "email": None,
+            "error": None,
+            "turnstile_site_key": turnstile_site_key(),
+        },
     )
 
 
@@ -678,8 +745,22 @@ async def forgot_password_page(request: Request):
 async def forgot_password_submit(
     request: Request,
     email: str = Form(...),
+    cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
     db: AsyncSession = Depends(get_db),
 ):
+    # Third mail-sending endpoint, same gate.
+    if not await verify_turnstile(cf_turnstile_response, request):
+        return templates.TemplateResponse(
+            "forgot_password.html",
+            {
+                "request": request,
+                "sent": False,
+                "email": email,
+                "error": CHALLENGE_FAILED_MESSAGE,
+                "turnstile_site_key": turnstile_site_key(),
+            },
+            status_code=403,
+        )
     email = (email or "").strip().lower()
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
