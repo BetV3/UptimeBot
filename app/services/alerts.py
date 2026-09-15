@@ -19,6 +19,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.services import mailer
 from app.models.models import (
     AlertChannel,
     AlertDelivery,
@@ -29,7 +30,6 @@ from app.models.models import (
     MonitorType,
 )
 
-RESEND_API_URL = "https://api.resend.com/emails"
 
 
 def _monitor_target(monitor: Monitor) -> tuple[str, str]:
@@ -234,36 +234,18 @@ def _send_telegram_test(config: dict, project_name: str):
 
 def _email_uses_smtp(config: dict) -> bool:
     """Channel uses its own SMTP server when smtp_host is configured; otherwise
-    we send via the platform's Resend account."""
+    we send via the platform's transactional email provider."""
     return bool((config.get("smtp_host") or "").strip())
 
 
-def _send_via_resend(to_email: str, subject: str, text: str) -> None:
-    """Sync Resend send. In dev (no key, non-prod), log to stdout instead so we
-    don't burn credits on local testing."""
-    settings = get_settings()
-    if settings.app_env != "production" or not settings.resend_api_key:
-        logger.warning(
-            "\n==================== EMAIL ALERT (dev) ====================\n"
-            "To:      %s\nSubject: %s\n%s\n"
-            "============================================================",
-            to_email, subject, text,
-        )
-        return
+def _send_via_provider(to_email: str, subject: str, text: str) -> None:
+    """Send a downtime alert through the shared transactional mailer.
 
-    payload = {
-        "from": settings.email_from_address,
-        "to": [to_email],
-        "subject": subject,
-        "text": text,
-    }
-    headers = {
-        "Authorization": f"Bearer {settings.resend_api_key}",
-        "Content-Type": "application/json",
-    }
-    with httpx.Client(timeout=10) as client:
-        resp = client.post(RESEND_API_URL, json=payload, headers=headers)
-        resp.raise_for_status()
+    Routed through app.services.mailer rather than calling a provider API
+    directly here, so switching providers cannot silently leave alerts — the
+    most customer-critical mail CheckPulse sends — pointed at the old one.
+    """
+    mailer.send_sync(to_email, subject, text, kind="email alert")
 
 
 def _send_email(config: dict, monitor: Monitor, incident: Incident, event: str, project_name: str):
@@ -280,7 +262,7 @@ def _send_email(config: dict, monitor: Monitor, incident: Incident, event: str, 
         body = f"Monitor {monitor.name} ({target}) has recovered.{duration}"
 
     if not _email_uses_smtp(config):
-        _send_via_resend(config["to_email"], subject, body)
+        _send_via_provider(config["to_email"], subject, body)
         return
 
     msg = MIMEText(body)
@@ -299,7 +281,7 @@ def _send_email_test(config: dict, project_name: str):
     body = f"This is a test notification from CheckPulse.\nProject: {project_name}"
 
     if not _email_uses_smtp(config):
-        _send_via_resend(config["to_email"], subject, body)
+        _send_via_provider(config["to_email"], subject, body)
         return
 
     msg = MIMEText(body)

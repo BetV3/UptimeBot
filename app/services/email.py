@@ -1,23 +1,24 @@
 """
-Email delivery.
+Email delivery (transactional).
 
-In development (or whenever `resend_api_key` is empty) the verification link is
-printed to stdout so the dev can click it straight from the server log. In
-production the same message is sent via the Resend HTTP API.
+Renders and sends verification and password-reset messages. Delivery itself
+lives in `app.services.mailer`, which both this module and the synchronous
+Celery alert path share, so there is exactly one place that knows how to talk
+to the email provider.
+
+In development, or when the provider has no key, links are logged to stdout so
+a dev can click them straight from the server log.
 """
 
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
-import httpx
-
 from app.core.config import get_settings
+from app.services import mailer
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-
-RESEND_API_URL = "https://api.resend.com/emails"
 
 
 def generate_verification_token() -> tuple[str, datetime]:
@@ -125,7 +126,7 @@ async def send_password_reset_email(to_email: str, token: str, base_url: str | N
 </html>
 """
 
-    if settings.app_env != "production" or not settings.resend_api_key:
+    if not mailer.delivery_enabled():
         logger.warning(
             "\n"
             "==================== PASSWORD RESET (dev) ====================\n"
@@ -138,28 +139,13 @@ async def send_password_reset_email(to_email: str, token: str, base_url: str | N
         )
         return
 
-    payload = {
-        "from": settings.email_from_address,
-        "to": [to_email],
-        "subject": "Reset your CheckPulse password",
-        "text": text_body,
-        "html": html_body,
-    }
-    headers = {
-        "Authorization": f"Bearer {settings.resend_api_key}",
-        "Content-Type": "application/json",
-    }
-
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.post(RESEND_API_URL, json=payload, headers=headers)
-    if response.status_code >= 400:
-        logger.error(
-            "Resend returned %s when sending password reset email to %s: %s",
-            response.status_code,
-            to_email,
-            response.text,
-        )
-        response.raise_for_status()
+    await mailer.send_async(
+        to_email,
+        "Reset your CheckPulse password",
+        text_body,
+        html_body,
+        kind="password reset",
+    )
 
 
 async def send_verification_email(to_email: str, token: str, base_url: str | None = None) -> None:
@@ -171,10 +157,10 @@ async def send_verification_email(to_email: str, token: str, base_url: str | Non
     verify_url = _verification_url(token, base_url=base_url)
     text_body, html_body = _render_verification_email(verify_url)
 
-    # Dev mode: print the link to the log regardless of whether a Resend key
+    # Dev mode: print the link to the log regardless of whether a provider key
     # is present. This keeps local testing free and avoids accidental sends
     # from a dev machine that happens to have a prod API key in its env.
-    if settings.app_env != "production" or not settings.resend_api_key:
+    if not mailer.delivery_enabled():
         logger.warning(
             "\n"
             "==================== EMAIL VERIFICATION (dev) ====================\n"
@@ -187,25 +173,10 @@ async def send_verification_email(to_email: str, token: str, base_url: str | Non
         )
         return
 
-    payload = {
-        "from": settings.email_from_address,
-        "to": [to_email],
-        "subject": "Verify your CheckPulse account",
-        "text": text_body,
-        "html": html_body,
-    }
-    headers = {
-        "Authorization": f"Bearer {settings.resend_api_key}",
-        "Content-Type": "application/json",
-    }
-
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.post(RESEND_API_URL, json=payload, headers=headers)
-    if response.status_code >= 400:
-        logger.error(
-            "Resend returned %s when sending verification email to %s: %s",
-            response.status_code,
-            to_email,
-            response.text,
-        )
-        response.raise_for_status()
+    await mailer.send_async(
+        to_email,
+        "Verify your CheckPulse account",
+        text_body,
+        html_body,
+        kind="email verification",
+    )
