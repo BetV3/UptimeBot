@@ -7,8 +7,9 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.http import external_base_url
 from app.core.ratelimit import client_ip
+from app.core.turnstile import CHALLENGE_FAILED_MESSAGE, verify_turnstile
 from app.models.models import User
-from app.schemas.auth import UserCreate, UserResponse, Token, TokenRefresh
+from app.schemas.auth import UserCreate, UserRegister, UserResponse, Token, TokenRefresh
 from app.services.auth import (
     hash_password,
     verify_password,
@@ -29,7 +30,17 @@ limiter = Limiter(key_func=client_ip)
 
 @router.post("/register", status_code=status.HTTP_202_ACCEPTED)
 @limiter.limit("5/minute")
-async def register(request: Request, body: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register(request: Request, body: UserRegister, db: AsyncSession = Depends(get_db)):
+    # Proof-of-humanity before any lookup or mail. The per-minute limiter
+    # above does not defend this endpoint against the low-and-slow relay
+    # abuse it was actually subjected to (~1 request per 100 minutes); only
+    # the challenge does. See app/core/turnstile.py.
+    if not await verify_turnstile(body.turnstile_token, request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=CHALLENGE_FAILED_MESSAGE,
+        )
+
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
