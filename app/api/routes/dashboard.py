@@ -303,6 +303,8 @@ async def login_submit(
                 "request": request,
                 "email": user.email,
                 "info": "Please verify your email before signing in.",
+                "error": None,
+                "turnstile_site_key": turnstile_site_key(),
             },
             status_code=403,
         )
@@ -396,7 +398,13 @@ async def register_submit(
         await send_verification_email(user.email, token, base_url=external_base_url(request))
         return templates.TemplateResponse(
             "check_email.html",
-            {"request": request, "email": user.email, "info": None},
+            {
+                "request": request,
+                "email": user.email,
+                "info": None,
+                "error": None,
+                "turnstile_site_key": turnstile_site_key(),
+            },
         )
 
     # Dev mode: log in immediately
@@ -436,6 +444,8 @@ async def verify_email(
                 "request": request,
                 "email": user.email,
                 "info": "That link expired. We can send you a new one.",
+                "error": None,
+                "turnstile_site_key": turnstile_site_key(),
             },
             status_code=400,
         )
