@@ -25,12 +25,13 @@
             </div>
             <div>
                 <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Password</label>
-                <input type="password" name="password" required minlength="6" autocomplete="new-password" placeholder="••••••••">
-                <p class="text-xs text-ink-dim mt-1.5">Minimum 6 characters</p>
+                <input type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="••••••••">
+                <p class="text-xs text-ink-dim mt-1.5">Minimum 8 characters</p>
             </div>
             <div>
                 <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Confirm Password</label>
-                <input type="password" name="confirm_password" required minlength="6" autocomplete="new-password" placeholder="••••••••">
+                <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password" placeholder="••••••••">
+                <p id="pw-mismatch" class="text-xs text-bad mt-1.5 hidden">Passwords do not match</p>
             </div>
             {% if turnstile_site_key %}
             <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="dark"></div>
@@ -51,4 +52,34 @@
 {% if turnstile_site_key %}
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 {% endif %}
+<script>
+// Catch a password mismatch before submit. Server-side still checks — this
+// exists because submitting spends the Turnstile token, so the user would
+// otherwise have to re-solve the challenge just to fix a typo.
+(function () {
+  var form = document.querySelector('form[action="/dashboard/register"]');
+  if (!form) return;
+  var pw = form.querySelector('input[name=password]');
+  var confirm = form.querySelector('input[name=confirm_password]');
+  var warn = document.getElementById('pw-mismatch');
+
+  function check() {
+    var mismatch = confirm.value.length > 0 && pw.value !== confirm.value;
+    warn.classList.toggle('hidden', !mismatch);
+    confirm.setCustomValidity(mismatch ? 'Passwords do not match' : '');
+    return !mismatch;
+  }
+
+  confirm.addEventListener('input', check);
+  pw.addEventListener('input', function () {
+    if (confirm.value.length > 0) check();
+  });
+  form.addEventListener('submit', function (e) {
+    if (!check()) {
+      e.preventDefault();
+      confirm.focus();
+    }
+  });
+})();
+</script>
 {% endblock %}

@@ -7,7 +7,7 @@ Auth is handled via JWT stored in a cookie.
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urlparse
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -39,6 +39,7 @@ from app.services.email import (
     send_verification_email,
 )
 from app.services.plans import PLAN_LIMITS, check_project_limit, check_monitor_limit, check_interval_limit
+from app.services.url_guard import UnsafeUrlError, validate_outbound_url
 
 router = APIRouter()
 settings = get_settings()
@@ -85,7 +86,12 @@ def _redirect_with_flash(url: str, message: str) -> RedirectResponse:
     response = RedirectResponse(url, status_code=303)
     response.set_cookie(
         "flash_error",
-        message,
+        # Percent-encode: cookie headers are latin-1, and several of these
+        # messages legitimately contain curly quotes and em-dashes. Without
+        # this, a duplicate-name error raised UnicodeEncodeError and the user
+        # got a 500 instead of the validation message. The browser hands the
+        # raw value to the template, which unquotes it.
+        quote(message, safe=""),
         max_age=30,
         path="/",
         samesite="lax",
@@ -94,8 +100,18 @@ def _redirect_with_flash(url: str, message: str) -> RedirectResponse:
     return response
 
 
+def _flash(request: Request, name: str = "flash_error") -> str | None:
+    """Read a flash cookie, undoing the percent-encoding applied on write.
+
+    unquote() is safe on values that were never encoded, so this also handles
+    the flash cookies set inline elsewhere (plain ASCII notices).
+    """
+    raw = request.cookies.get(name)
+    return unquote(raw) if raw else None
+
+
 def _consume_flash(request: Request, response) -> str | None:
-    msg = request.cookies.get("flash_error")
+    msg = _flash(request)
     if msg:
         response.delete_cookie("flash_error", path="/")
     return msg
@@ -107,6 +123,33 @@ def _wants_json(request: Request) -> bool:
 
 MONITOR_NAME_MAX = 100
 PROJECT_NAME_MAX = 80
+
+# One definition, used by register, reset, and change. These were 6/8/8 before,
+# so a user could register a password they could not later reset to.
+PASSWORD_MIN_LENGTH = 8
+
+
+def _checked_url(raw: str) -> str:
+    """Validate a user-supplied outbound URL, as a 400 rather than a 500.
+
+    Wraps url_guard so an unsafe webhook target reads as a normal validation
+    error to the user, and never becomes a request the server makes on their
+    behalf into its own network.
+    """
+    try:
+        return validate_outbound_url(raw)
+    except UnsafeUrlError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _checked_smtp_host(raw: str) -> str:
+    """Same guard for a custom SMTP host, which is also a connect target."""
+    host = (raw or "").strip()
+    try:
+        validate_outbound_url(f"https://{host}")
+    except UnsafeUrlError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return host
 
 
 def _parse_int_field(raw: str, label: str, min_value: int = 1, max_value: int | None = None) -> int:
@@ -275,7 +318,7 @@ async def _check_duplicate_monitor_name(
 async def login_page(request: Request, db: AsyncSession = Depends(get_db)):
     if await _get_user_from_cookie(request, db):
         return RedirectResponse("/dashboard", status_code=303)
-    notice = request.cookies.get("flash_notice")
+    notice = _flash(request, "flash_notice")
     response = templates.TemplateResponse(
         "login.html", {"request": request, "error": None, "notice": notice}
     )
@@ -355,6 +398,21 @@ async def register_submit(
             {
                 "request": request,
                 "error": "Passwords do not match",
+                "turnstile_site_key": turnstile_site_key(),
+            },
+            status_code=400,
+        )
+
+    # Server-side length check. The form carries minlength=8, but that is a
+    # client hint anyone can strip — and password reset/change already enforce
+    # 8 server-side, so without this a user could register a 6-character
+    # password and then be unable to reset to it.
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return templates.TemplateResponse(
+            "register.html",
+            {
+                "request": request,
+                "error": f"Password must be at least {PASSWORD_MIN_LENGTH} characters.",
                 "turnstile_site_key": turnstile_site_key(),
             },
             status_code=400,
@@ -524,8 +582,8 @@ async def account_page(request: Request, db: AsyncSession = Depends(get_db)):
             "request": request,
             "user": user,
             "password_error": None,
-            "flash_error": request.cookies.get("flash_error"),
-            "flash_notice": request.cookies.get("flash_notice"),
+            "flash_error": _flash(request, "flash_error"),
+            "flash_notice": _flash(request, "flash_notice"),
         },
     )
     _consume_flash(request, response)
@@ -561,8 +619,8 @@ async def account_change_password(
 
     if not verify_password(current_password, user.password_hash):
         return render("Current password is incorrect.")
-    if len(new_password) < 8:
-        return render("New password must be at least 8 characters.")
+    if len(new_password) < PASSWORD_MIN_LENGTH:
+        return render(f"New password must be at least {PASSWORD_MIN_LENGTH} characters.")
     if new_password != confirm_password:
         return render("New passwords do not match.")
     if new_password == current_password:
@@ -659,8 +717,8 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
     upgraded = request.query_params.get("upgraded") == "1"
     cancelled = request.query_params.get("cancelled") == "1"
 
-    flash_notice = request.cookies.get("flash_notice")
-    flash_error = request.cookies.get("flash_error")
+    flash_notice = _flash(request, "flash_notice")
+    flash_error = _flash(request, "flash_error")
     if upgraded:
         flash_notice = flash_notice or "Subscription activated. Welcome aboard!"
     if cancelled:
@@ -705,7 +763,6 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
                 f"{PLAN_LIMITS[PlanType.PRO].max_projects} sites",
                 f"{PLAN_LIMITS[PlanType.PRO].max_monitors} monitors across all sites",
                 f"{PLAN_LIMITS[PlanType.PRO].min_interval_seconds}-second intervals",
-                "Custom domain",
                 "Branded status pages",
                 "Priority support",
                 "1-year history",
@@ -823,10 +880,10 @@ async def reset_password_submit(
     confirm_password: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    if len(password) < 8:
+    if len(password) < PASSWORD_MIN_LENGTH:
         return templates.TemplateResponse(
             "reset_password.html",
-            {"request": request, "token": token, "invalid": False, "error": "Password must be at least 8 characters."},
+            {"request": request, "token": token, "invalid": False, "error": f"Password must be at least {PASSWORD_MIN_LENGTH} characters."},
             status_code=400,
         )
     if password != confirm_password:
@@ -882,7 +939,7 @@ async def dashboard_home(request: Request, db: AsyncSession = Depends(get_db)):
     response = templates.TemplateResponse("projects.html", {
         "request": request, "user": user,
         "projects": [{"id": str(p.id), "name": p.name, "slug": p.slug} for p in projects],
-        "flash_error": request.cookies.get("flash_error"),
+        "flash_error": _flash(request, "flash_error"),
     })
     _consume_flash(request, response)
     return response
@@ -1002,8 +1059,8 @@ async def project_detail_page(project_id: str, request: Request, db: AsyncSessio
             for a in alerts
         ],
         "incidents": incidents,
-        "flash_error": request.cookies.get("flash_error"),
-        "flash_notice": request.cookies.get("flash_notice"),
+        "flash_error": _flash(request, "flash_error"),
+        "flash_notice": _flash(request, "flash_notice"),
         "min_interval_seconds": PLAN_LIMITS[user.plan].min_interval_seconds,
     })
     _consume_flash(request, response)
@@ -1189,7 +1246,7 @@ async def create_alert_submit(
         if type == "discord_webhook":
             if not webhook_url.strip():
                 raise HTTPException(status_code=400, detail="Discord webhook URL is required.")
-            config = {"webhook_url": webhook_url.strip()}
+            config = {"webhook_url": _checked_url(webhook_url)}
         elif type == "telegram":
             if not bot_token.strip() or not chat_id.strip():
                 raise HTTPException(status_code=400, detail="Bot token and chat ID are required.")
@@ -1209,7 +1266,7 @@ async def create_alert_submit(
                 if missing:
                     raise HTTPException(status_code=400, detail=f"Custom SMTP requires: {', '.join(missing)}.")
                 config = {
-                    "smtp_host": smtp_host.strip(), "smtp_port": smtp_port,
+                    "smtp_host": _checked_smtp_host(smtp_host), "smtp_port": smtp_port,
                     "smtp_user": smtp_user.strip(), "smtp_pass": smtp_pass,
                     "from_email": from_email.strip(), "to_email": to_clean,
                 }
@@ -1219,11 +1276,11 @@ async def create_alert_submit(
         elif type == "slack":
             if not slack_webhook_url.strip():
                 raise HTTPException(status_code=400, detail="Slack webhook URL is required.")
-            config = {"webhook_url": slack_webhook_url.strip()}
+            config = {"webhook_url": _checked_url(slack_webhook_url)}
         elif type == "webhook":
             if not generic_webhook_url.strip():
                 raise HTTPException(status_code=400, detail="Webhook URL is required.")
-            config = {"url": generic_webhook_url.strip()}
+            config = {"url": _checked_url(generic_webhook_url)}
             if webhook_secret.strip():
                 config["headers"] = {"Authorization": webhook_secret.strip()}
         else:
@@ -1407,7 +1464,7 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
         "summary": summary, "checks": checks, "chart_data": chart_data,
         "latest_cert": latest_cert,
         "latest_dns": latest_dns,
-        "flash_error": request.cookies.get("flash_error"),
+        "flash_error": _flash(request, "flash_error"),
     })
     _consume_flash(request, response)
     return response

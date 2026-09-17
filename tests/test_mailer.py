@@ -191,6 +191,34 @@ def test_customer_smtp_channels_are_untouched():
 # --- the two-lane rule -------------------------------------------------------
 
 
+def _strip_comments_and_docstrings(src: str) -> str:
+    """Return only executable code: no comments, no string literals.
+
+    Uses the tokenizer rather than regex so an apostrophe in prose can't
+    desynchronise the parse. Docstrings are STRING tokens that stand alone as
+    a statement, which is exactly what we want to drop.
+    """
+    import io
+    import tokenize
+
+    out = []
+    prev_type = tokenize.INDENT
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+            if tok.type == tokenize.COMMENT:
+                continue
+            if tok.type == tokenize.STRING and prev_type in (
+                tokenize.INDENT, tokenize.DEDENT, tokenize.NEWLINE, tokenize.NL,
+            ):
+                continue  # bare string statement == docstring
+            out.append(tok.string)
+            if tok.type not in (tokenize.NL, tokenize.COMMENT):
+                prev_type = tok.type
+    except tokenize.TokenError:
+        return src  # unparseable: fall back to the strict check
+    return " ".join(out)
+
+
 def test_transactional_credentials_are_not_reachable_from_the_crm():
     """Cold outreach must never send through the transactional provider.
 
@@ -208,7 +236,12 @@ def test_transactional_credentials_are_not_reachable_from_the_crm():
 
     for py in crm.glob("*.py"):
         src = py.read_text()
-        assert "postmark" not in src.lower(), f"{py.name} references Postmark"
-        assert "app.services.mailer" not in src, f"{py.name} imports the transactional mailer"
+        # Strip comments and docstrings before grepping. gmail_send.py
+        # documents *why* it must never touch Postmark, and a prose mention of
+        # the rule is not a violation of it — checking raw text made the
+        # explanation itself fail the test. What matters is executable code.
+        code = _strip_comments_and_docstrings(src)
+        assert "postmark" not in code.lower(), f"{py.name} references Postmark in code"
+        assert "app.services.mailer" not in code, f"{py.name} imports the transactional mailer"
         for url in PROVIDER_URLS:
-            assert url not in src, f"{py.name} hardcodes {url}"
+            assert url not in code, f"{py.name} hardcodes {url}"

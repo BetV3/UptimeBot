@@ -132,6 +132,16 @@ async def public_status_page(
         # Get daily uptime for the 90-day bar
         daily_uptimes = await _get_daily_uptimes(m.id, since_90d, now, db)
 
+        # How far back the data actually goes. A monitor created an hour ago
+        # showing "100% uptime" under a bar labelled "90 days ago" implies
+        # three months of verified history that does not exist — on a page
+        # the agency's own client reads.
+        first_check = await db.execute(
+            select(func.min(Check.checked_at)).where(Check.monitor_id == m.id)
+        )
+        since = first_check.scalar()
+        coverage_days = (now - since).days if since else 0
+
         monitor_data.append({
             "name": m.name,
             "url": m.url,
@@ -139,6 +149,8 @@ async def public_status_page(
             "uptime_pct": uptime_pct,
             "total_checks": total,
             "daily_uptimes": daily_uptimes,
+            "coverage_days": coverage_days,
+            "monitoring_since": since.strftime("%b %d, %Y") if since else None,
         })
 
     # Get recent incidents (last 14 days)
@@ -251,6 +263,14 @@ def _render_status_page(
                 tooltip = f'{day["date"]}: {day["uptime_pct"]}%'
             bars += f'<div class="bar" style="background:{bar_color}" title="{tooltip}"></div>'
 
+        # Label the window by what we actually observed, not the chart width.
+        if m.get("coverage_days", 0) >= 89:
+            range_label = "90 days ago"
+        elif m.get("monitoring_since"):
+            range_label = f"since {m['monitoring_since']}"
+        else:
+            range_label = "no data yet"
+
         monitors_html += f"""
         <div class="monitor">
             <div class="monitor-header">
@@ -262,7 +282,7 @@ def _render_status_page(
             </div>
             <div class="uptime-bar">{bars}</div>
             <div class="uptime-meta">
-                <span>90 days ago</span>
+                <span>{range_label}</span>
                 <span>{m['uptime_pct']}% uptime</span>
                 <span>Today</span>
             </div>

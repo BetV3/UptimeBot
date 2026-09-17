@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.services import mailer
+from app.services.url_guard import UnsafeUrlError, assert_safe_to_fetch
 from app.models.models import (
     AlertChannel,
     AlertDelivery,
@@ -30,6 +31,21 @@ from app.models.models import (
     MonitorType,
 )
 
+
+def _guarded_post(url: str, **kwargs):
+    """POST to a user-supplied URL, re-validating it immediately first.
+
+    The check at save time is a courtesy to the user; THIS is the security
+    control. It matters for three cases the save-time check cannot cover:
+    rows written before the guard existed, a hostname re-pointed at a private
+    address after it was saved (DNS rebinding), and any future code path that
+    forgets to validate on the way in.
+    """
+    assert_safe_to_fetch(url)
+    with httpx.Client(timeout=10, follow_redirects=False) as client:
+        resp = client.post(url, **kwargs)
+        resp.raise_for_status()
+        return resp
 
 
 def _monitor_target(monitor: Monitor) -> tuple[str, str]:
@@ -166,9 +182,7 @@ def _send_discord(config: dict, monitor: Monitor, incident: Incident, event: str
         }]
     }
 
-    with httpx.Client(timeout=10) as client:
-        resp = client.post(webhook_url, json=payload)
-        resp.raise_for_status()
+    _guarded_post(webhook_url, json=payload)
 
 
 def _send_discord_test(config: dict, project_name: str):
@@ -182,9 +196,7 @@ def _send_discord_test(config: dict, project_name: str):
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }]
     }
-    with httpx.Client(timeout=10) as client:
-        resp = client.post(webhook_url, json=payload)
-        resp.raise_for_status()
+    _guarded_post(webhook_url, json=payload)
 
 
 # --- Telegram ---
@@ -214,9 +226,7 @@ def _send_telegram(config: dict, monitor: Monitor, incident: Incident, event: st
         )
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    with httpx.Client(timeout=10) as client:
-        resp = client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
-        resp.raise_for_status()
+    _guarded_post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
 
 
 def _send_telegram_test(config: dict, project_name: str):
@@ -224,9 +234,7 @@ def _send_telegram_test(config: dict, project_name: str):
     chat_id = config["chat_id"]
     text = f"✅ <b>CheckPulse Test Alert</b>\nYour Telegram notifications are working!\nProject: {project_name}"
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    with httpx.Client(timeout=10) as client:
-        resp = client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
-        resp.raise_for_status()
+    _guarded_post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
 
 
 # --- Email ---
@@ -329,9 +337,7 @@ def _send_slack(config: dict, monitor: Monitor, incident: Incident, event: str, 
         }]
     }
 
-    with httpx.Client(timeout=10) as client:
-        resp = client.post(webhook_url, json=payload)
-        resp.raise_for_status()
+    _guarded_post(webhook_url, json=payload)
 
 
 def _send_slack_test(config: dict, project_name: str):
@@ -343,9 +349,7 @@ def _send_slack_test(config: dict, project_name: str):
             "footer": "CheckPulse",
         }]
     }
-    with httpx.Client(timeout=10) as client:
-        resp = client.post(webhook_url, json=payload)
-        resp.raise_for_status()
+    _guarded_post(webhook_url, json=payload)
 
 
 # --- Generic Webhook ---
@@ -370,9 +374,7 @@ def _send_webhook(config: dict, monitor: Monitor, incident: Incident, event: str
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     headers = config.get("headers") or {}
-    with httpx.Client(timeout=10) as client:
-        resp = client.post(webhook_url, json=payload, headers=headers)
-        resp.raise_for_status()
+    _guarded_post(webhook_url, json=payload, headers=headers)
 
 
 def _send_webhook_test(config: dict, project_name: str):
@@ -384,9 +386,7 @@ def _send_webhook_test(config: dict, project_name: str):
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     headers = config.get("headers") or {}
-    with httpx.Client(timeout=10) as client:
-        resp = client.post(webhook_url, json=payload, headers=headers)
-        resp.raise_for_status()
+    _guarded_post(webhook_url, json=payload, headers=headers)
 
 
 # --- Helpers ---

@@ -29,7 +29,10 @@
             --secondary-glow: rgba(6, 182, 212, 0.15);
             --text: #F8FAFC;
             --text-muted: #94A3B8;
-            --text-dim: #64748B;
+            /* Was #64748B, which measured 3.07–4.05:1 against the dark
+               background — under the WCAG AA 4.5:1 floor for body text.
+               #8595AC clears it while staying visibly secondary. */
+            --text-dim: #8595AC;
             --green: #10B981;
             --amber: #F59E0B;
             --red: #EF4444;
@@ -156,7 +159,14 @@
         .nav-cta {
             font-size: 0.875rem !important;
             padding: 8px 20px !important;
+            /* `.nav-links a` sets a muted grey and wins on specificity over
+               .btn-primary, which rendered white-on-purple text as
+               #94a3b8-on-purple: a 2.22:1 contrast ratio, well under the
+               WCAG AA 4.5:1 floor. The hero CTA was fine; only the nav one
+               inherited this. */
+            color: #fff !important;
         }
+        .nav-links a.nav-cta:hover { color: #fff; }
 
         .nav-mobile-toggle {
             display: none;
@@ -1167,8 +1177,8 @@
                     </div>
                     <div class="pricing-desc">For solo operators and small production setups.</div>
                     <ul class="pricing-features">
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 3 sites</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 10 monitors across all sites</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 10 sites</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 40 monitors across all sites</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1-minute intervals</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Uptime, DNS, SSL, latency</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> All alert channels</li>
@@ -1186,10 +1196,9 @@
                     </div>
                     <div class="pricing-desc">For agencies and multi-site operators managing client properties.</div>
                     <ul class="pricing-features">
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 10 sites</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 50 monitors across all sites</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 50 sites</li>
+                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 200 monitors across all sites</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 30-second intervals</li>
-                        <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Custom domain</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Branded status pages</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Priority support</li>
                         <li><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> 1-year history</li>
