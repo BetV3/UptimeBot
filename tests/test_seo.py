@@ -45,6 +45,14 @@ def test_og_image_served():
     assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
 
 
+def test_indexnow_key_file():
+    from app.api.routes.seo import INDEXNOW_KEY
+    assert re.fullmatch(r"[a-f0-9]{32}", INDEXNOW_KEY)
+    r = client.get(f"/{INDEXNOW_KEY}.txt")
+    assert r.status_code == 200
+    assert r.text == INDEXNOW_KEY
+
+
 def _meta(html, attr, name):
     m = re.search(rf'<meta {attr}="{re.escape(name)}" content="([^"]*)"', html)
     return m.group(1) if m else None

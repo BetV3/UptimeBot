@@ -47,6 +47,17 @@ async def robots_txt():
     return PlainTextResponse(ROBOTS_TXT, headers={"Cache-Control": "public, max-age=3600"})
 
 
+# IndexNow (Bing, Yandex, Seznam, Naver; DuckDuckGo uses Bing's index).
+# The key is public by design: search engines fetch it from this URL to
+# confirm we control the host. scripts/indexnow_submit.py pings new URLs.
+INDEXNOW_KEY = "d0a65caf0d0cbc98d90c9e956b72eb02"
+
+
+@router.get(f"/{INDEXNOW_KEY}.txt", include_in_schema=False)
+async def indexnow_key():
+    return PlainTextResponse(INDEXNOW_KEY)
+
+
 def build_sitemap(pages: list[tuple[str, str, str]], lastmod: str) -> str:
     urls = "".join(
         f"<url><loc>{BASE}{path}</loc><lastmod>{lastmod}</lastmod>"
