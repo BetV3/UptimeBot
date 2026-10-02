@@ -2,7 +2,7 @@
 """Print CheckPulse page-view counts from the prod Redis.
 
 Usage (from the prod host, or via ssh):
-    docker exec uptimebot-api-1 python scripts/pageviews.py [days]
+    docker exec -e PYTHONPATH=/code uptimebot-api-1 python scripts/pageviews.py [days]
 
 Output: per-day totals, then top pages and top sources over the window.
 Counts are aggregate only (see app/core/analytics.py); there is nothing

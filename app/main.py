@@ -11,7 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import get_settings
 from app.core.middleware import TransportMiddleware
 from app.core.ratelimit import client_ip
-from app.api.routes import alerts, api_keys, auth, billing, dashboard, health, incidents, internal, monitors, projects, seo, status
+from app.api.routes import alerts, api_keys, auth, billing, dashboard, health, incidents, internal, monitors, projects, seo, status, tools
 from app.core.analytics import PageViewMiddleware
 
 settings = get_settings()
@@ -154,3 +154,4 @@ app.include_router(api_keys.router, prefix="/api-keys", tags=["API Keys"])
 app.include_router(billing.router, prefix="/billing", tags=["Billing"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 app.include_router(seo.router, tags=["SEO"])
+app.include_router(tools.router, tags=["Tools"])
