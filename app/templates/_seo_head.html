@@ -1,0 +1,26 @@
+{#- Shared SEO + link-preview tags. Include inside <head>.
+    Pages set: seo_title, seo_description, seo_path (canonical path, e.g. "/").
+    Defaults describe the product, so a page that forgets to set them still
+    unfurls sensibly in Slack/Discord/Reddit instead of a bare title. -#}
+{%- set _title = seo_title | default("CheckPulse: uptime monitoring for agencies managing client websites") -%}
+{%- set _desc = seo_description | default("Uptime, SSL and DNS monitoring for web agencies. Checks from the US, EU and Asia, marked down only when 2 of 3 regions agree, with a branded status page per client.") -%}
+{%- set _path = seo_path | default(request.url.path if request is defined and request else "/") -%}
+{%- set _url = "https://checkpulse.dev" ~ _path -%}
+{%- if _path.startswith("/dashboard") %}
+<meta name="robots" content="noindex">
+{%- endif %}
+<meta name="description" content="{{ _desc }}">
+<link rel="canonical" href="{{ _url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CheckPulse">
+<meta property="og:title" content="{{ _title }}">
+<meta property="og:description" content="{{ _desc }}">
+<meta property="og:url" content="{{ _url }}">
+<meta property="og:image" content="https://checkpulse.dev/static/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="CheckPulse: uptime monitoring for agencies. Down only when 2 of 3 regions agree.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ _title }}">
+<meta name="twitter:description" content="{{ _desc }}">
+<meta name="twitter:image" content="https://checkpulse.dev/static/og.png">

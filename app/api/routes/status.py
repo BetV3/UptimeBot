@@ -600,7 +600,7 @@ def _render_status_page(
         {incidents_html}
     </div>
     <div class="footer">
-        POWERED BY <a href="/">Check<span>Pulse</span></a>
+        POWERED BY <a href="/?ref=status-page">Check<span>Pulse</span></a>
     </div>
 </body>
 </html>"""

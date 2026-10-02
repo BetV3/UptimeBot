@@ -11,7 +11,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import get_settings
 from app.core.middleware import TransportMiddleware
 from app.core.ratelimit import client_ip
-from app.api.routes import alerts, api_keys, auth, billing, dashboard, health, incidents, internal, monitors, projects, status
+from app.api.routes import alerts, api_keys, auth, billing, dashboard, health, incidents, internal, monitors, projects, seo, status
+from app.core.analytics import PageViewMiddleware
 
 settings = get_settings()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
@@ -27,6 +28,10 @@ app = FastAPI(
 )
 
 app.add_middleware(TransportMiddleware)
+# Starlette wraps in reverse order, so this runs OUTSIDE TransportMiddleware and
+# sees the original method: HEAD probes (uptime checkers) are not counted, and
+# only GETs that really return 200 are.
+app.add_middleware(PageViewMiddleware)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -148,3 +153,4 @@ app.include_router(status.router, tags=["Status Page"])
 app.include_router(api_keys.router, prefix="/api-keys", tags=["API Keys"])
 app.include_router(billing.router, prefix="/billing", tags=["Billing"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+app.include_router(seo.router, tags=["SEO"])
