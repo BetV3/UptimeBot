@@ -24,6 +24,7 @@ BASE = "https://checkpulse.dev"
 SITEMAP_PAGES: list[tuple[str, str, str]] = [
     ("/", "weekly", "1.0"),
     ("/tools/ssl-checker", "monthly", "0.8"),
+    ("/vs/uptimerobot", "monthly", "0.8"),
     ("/docs/getting-started", "monthly", "0.7"),
     ("/legal/privacy", "yearly", "0.2"),
     ("/legal/terms", "yearly", "0.2"),

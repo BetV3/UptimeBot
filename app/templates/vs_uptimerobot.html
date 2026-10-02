@@ -1,0 +1,95 @@
+{% extends "marketing_base.html" %}
+{% block title %}CheckPulse vs UptimeRobot for agencies · CheckPulse{% endblock %}
+
+{% block seo %}
+{% with seo_path="/vs/uptimerobot",
+        seo_title="UptimeRobot alternative for agencies: CheckPulse compared",
+        seo_description="How CheckPulse and UptimeRobot decide a client site is down, what branded status pages cost, and where UptimeRobot is the better choice. Sources linked." %}
+{% include "_seo_head.html" %}
+{% endwith %}
+{% endblock %}
+
+{% block page %}
+<article class="max-w-3xl mx-auto pt-6 text-ink-muted leading-relaxed">
+    <p class="font-mono text-xs uppercase tracking-wider text-brand mb-3">// comparison</p>
+    <h1 class="text-3xl sm:text-4xl font-bold text-ink leading-tight">CheckPulse vs UptimeRobot for agencies</h1>
+    <p class="mt-4">UptimeRobot is the default uptime monitor, and for good reason. If you run a web agency and are deciding where to put your clients' sites, these are the differences that matter. Every UptimeRobot detail below links to UptimeRobot's own documentation or pricing page, checked on {{ checked }}.</p>
+    <p class="mt-3 text-sm text-ink-dim">Disclosure: CheckPulse is my product. It is new and I have no agency customers yet. Elvis Ramirez.</p>
+
+    <section class="mt-12">
+        <h2 class="text-2xl font-semibold text-ink">1. How each decides a site is down</h2>
+        <div class="mt-5 grid sm:grid-cols-2 gap-4">
+            <div class="bc-card p-5">
+                <p class="font-mono text-xs uppercase tracking-wider text-ink-dim">UptimeRobot</p>
+                <p class="mt-2 text-sm">Each check runs from one region at a time, rotating through North America, Europe, Asia and Oceania. A failure is retried up to 3 times in that same region. If any single region fails its retries, the monitor is marked down and you are alerted.</p>
+                <p class="mt-3 text-xs text-ink-dim">Their words: &ldquo;a single region's failed (and retried) check is enough to mark the monitor down.&rdquo; <a class="text-brand hover:underline" href="https://help.uptimerobot.com/en/articles/11358466-how-to-debug-a-monitor-showing-as-down-in-uptimerobot" rel="nofollow noopener" target="_blank">source</a> &middot; <a class="text-brand hover:underline" href="https://help.uptimerobot.com/en/articles/11358522-understanding-uptimerobot-locations-and-multi-location-feature" rel="nofollow noopener" target="_blank">source</a></p>
+            </div>
+            <div class="bc-card p-5 border-brand/30">
+                <p class="font-mono text-xs uppercase tracking-wider text-brand">CheckPulse</p>
+                <p class="mt-2 text-sm">Every interval, the site is checked from the US, the EU and Asia. It is marked down only when at least 2 of the 3 regions see it fail. One region's network having a bad minute does not open an incident or send an alert.</p>
+                <p class="mt-3 text-xs text-ink-dim">The rule is one line in the scheduler: down when 2 or more regions report down.</p>
+            </div>
+        </div>
+        <p class="mt-4 text-sm">What this means in practice: UptimeRobot's retries already filter most one-off blips, and they say so. The case CheckPulse handles differently is a problem confined to one region's network path, such as a routing issue or a firewall rule that blocks one checker. UptimeRobot alerts on that. CheckPulse does not, because the other two regions can still reach the site.</p>
+        <p class="mt-3 text-sm">The trade-off cuts the other way too. If a client site really is down only for visitors in one region, CheckPulse will not call it an outage. You still see the failing region in the monitor's check history.</p>
+    </section>
+
+    <section class="mt-12">
+        <h2 class="text-2xl font-semibold text-ink">2. Branded status pages for each client</h2>
+        <ul class="mt-4 space-y-3 text-sm">
+            <li><strong class="text-ink">UptimeRobot Solo</strong> ($28/month for 50 monitors, billed monthly) includes 3 status pages with your logo, colours and a custom subdomain. Removing UptimeRobot branding (white-label) starts on <strong class="text-ink">Team</strong> ($46/month, 100 monitors, 100 white-label pages). <a class="text-brand hover:underline" href="https://uptimerobot.com/pricing/" rel="nofollow noopener" target="_blank">pricing</a> &middot; <a class="text-brand hover:underline" href="https://help.uptimerobot.com/en/articles/11361465-uptimerobot-white-labeled-status-pages-branding-guide" rel="nofollow noopener" target="_blank">white-label</a></li>
+            <li><strong class="text-ink">CheckPulse</strong> gives every project its own public status page with the client's name, logo and brand colour. Starter ($12/month) covers 10 projects and 40 monitors at 60-second checks. Pro ($49/month) covers 50 projects and 200 monitors at 30-second checks. One project per client means one branded page per client.</li>
+        </ul>
+        <p class="mt-4 text-sm">Where UptimeRobot is ahead here: <strong class="text-ink">custom domains</strong> (status.yourclient.com) and <strong class="text-ink">full white-label</strong>. CheckPulse status pages live at checkpulse.dev/status/&lt;name&gt; and show a small &ldquo;Powered by CheckPulse&rdquo; footer. If either of those is a hard requirement for your clients, UptimeRobot Team is the better fit today.</p>
+    </section>
+
+    <section class="mt-12">
+        <h2 class="text-2xl font-semibold text-ink">3. Organising many clients</h2>
+        <ul class="mt-4 space-y-3 text-sm">
+            <li><strong class="text-ink">UptimeRobot</strong> suggests one monitor group per client. Groups need a paid plan, and giving a client their own dashboard login needs Team or higher. <a class="text-brand hover:underline" href="https://uptimerobot.com/knowledge-hub/monitoring/bulk-monitoring-setup-for-agencies/" rel="nofollow noopener" target="_blank">source</a> &middot; <a class="text-brand hover:underline" href="https://uptimerobot.com/knowledge-hub/monitoring/uptimerobot-for-client-work/" rel="nofollow noopener" target="_blank">source</a></li>
+            <li><strong class="text-ink">CheckPulse</strong> is organised by project from the start: one project per client, holding that client's monitors, alert channels and status page. Alerts go to Slack, Discord, Telegram, email or a webhook, set per project.</li>
+        </ul>
+    </section>
+
+    <section class="mt-12">
+        <h2 class="text-2xl font-semibold text-ink">4. At a glance</h2>
+        <dl class="mt-4 bc-card divide-y divide-bg-surface/70 text-sm">
+            <div class="hidden sm:grid grid-cols-3 gap-4 px-5 py-3 font-mono text-xs uppercase tracking-wider text-ink-dim">
+                <span></span><span>UptimeRobot</span><span class="text-brand">CheckPulse</span>
+            </div>
+            {% for label, ur, cp in rows %}
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 px-5 py-3">
+                <dt class="text-ink font-medium">{{ label }}</dt>
+                <dd><span class="sm:hidden font-mono text-xs text-ink-dim">UptimeRobot: </span>{{ ur }}</dd>
+                <dd><span class="sm:hidden font-mono text-xs text-ink-dim">CheckPulse: </span>{{ cp }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+        <p class="mt-2 text-xs text-ink-dim">UptimeRobot prices are US list prices billed monthly, as shown on their pricing page on {{ checked }}; annual billing is cheaper.</p>
+    </section>
+
+    <section class="mt-12">
+        <h2 class="text-2xl font-semibold text-ink">Choose UptimeRobot if</h2>
+        <ul class="mt-3 list-disc list-inside space-y-1.5 text-sm">
+            <li>you need custom domains or fully white-labelled status pages,</li>
+            <li>you want checks from Oceania as well, or</li>
+            <li>you want a product with a long track record. CheckPulse is new.</li>
+        </ul>
+        <h2 class="mt-8 text-2xl font-semibold text-ink">Choose CheckPulse if</h2>
+        <ul class="mt-3 list-disc list-inside space-y-1.5 text-sm">
+            <li>regional network blips paging your team are the main problem,</li>
+            <li>you want a branded page per client without paying for 100 of them, or</li>
+            <li>you want uptime, SSL expiry and DNS checks in one place per client.</li>
+        </ul>
+    </section>
+
+    <section class="mt-12 bc-card p-6 border-brand/30">
+        <h2 class="text-lg font-semibold text-ink">Try it on one client</h2>
+        <p class="mt-2 text-sm">The free plan covers 1 project and 3 monitors, no card. If it is not right for you, tell me why: I read every reply.</p>
+        <div class="mt-4 flex flex-wrap gap-3">
+            <a href="/dashboard/register?ref=vs-uptimerobot" class="bc-btn-primary">Start free</a>
+            <a href="/tools/ssl-checker" class="bc-btn-secondary">Check a site's SSL first</a>
+        </div>
+    </section>
+</article>
+{% endblock %}
