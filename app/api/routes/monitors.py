@@ -209,10 +209,26 @@ async def update_monitor(
 ):
     monitor = await _get_user_monitor(monitor_id, current_user, db)
     update_data = body.model_dump(exclude_unset=True)
+    if "url" in update_data:
+        # Re-run the full create-time validation (scheme + internal-target
+        # guard). Before 2026-10-04 PATCH set url with no checks at all.
+        if monitor.type != MonitorType.HTTP:
+            raise HTTPException(status_code=400,
+                                detail="Only http monitors have a URL; recreate ssl/dns monitors instead.")
+        from app.api.routes.dashboard import _validate_monitor_fields
+        _validate_monitor_fields(
+            update_data.get("name") or monitor.name, update_data["url"] or "",
+            update_data.get("interval_seconds", monitor.interval_seconds),
+            update_data.get("timeout_seconds", monitor.timeout_seconds),
+            (update_data.get("method") or monitor.method.value).upper())
+        update_data["url"] = update_data["url"].strip()
     if "interval_seconds" in update_data:
         check_interval_limit(current_user, update_data["interval_seconds"])
     if "method" in update_data:
-        update_data["method"] = HttpMethod(update_data["method"])
+        try:
+            update_data["method"] = HttpMethod(update_data["method"].upper())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Unsupported HTTP method.")
     for field, value in update_data.items():
         setattr(monitor, field, value)
     await db.commit()

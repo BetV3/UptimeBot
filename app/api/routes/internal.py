@@ -3,11 +3,13 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, status
 from sqlalchemy import delete, select, update, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.models import Check, CheckRegion, CheckStatus, Monitor, PendingCheck, WorkerHeartbeat
 from app.schemas.internal import CheckResultsBatch
+from app.services import target_guard
 from app.workers.tasks import finalize_check_result
 
 router = APIRouter()
@@ -93,11 +95,12 @@ async def get_jobs(
     await db.commit()
 
     jobs = []
+    blocked: list[tuple[PendingCheck, str]] = []
     for pc in pending:
         monitor = monitors_map.get(pc.monitor_id)
         if not monitor:
             continue
-        jobs.append({
+        job = {
             "pending_check_id": str(pc.id),
             "monitor_id": str(pc.monitor_id),
             "type": monitor.type.value,
@@ -115,7 +118,29 @@ async def get_jobs(
             "dns_resolver": monitor.dns_resolver,
             "dns_match_mode": monitor.dns_match_mode.value if monitor.dns_match_mode else "all",
             "region": pc.region.value,
-        })
+        }
+        # Dispatch-time SSRF check. Save-time validation can be stale: a name
+        # can be re-pointed at an internal address after it was saved, and old
+        # rows predate the guard. A blocked job never reaches a worker; it is
+        # recorded as a DOWN check with the reason. (Workers >= 1.1.0 also vet
+        # at connect time and on every redirect: worker/checkers/guard.py.)
+        reason = await run_in_threadpool(target_guard.job_block_reason, job)
+        if reason:
+            blocked.append((pc, reason))
+            continue
+        jobs.append(job)
+
+    if blocked:
+        for pc, reason in blocked:
+            db.add(Check(monitor_id=pc.monitor_id, region=pc.region,
+                         status=CheckStatus.DOWN, error=reason))
+        await db.execute(delete(PendingCheck).where(PendingCheck.id.in_([pc.id for pc, _ in blocked])))
+        await db.execute(update(Monitor)
+                         .where(Monitor.id.in_({pc.monitor_id for pc, _ in blocked}))
+                         .values(last_checked_at=datetime.now(timezone.utc)))
+        await db.commit()
+        for mid in {pc.monitor_id for pc, _ in blocked}:
+            finalize_check_result.delay(str(mid))
 
     return {"jobs": jobs}
 

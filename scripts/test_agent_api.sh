@@ -18,4 +18,4 @@ export DATABASE_URL_SYNC="postgresql://uptimebot:testpw@127.0.0.1:$PGP/uptimebot
 export REDIS_URL="redis://127.0.0.1:$RDP/0"
 export APP_ENV=test CP_AGENT_API_TEST=1
 .venv/bin/alembic upgrade head 2>&1 | tail -2
-.venv/bin/python -m pytest -q tests/test_agent_api.py "$@"
+.venv/bin/python -m pytest -q tests/test_agent_api.py tests/test_target_guard.py "$@"

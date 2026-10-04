@@ -39,6 +39,7 @@ from app.services.email import (
     send_verification_email,
 )
 from app.services.plans import PLAN_LIMITS, check_project_limit, check_monitor_limit, check_interval_limit
+from app.services import target_guard
 from app.services.url_guard import UnsafeUrlError, validate_outbound_url
 
 router = APIRouter()
@@ -167,6 +168,14 @@ def _parse_int_field(raw: str, label: str, min_value: int = 1, max_value: int | 
     return value
 
 
+def _guard_target(check, *args) -> None:
+    """Run a target_guard check; an internal target is a normal 400."""
+    try:
+        check(*args)
+    except target_guard.BlockedTarget as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 def _validate_monitor_fields(name: str, url: str, interval: int, timeout: int, method: str) -> tuple[str, str, HttpMethod]:
     name = (name or "").strip()
     url = (url or "").strip()
@@ -206,6 +215,7 @@ def _validate_monitor_fields(name: str, url: str, interval: int, timeout: int, m
     except ValueError:
         raise HTTPException(status_code=400, detail=f"“{method}” isn't a supported HTTP method.")
 
+    _guard_target(target_guard.check_url, url)
     return name, url, http_method
 
 
@@ -243,6 +253,7 @@ def _validate_ssl_fields(
     if timeout > 60:
         raise HTTPException(status_code=400, detail="Timeout can't exceed 60 seconds.")
 
+    _guard_target(target_guard.check_host, host, port)
     return name, host, port, warn_days
 
 
@@ -295,6 +306,10 @@ def _validate_dns_fields(
     if timeout > 60:
         raise HTTPException(status_code=400, detail="Timeout can't exceed 60 seconds.")
 
+    # DNS monitors only LOOK UP the name, so a name that resolves internally is
+    # fine; an internal literal/name or an internal custom resolver is not.
+    _guard_target(lambda h: target_guard.check_host(h, resolve_names=False), host)
+    _guard_target(target_guard.check_resolver, resolver)
     return name, host, rtype, expected_value, (resolver or None), match
 
 
@@ -1259,6 +1274,8 @@ async def dns_resolve(
     resolver = (resolver or "").strip()
     if not host or "://" in host or "/" in host or "." not in host:
         raise HTTPException(status_code=400, detail="Provide a plain hostname like example.com.")
+    # This lookup runs on the central server: never send it to an internal resolver.
+    _guard_target(target_guard.check_resolver, resolver)
     try:
         rtype = DnsRecordType(record_type)
     except ValueError:

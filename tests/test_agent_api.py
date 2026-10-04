@@ -135,6 +135,60 @@ def test_bad_key_is_401(client):
     assert r.status_code == 401
 
 
+# ── SSRF: internal monitor targets (2026-10-04) ──────────────────────────────
+
+@pytest.mark.parametrize("body", [
+    {"type": "http", "url": "http://169.254.169.254/latest/meta-data/"},
+    {"type": "http", "url": "http://127.0.0.1:8000/internal/workers"},
+    {"type": "http", "url": "http://localhost/"},
+    {"type": "http", "url": "https://[::ffff:10.0.0.1]/"},
+    {"type": "http", "url": "https://example.com:6379/"},
+    {"type": "ssl", "target_host": "10.0.0.1"},
+    {"type": "ssl", "target_host": "db.internal"},
+    {"type": "dns", "target_host": "example.com", "dns_expected_value": "1.2.3.4", "dns_resolver": "10.0.0.2"},
+    {"type": "dns", "target_host": "localhost", "dns_expected_value": "127.0.0.1"},
+])
+def test_create_refuses_internal_targets(client, body):
+    _, key, pid = make_user()
+    r = client.post(f"/projects/{pid}/monitors", headers=H(key),
+                    json={"name": "x", "interval_seconds": 300, **body})
+    assert r.status_code == 400, r.text
+    assert "169.254" not in r.json()["detail"]
+    assert sql("select count(*) from monitors where project_id=:p", p=pid)[0][0] == 0
+
+
+def test_patch_url_is_validated(client):
+    _, key, pid = make_user()
+    r = client.post(f"/projects/{pid}/monitors", headers=H(key),
+                    json={"name": "x", "url": "https://example.com", "interval_seconds": 300})
+    mid = r.json()["id"]
+    r = client.patch(f"/monitors/{mid}", headers=H(key), json={"url": "http://169.254.169.254/"})
+    assert r.status_code == 400, r.text
+    assert sql("select url from monitors where id=:i", i=mid)[0][0] == "https://example.com"
+    r = client.patch(f"/monitors/{mid}", headers=H(key), json={"url": "https://example.org/health"})
+    assert r.status_code == 200 and r.json()["url"] == "https://example.org/health"
+
+
+def test_dispatch_refuses_preexisting_internal_monitor(client):
+    """A row saved before the guard (or re-pointed later) never reaches a worker."""
+    _, key, pid = make_user()
+    mid = uuid.uuid4()
+    sql("insert into monitors (id,project_id,name,type,url,method,expected_status,interval_seconds,"
+        "timeout_seconds,is_active,current_status,next_check_at,created_at) values "
+        "(:i,:p,'legacy','HTTP','http://169.254.169.254/latest/','GET',200,300,10,true,'UNKNOWN',"
+        "now() + interval '1 day',now())", i=mid, p=pid)
+    for region in ("us", "eu", "asia"):
+        sql("insert into pending_checks (id,monitor_id,region,scheduled_at,attempts,dead) "
+            "values (:i,:m,:r,now(),0,false)", i=uuid.uuid4(), m=mid, r=region)
+    hdr = {"X-Worker-Secret": SET.worker_secret, "X-Worker-Id": "test-us"}
+    jobs = client.get("/internal/jobs?region=us", headers=hdr).json()["jobs"]
+    assert all(j["monitor_id"] != str(mid) for j in jobs), jobs
+    rows = sql("select region, status, error from checks where monitor_id=:i", i=mid)
+    assert [(r[0], r[1]) for r in rows] == [("us", "DOWN")] and rows[0][2].startswith("Blocked")
+    left = sql("select region from pending_checks where monitor_id=:i", i=mid)
+    assert sorted(r[0] for r in left) == ["asia", "eu"]
+
+
 def test_no_auth_is_401_and_key_alone_works(client):
     """Regression: OAuth2PasswordBearer(auto_error=True) 401'd every request
     that had X-API-Key but no Authorization header, so keys never worked."""

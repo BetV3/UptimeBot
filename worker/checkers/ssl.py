@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .base import CheckResult
+from .guard import Blocked, vet
 
 
 # Retry on socket-level flakes but NOT on ssl.SSLError — a cert validation
@@ -49,6 +50,8 @@ class SslChecker:
             start = time.monotonic()
             cert = self._fetch_peer_cert_with_retry(host, port, timeout)
             elapsed_ms = int((time.monotonic() - start) * 1000)
+        except Blocked as e:
+            return CheckResult(status="down", error=str(e))
         except socket.timeout:
             return CheckResult(status="down", error=f"Timeout after {timeout}s")
         except ssl_lib.SSLError as e:
@@ -108,7 +111,10 @@ class SslChecker:
             return self._fetch_peer_cert(host, port, timeout)
 
     def _fetch_peer_cert(self, host: str, port: int, timeout: int) -> dict:
+        # Vet and pin: connect to the public address we checked, keep the name
+        # for SNI and certificate verification. See guard.py.
+        ip = vet(host, port)
         ctx = ssl_lib.create_default_context()
-        with socket.create_connection((host, port), timeout=timeout) as sock:
+        with socket.create_connection((ip, port), timeout=timeout) as sock:
             with ctx.wrap_socket(sock, server_hostname=host) as ssock:
                 return ssock.getpeercert()
