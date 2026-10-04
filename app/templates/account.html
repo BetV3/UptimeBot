@@ -57,6 +57,47 @@
     </form>
 </section>
 
+<section class="mt-12" id="api-keys">
+    <h2 class="font-mono text-sm uppercase tracking-wider text-ink-muted mb-3">// API keys</h2>
+    <div class="bc-card p-6 space-y-5 max-w-2xl">
+        <p class="text-sm text-ink-muted">
+            Use a key with the CheckPulse REST API, or connect an AI assistant (Claude, Cursor, ChatGPT)
+            through the CheckPulse MCP server. Send it as the <code class="font-mono">X-API-Key</code> header.
+            A key can do anything your account can, so keep it private.
+        </p>
+        {% if new_api_key %}
+        <div class="border border-ok/30 bg-ok/10 rounded-md p-4 space-y-2" data-testid="new-api-key">
+            <div class="text-xs font-mono uppercase tracking-wider text-ok">// copy it now, it will not be shown again</div>
+            <code class="block font-mono text-sm text-ink break-all select-all">{{ new_api_key }}</code>
+        </div>
+        {% endif %}
+        <form method="post" action="/dashboard/account/api-keys" class="flex gap-3 items-end">
+            <div class="flex-1">
+                <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Key name</label>
+                <input type="text" name="name" maxlength="100" placeholder="Claude Desktop" required>
+            </div>
+            <button type="submit" class="bc-btn-primary">Create key</button>
+        </form>
+        {% if api_keys %}
+        <ul class="divide-y divide-bg-surface/70">
+            {% for k in api_keys %}
+            <li class="py-3 flex items-center justify-between gap-4">
+                <div>
+                    <div class="font-mono text-ink text-sm">{{ k.name }}</div>
+                    <div class="font-mono text-xs text-ink-dim">{{ k.prefix }}&hellip; &middot; created {{ k.created_at.strftime('%b %d, %Y') if k.created_at else '' }} &middot; {{ ('last used ' ~ k.last_used_at.strftime('%b %d, %Y')) if k.last_used_at else 'never used' }}</div>
+                </div>
+                <form method="post" action="/dashboard/account/api-keys/{{ k.id }}/revoke">
+                    <button type="submit" class="bc-btn-ghost-danger">Revoke</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-xs font-mono text-ink-dim">// no keys yet</p>
+        {% endif %}
+    </div>
+</section>
+
 <section class="mt-12">
     <h2 class="font-mono text-sm uppercase tracking-wider text-bad mb-3">// Danger zone</h2>
     <div class="bc-card p-6 max-w-md border-bad/30">

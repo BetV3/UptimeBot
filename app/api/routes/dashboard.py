@@ -571,6 +571,18 @@ async def logout():
     return response
 
 
+MAX_API_KEYS = 10
+
+
+async def _user_api_keys(db: AsyncSession, user: User) -> list:
+    from app.models.models import ApiKey
+    rows = (await db.execute(
+        select(ApiKey).where(ApiKey.user_id == user.id, ApiKey.is_active.is_(True))
+        .order_by(ApiKey.created_at.desc())
+    )).scalars().all()
+    return list(rows)
+
+
 @router.get("/account", response_class=HTMLResponse)
 async def account_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await _get_user_from_cookie(request, db)
@@ -582,6 +594,8 @@ async def account_page(request: Request, db: AsyncSession = Depends(get_db)):
             "request": request,
             "user": user,
             "password_error": None,
+            "api_keys": await _user_api_keys(db, user),
+            "new_api_key": None,
             "flash_error": _flash(request, "flash_error"),
             "flash_notice": _flash(request, "flash_notice"),
         },
@@ -589,6 +603,69 @@ async def account_page(request: Request, db: AsyncSession = Depends(get_db)):
     _consume_flash(request, response)
     if request.cookies.get("flash_notice"):
         response.delete_cookie("flash_notice", path="/")
+    return response
+
+
+@router.post("/account/api-keys", response_class=HTMLResponse)
+async def account_create_api_key(
+    request: Request, name: str = Form("AI assistant"), db: AsyncSession = Depends(get_db),
+):
+    """Create a key and show it ONCE in this response. Only its hash is stored.
+
+    Rendered directly (no redirect) so the raw key never travels in a cookie
+    or a URL. Cookies are SameSite=Lax, so a cross-site form POST arrives
+    without the session and is sent to the login page.
+    """
+    from app.models.models import ApiKey
+    from app.services.auth import generate_api_key
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    keys = await _user_api_keys(db, user)
+    if len(keys) >= MAX_API_KEYS:
+        return _redirect_with_flash("/dashboard/account",
+                                    f"You already have {MAX_API_KEYS} keys. Revoke one first.")
+    label = (name or "").strip()[:100] or "AI assistant"
+    raw_key, key_hash, prefix = generate_api_key()
+    db.add(ApiKey(user_id=user.id, name=label, key_hash=key_hash, prefix=prefix))
+    await db.commit()
+    response = templates.TemplateResponse(
+        "account.html",
+        {
+            "request": request,
+            "user": user,
+            "password_error": None,
+            "api_keys": await _user_api_keys(db, user),
+            "new_api_key": raw_key,
+            "flash_error": None,
+            "flash_notice": None,
+        },
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.post("/account/api-keys/{key_id}/revoke")
+async def account_revoke_api_key(request: Request, key_id: str, db: AsyncSession = Depends(get_db)):
+    import uuid
+    from app.models.models import ApiKey
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    try:
+        kid = uuid.UUID(key_id)
+    except ValueError:
+        raise HTTPException(status_code=404)
+    key = (await db.execute(
+        select(ApiKey).where(ApiKey.id == kid, ApiKey.user_id == user.id)
+    )).scalar_one_or_none()
+    if key is None:
+        raise HTTPException(status_code=404)
+    await db.delete(key)
+    await db.commit()
+    response = RedirectResponse("/dashboard/account", status_code=303)
+    response.set_cookie("flash_notice", "API key revoked.", max_age=30, path="/",
+                        samesite="lax", secure=should_secure_cookie())
     return response
 
 
