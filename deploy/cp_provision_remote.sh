@@ -34,7 +34,7 @@ EOF
 mkdir -p /run/sshd
 sshd -t
 systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
-echo "sshd: $(sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin) ' | tr '\n' ' ')"
+echo "sshd: $(sshd -T | grep -iE '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin) ' | tr '\n' ' ')"
 
 echo "## 4 firewall: inbound 22 only"
 command -v ufw >/dev/null || $APT install -y ufw >/dev/null
