@@ -164,7 +164,7 @@
             <tr class="hover:bg-bg-surface/20 transition">
                 <td class="px-4 py-3 text-ink-muted font-mono text-xs whitespace-nowrap">{{ c.checked_at[:19].replace('T', ' ') }} <span class="text-ink-dim">UTC</span></td>
                 <td class="px-4 py-3">
-                    <span class="bc-pill bc-pill--neutral">{{ c.region | upper }}</span>
+                    <span class="bc-pill bc-pill--neutral" title="{{ c.region }}">{{ (region_labels or {}).get(c.region, c.region | upper) }}</span>
                 </td>
                 <td class="px-4 py-3">
                     {% if c.status == 'up' %}

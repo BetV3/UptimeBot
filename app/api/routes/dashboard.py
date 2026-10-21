@@ -39,6 +39,7 @@ from app.services.email import (
     send_verification_email,
 )
 from app.services.plans import PLAN_LIMITS, check_project_limit, check_monitor_limit, check_interval_limit
+from app.services import regions as region_svc
 from app.services import target_guard
 from app.services.url_guard import UnsafeUrlError, validate_outbound_url
 
@@ -1483,7 +1484,7 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
     checks = [
         {
             "checked_at": c.checked_at.isoformat(),
-            "region": c.region.value,
+            "region": c.region,
             "status": c.status.value,
             "status_code": c.status_code,
             "response_time_ms": c.response_time_ms,
@@ -1556,6 +1557,7 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
             "timeout_seconds": monitor.timeout_seconds,
         },
         "summary": summary, "checks": checks, "chart_data": chart_data,
+        "region_labels": region_svc.labels(await region_svc.all_regions(db)),
         "latest_cert": latest_cert,
         "latest_dns": latest_dns,
         "flash_error": _flash(request, "flash_error"),

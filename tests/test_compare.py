@@ -69,10 +69,17 @@ def test_plan_numbers_match_plans_py():
 
 
 def test_two_of_three_claim_matches_scheduler():
+    """The page says "2 of 3": pin it to the vote rule and the seeded voting set."""
+    from pathlib import Path
+    from app.services import regions as region_svc
     from app.workers import tasks
     src = inspect.getsource(tasks.finalize_check_result)
-    assert "down_count >= 2" in src
-    assert len(tasks.REGIONS) == 3
+    assert "region_svc.consensus(" in src and "region_svc.voting(" in src
+    assert region_svc.quorum(3) == 2
+    mig = Path(__file__).parents[1] / "alembic/versions/e3c1a7f05d92_regions_table.py"
+    ns: dict = {}
+    exec(compile(mig.read_text().split("def upgrade")[0], str(mig), "exec"), ns)
+    assert sum(1 for row in ns["SEED"] if row[5]) == 3  # exactly 3 voting regions at launch
 
 
 def test_facts_dated():

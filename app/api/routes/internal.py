@@ -7,8 +7,9 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models.models import Check, CheckRegion, CheckStatus, Monitor, PendingCheck, WorkerHeartbeat
+from app.models.models import Check, CheckStatus, Monitor, PendingCheck, WorkerHeartbeat
 from app.schemas.internal import CheckResultsBatch
+from app.services import regions as region_svc
 from app.services import target_guard
 from app.workers.tasks import finalize_check_result
 
@@ -30,13 +31,32 @@ async def verify_worker_secret(x_worker_secret: str = Header(...)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid worker secret")
 
 
+async def _scheduled_region(code: str, db: AsyncSession) -> str:
+    """422 unless ``code`` is a region in the table with scheduled=true.
+
+    A worker for an unknown or switched-off region gets a loud error in its own
+    log instead of silently polling an empty queue (or writing rows nobody reads).
+    """
+    code = (code or "").strip().lower()
+    known = {r.code: r for r in await region_svc.all_regions(db)}
+    r = known.get(code)
+    if r is None or not r.scheduled:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"region {code!r} is not a scheduled region; scheduled: "
+                   + ",".join(sorted(c for c, x in known.items() if x.scheduled)),
+        )
+    return code
+
+
 @router.get("/jobs", dependencies=[Depends(verify_worker_secret)])
 async def get_jobs(
-    region: CheckRegion = Query(...),
+    region: str = Query(..., max_length=32),
     limit: int = Query(default=50, le=200),
     db: AsyncSession = Depends(get_db),
     x_worker_id: str = Header(default="unknown"),
 ):
+    region = await _scheduled_region(region, db)
     # Atomically lease eligible pending_checks. A row is eligible when it is
     # not dead, under the attempt cap, and either unleased or its lease has
     # expired. FOR UPDATE SKIP LOCKED lets multiple pollers coexist without
@@ -68,7 +88,7 @@ async def get_jobs(
     claimed = await db.execute(
         claim_sql,
         {
-            "region": region.value,
+            "region": region,
             "limit": limit,
             "max_attempts": MAX_ATTEMPTS,
             "slack": LEASE_SLACK_SECONDS,
@@ -117,7 +137,7 @@ async def get_jobs(
             "dns_expected_value": monitor.dns_expected_value,
             "dns_resolver": monitor.dns_resolver,
             "dns_match_mode": monitor.dns_match_mode.value if monitor.dns_match_mode else "all",
-            "region": pc.region.value,
+            "region": pc.region,
         }
         # Dispatch-time SSRF check. Save-time validation can be stale: a name
         # can be re-pointed at an internal address after it was saved, and old
@@ -154,12 +174,20 @@ async def post_results(
     if not body.results:
         return {"saved": 0}
 
+    # Every result's region must be a known, scheduled region (the FK would
+    # reject an unknown one anyway, as a 500 for the whole batch).
+    known = {r.code for r in region_svc.scheduled(await region_svc.all_regions(db))}
+    bad = sorted({r.region.strip().lower() for r in body.results} - known)
+    if bad:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"unknown or unscheduled region(s): {','.join(bad)}")
+
     # Save check results (always recorded — even a stale submission is useful
     # history; consensus logic treats it as one of the latest-per-region rows).
     for r in body.results:
         check = Check(
             monitor_id=r.monitor_id,
-            region=CheckRegion(r.region.lower()),
+            region=r.region.strip().lower(),
             status=CheckStatus(r.status.lower()),
             status_code=r.status_code,
             response_time_ms=r.response_time_ms,
@@ -207,12 +235,13 @@ async def post_results(
 
 @router.post("/heartbeat", dependencies=[Depends(verify_worker_secret)])
 async def worker_heartbeat(
-    region: CheckRegion = Query(...),
+    region: str = Query(..., max_length=32),
     hostname: str = Query(default=""),
     version: str = Query(default=""),
     db: AsyncSession = Depends(get_db),
 ):
     """Workers call this periodically to report they're alive."""
+    region = await _scheduled_region(region, db)
     now = datetime.now(timezone.utc)
     result = await db.execute(
         select(WorkerHeartbeat).where(WorkerHeartbeat.region == region)
@@ -231,14 +260,17 @@ async def worker_heartbeat(
 
 @router.get("/workers", dependencies=[Depends(verify_worker_secret)])
 async def list_workers(db: AsyncSession = Depends(get_db)):
-    """Return status of all known workers."""
+    """Return status of all known workers, with each region's flags."""
     result = await db.execute(select(WorkerHeartbeat))
     workers = result.scalars().all()
+    flags = {r.code: r for r in await region_svc.all_regions(db)}
     now = datetime.now(timezone.utc)
     return {
         "workers": [
             {
-                "region": w.region.value,
+                "region": w.region,
+                "scheduled": bool(flags.get(w.region) and flags[w.region].scheduled),
+                "voting": bool(flags.get(w.region) and flags[w.region].voting),
                 "hostname": w.hostname,
                 "version": w.version,
                 "last_seen": w.last_seen.isoformat(),

@@ -8,22 +8,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.models import (
-    Check, CheckRegion, CheckStatus, DnsMatchMode, DnsRecordType, HttpMethod, Monitor,
+    Check, CheckStatus, DnsMatchMode, DnsRecordType, HttpMethod, Monitor,
     MonitorStatus, MonitorType, Project, User,
 )
 from app.schemas.monitors import LiveCheckRequest, MonitorCreate, MonitorUpdate, MonitorResponse
+from app.services import regions as region_svc
 from app.services.auth import get_current_user
 from app.services.plans import check_monitor_limit, check_interval_limit
 
 router = APIRouter()
 
-# check-now makes all three regional workers run a check on demand. Limits so
-# an API key (or an AI agent looping on it) cannot turn the worker fleet into
+# check-now makes every scheduled regional worker run a check on demand. Limits
+# so an API key (or an AI agent looping on it) cannot turn the worker fleet into
 # a load generator: per user 30 per hour, per monitor one every 20 s. Redis
 # backed, fail CLOSED like the public SSL tool.
 CHECK_NOW_PER_HOUR = 30
 CHECK_NOW_MIN_GAP = 20
-REGION_VALUES = [r.value for r in CheckRegion]
 # Each waiting check-now holds a DB connection for up to 90 s; cap how many
 # can wait at once so they cannot starve the pool the dashboard uses.
 CHECK_NOW_CONCURRENCY = 4
@@ -279,7 +279,7 @@ async def resume_monitor(
 
 def _check_row(c: Check) -> dict:
     return {
-        "region": c.region.value,
+        "region": c.region,
         "status": c.status.value,
         "status_code": c.status_code,
         "response_time_ms": c.response_time_ms,
@@ -297,11 +297,12 @@ async def check_now(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Queue a check in every region now and wait (up to wait_seconds) for results.
+    """Queue a check in every scheduled region now and wait (up to wait_seconds) for results.
 
     Uses the normal pending_checks lease path, so it is the same check the
-    scheduler would run: real workers in us/eu/asia, the same 2-of-3 rule,
-    and the result lands in history and can open or resolve an incident.
+    scheduler would run: the real regional workers, the same majority rule as
+    the scheduler (voting regions only), and the result lands in history and
+    can open or resolve an incident.
     """
     monitor = await _get_user_monitor(monitor_id, current_user, db)
     wait = (body or LiveCheckRequest()).wait_seconds
@@ -321,7 +322,10 @@ async def _run_check_now(monitor: Monitor, wait: int, db: AsyncSession) -> dict:
     from app.models.models import PendingCheck
 
     started = datetime.now(timezone.utc)
-    for region in CheckRegion:
+    all_r = await region_svc.all_regions(db)
+    sched = [r.code for r in region_svc.scheduled(all_r)]
+    voting_codes = [r.code for r in region_svc.voting(all_r)]
+    for region in sched:
         await db.execute(
             pg_insert(PendingCheck)
             .values(id=uuid.uuid4(), monitor_id=monitor.id, region=region, scheduled_at=started)
@@ -339,29 +343,23 @@ async def _run_check_now(monitor: Monitor, wait: int, db: AsyncSession) -> dict:
         )).scalars().all()
         await db.commit()  # end the read so the next poll sees new rows
         for c in rows:
-            latest.setdefault(c.region.value, c)
-        if len(latest) == len(REGION_VALUES) or datetime.now(timezone.utc) >= deadline:
+            latest.setdefault(c.region, c)
+        if all(code in latest for code in sched) or datetime.now(timezone.utc) >= deadline:
             break
         await asyncio.sleep(2)
 
-    down = sum(1 for c in latest.values() if c.status == CheckStatus.DOWN)
-    if len(latest) == len(REGION_VALUES):
-        verdict = "down" if down >= 2 else "up"
-    elif down >= 2:
-        verdict = "down"
-    elif len(latest) - down >= 2:
-        verdict = "up"
-    else:
-        verdict = "incomplete"
+    verdict, _, _, need = region_svc.consensus(
+        {code: c.status.value for code, c in latest.items()}, voting_codes)
     return {
         "monitor_id": str(monitor.id),
         "name": monitor.name,
         "type": monitor.type.value,
         "verdict": verdict,
-        "rule": "down only when at least 2 of 3 regions fail",
+        "rule": f"down only when at least {need} of {len(voting_codes)} voting regions fail",
+        "voting_regions": voting_codes,
         "regions_reported": sorted(latest),
-        "regions_missing": [r for r in REGION_VALUES if r not in latest],
-        "results": [_check_row(latest[r]) for r in REGION_VALUES if r in latest],
+        "regions_missing": [r for r in sched if r not in latest],
+        "results": [_check_row(latest[r]) for r in sched if r in latest],
         "waited_seconds": round((datetime.now(timezone.utc) - started).total_seconds(), 1),
     }
 
@@ -398,7 +396,7 @@ async def list_checks(
         "checks": [
             {
                 "id": str(c.id),
-                "region": c.region.value,
+                "region": c.region,
                 "status": c.status.value,
                 "status_code": c.status_code,
                 "response_time_ms": c.response_time_ms,

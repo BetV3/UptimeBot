@@ -109,7 +109,7 @@ async def get_incident(
         "timeline": [
             {
                 "id": str(c.id),
-                "region": c.region.value,
+                "region": c.region,
                 "status": c.status.value,
                 "status_code": c.status_code,
                 "response_time_ms": c.response_time_ms,
