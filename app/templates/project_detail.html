@@ -67,14 +67,14 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <span class="bc-pill bc-pill--neutral">{{ m.type }}</span>
+                    <span class="bc-pill bc-pill--neutral{% if m.paused_reason %} hidden sm:inline-flex{% endif %}">{{ m.type }}</span>
                     {% if not m.paused_reason %}{# a plan-paused monitor's last status is stale; the paused pill says enough #}
                     <span class="bc-pill {% if m.current_status == 'up' %}bc-pill--up{% elif m.current_status == 'down' %}bc-pill--down{% else %}bc-pill--pending{% endif %}">
                         {{ m.current_status }}
                     </span>
                     {% endif %}
                     {% if not m.is_active %}
-                    <span class="bc-pill {% if m.paused_reason %}bc-pill--warn{% else %}bc-pill--neutral{% endif %}" {% if m.paused_reason %}title="Paused by your plan. Upgrade to resume."{% endif %}>{% if m.paused_reason %}Paused: plan{% else %}Paused{% endif %}</span>
+                    <span class="bc-pill {% if m.paused_reason %}bc-pill--warn{% else %}bc-pill--neutral{% endif %}" {% if m.paused_reason %}title="Paused by your plan. Upgrade to resume."{% endif %}>Paused{% if m.paused_reason %}<span class="hidden sm:inline">: plan</span>{% endif %}</span>
                     {% endif %}
                 </div>
             </div>

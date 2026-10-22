@@ -252,7 +252,7 @@ def test_banner_after_expiry_and_resume_is_capped(client):
     html = client.get("/dashboard", headers=BROWSER).text
     assert "Trial ended: 3 monitors paused. Upgrade to resume." in html
     html = client.get(f"/dashboard/projects/{new}", headers=BROWSER).text
-    assert "Paused: plan" in html
+    assert 'title="Paused by your plan. Upgrade to resume."' in html
     # resuming a paused monitor past the Free limit is refused
     r = client.post(f"/dashboard/monitors/{m['old_4']}/resume", follow_redirects=False)
     assert "runs%20up%20to%203%20monitors" in r.headers["set-cookie"]
