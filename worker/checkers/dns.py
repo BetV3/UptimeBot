@@ -5,6 +5,7 @@ import dns.exception
 import dns.resolver
 
 from .base import CheckResult
+from .guard import Blocked, vet_name, vet_resolver
 
 
 TRANSIENT_ERRORS = (dns.exception.Timeout, dns.resolver.NoNameservers)
@@ -42,6 +43,12 @@ class DnsChecker:
         expected = _split_expected(expected_raw)
         if not expected:
             return CheckResult(status="down", error="DNS monitor missing dns_expected_value")
+
+        try:
+            vet_name(host)
+            vet_resolver(resolver_ip)
+        except Blocked as e:
+            return CheckResult(status="down", error=str(e))
 
         try:
             start = time.monotonic()

@@ -7,7 +7,7 @@ Auth is handled via JWT stored in a cookie.
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urlparse
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -39,6 +39,9 @@ from app.services.email import (
     send_verification_email,
 )
 from app.services.plans import PLAN_LIMITS, check_project_limit, check_monitor_limit, check_interval_limit
+from app.services import regions as region_svc
+from app.services import target_guard
+from app.services.url_guard import UnsafeUrlError, validate_outbound_url
 
 router = APIRouter()
 settings = get_settings()
@@ -85,7 +88,12 @@ def _redirect_with_flash(url: str, message: str) -> RedirectResponse:
     response = RedirectResponse(url, status_code=303)
     response.set_cookie(
         "flash_error",
-        message,
+        # Percent-encode: cookie headers are latin-1, and several of these
+        # messages legitimately contain curly quotes and em-dashes. Without
+        # this, a duplicate-name error raised UnicodeEncodeError and the user
+        # got a 500 instead of the validation message. The browser hands the
+        # raw value to the template, which unquotes it.
+        quote(message, safe=""),
         max_age=30,
         path="/",
         samesite="lax",
@@ -94,8 +102,18 @@ def _redirect_with_flash(url: str, message: str) -> RedirectResponse:
     return response
 
 
+def _flash(request: Request, name: str = "flash_error") -> str | None:
+    """Read a flash cookie, undoing the percent-encoding applied on write.
+
+    unquote() is safe on values that were never encoded, so this also handles
+    the flash cookies set inline elsewhere (plain ASCII notices).
+    """
+    raw = request.cookies.get(name)
+    return unquote(raw) if raw else None
+
+
 def _consume_flash(request: Request, response) -> str | None:
-    msg = request.cookies.get("flash_error")
+    msg = _flash(request)
     if msg:
         response.delete_cookie("flash_error", path="/")
     return msg
@@ -107,6 +125,33 @@ def _wants_json(request: Request) -> bool:
 
 MONITOR_NAME_MAX = 100
 PROJECT_NAME_MAX = 80
+
+# One definition, used by register, reset, and change. These were 6/8/8 before,
+# so a user could register a password they could not later reset to.
+PASSWORD_MIN_LENGTH = 8
+
+
+def _checked_url(raw: str) -> str:
+    """Validate a user-supplied outbound URL, as a 400 rather than a 500.
+
+    Wraps url_guard so an unsafe webhook target reads as a normal validation
+    error to the user, and never becomes a request the server makes on their
+    behalf into its own network.
+    """
+    try:
+        return validate_outbound_url(raw)
+    except UnsafeUrlError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _checked_smtp_host(raw: str) -> str:
+    """Same guard for a custom SMTP host, which is also a connect target."""
+    host = (raw or "").strip()
+    try:
+        validate_outbound_url(f"https://{host}")
+    except UnsafeUrlError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return host
 
 
 def _parse_int_field(raw: str, label: str, min_value: int = 1, max_value: int | None = None) -> int:
@@ -122,6 +167,14 @@ def _parse_int_field(raw: str, label: str, min_value: int = 1, max_value: int | 
     if max_value is not None and value > max_value:
         raise HTTPException(status_code=400, detail=f"{label} must be {max_value} or less.")
     return value
+
+
+def _guard_target(check, *args) -> None:
+    """Run a target_guard check; an internal target is a normal 400."""
+    try:
+        check(*args)
+    except target_guard.BlockedTarget as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _validate_monitor_fields(name: str, url: str, interval: int, timeout: int, method: str) -> tuple[str, str, HttpMethod]:
@@ -163,6 +216,7 @@ def _validate_monitor_fields(name: str, url: str, interval: int, timeout: int, m
     except ValueError:
         raise HTTPException(status_code=400, detail=f"“{method}” isn't a supported HTTP method.")
 
+    _guard_target(target_guard.check_url, url)
     return name, url, http_method
 
 
@@ -200,6 +254,7 @@ def _validate_ssl_fields(
     if timeout > 60:
         raise HTTPException(status_code=400, detail="Timeout can't exceed 60 seconds.")
 
+    _guard_target(target_guard.check_host, host, port)
     return name, host, port, warn_days
 
 
@@ -252,6 +307,10 @@ def _validate_dns_fields(
     if timeout > 60:
         raise HTTPException(status_code=400, detail="Timeout can't exceed 60 seconds.")
 
+    # DNS monitors only LOOK UP the name, so a name that resolves internally is
+    # fine; an internal literal/name or an internal custom resolver is not.
+    _guard_target(lambda h: target_guard.check_host(h, resolve_names=False), host)
+    _guard_target(target_guard.check_resolver, resolver)
     return name, host, rtype, expected_value, (resolver or None), match
 
 
@@ -275,7 +334,7 @@ async def _check_duplicate_monitor_name(
 async def login_page(request: Request, db: AsyncSession = Depends(get_db)):
     if await _get_user_from_cookie(request, db):
         return RedirectResponse("/dashboard", status_code=303)
-    notice = request.cookies.get("flash_notice")
+    notice = _flash(request, "flash_notice")
     response = templates.TemplateResponse(
         "login.html", {"request": request, "error": None, "notice": notice}
     )
@@ -303,6 +362,8 @@ async def login_submit(
                 "request": request,
                 "email": user.email,
                 "info": "Please verify your email before signing in.",
+                "error": None,
+                "turnstile_site_key": turnstile_site_key(),
             },
             status_code=403,
         )
@@ -358,6 +419,21 @@ async def register_submit(
             status_code=400,
         )
 
+    # Server-side length check. The form carries minlength=8, but that is a
+    # client hint anyone can strip — and password reset/change already enforce
+    # 8 server-side, so without this a user could register a 6-character
+    # password and then be unable to reset to it.
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return templates.TemplateResponse(
+            "register.html",
+            {
+                "request": request,
+                "error": f"Password must be at least {PASSWORD_MIN_LENGTH} characters.",
+                "turnstile_site_key": turnstile_site_key(),
+            },
+            status_code=400,
+        )
+
     result = await db.execute(select(User).where(User.email == email))
     if result.scalar_one_or_none():
         return templates.TemplateResponse(
@@ -396,7 +472,13 @@ async def register_submit(
         await send_verification_email(user.email, token, base_url=external_base_url(request))
         return templates.TemplateResponse(
             "check_email.html",
-            {"request": request, "email": user.email, "info": None},
+            {
+                "request": request,
+                "email": user.email,
+                "info": None,
+                "error": None,
+                "turnstile_site_key": turnstile_site_key(),
+            },
         )
 
     # Dev mode: log in immediately
@@ -436,6 +518,8 @@ async def verify_email(
                 "request": request,
                 "email": user.email,
                 "info": "That link expired. We can send you a new one.",
+                "error": None,
+                "turnstile_site_key": turnstile_site_key(),
             },
             status_code=400,
         )
@@ -503,6 +587,18 @@ async def logout():
     return response
 
 
+MAX_API_KEYS = 10
+
+
+async def _user_api_keys(db: AsyncSession, user: User) -> list:
+    from app.models.models import ApiKey
+    rows = (await db.execute(
+        select(ApiKey).where(ApiKey.user_id == user.id, ApiKey.is_active.is_(True))
+        .order_by(ApiKey.created_at.desc())
+    )).scalars().all()
+    return list(rows)
+
+
 @router.get("/account", response_class=HTMLResponse)
 async def account_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await _get_user_from_cookie(request, db)
@@ -514,13 +610,78 @@ async def account_page(request: Request, db: AsyncSession = Depends(get_db)):
             "request": request,
             "user": user,
             "password_error": None,
-            "flash_error": request.cookies.get("flash_error"),
-            "flash_notice": request.cookies.get("flash_notice"),
+            "api_keys": await _user_api_keys(db, user),
+            "new_api_key": None,
+            "flash_error": _flash(request, "flash_error"),
+            "flash_notice": _flash(request, "flash_notice"),
         },
     )
     _consume_flash(request, response)
     if request.cookies.get("flash_notice"):
         response.delete_cookie("flash_notice", path="/")
+    return response
+
+
+@router.post("/account/api-keys", response_class=HTMLResponse)
+async def account_create_api_key(
+    request: Request, name: str = Form("AI assistant"), db: AsyncSession = Depends(get_db),
+):
+    """Create a key and show it ONCE in this response. Only its hash is stored.
+
+    Rendered directly (no redirect) so the raw key never travels in a cookie
+    or a URL. Cookies are SameSite=Lax, so a cross-site form POST arrives
+    without the session and is sent to the login page.
+    """
+    from app.models.models import ApiKey
+    from app.services.auth import generate_api_key
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    keys = await _user_api_keys(db, user)
+    if len(keys) >= MAX_API_KEYS:
+        return _redirect_with_flash("/dashboard/account",
+                                    f"You already have {MAX_API_KEYS} keys. Revoke one first.")
+    label = (name or "").strip()[:100] or "AI assistant"
+    raw_key, key_hash, prefix = generate_api_key()
+    db.add(ApiKey(user_id=user.id, name=label, key_hash=key_hash, prefix=prefix))
+    await db.commit()
+    response = templates.TemplateResponse(
+        "account.html",
+        {
+            "request": request,
+            "user": user,
+            "password_error": None,
+            "api_keys": await _user_api_keys(db, user),
+            "new_api_key": raw_key,
+            "flash_error": None,
+            "flash_notice": None,
+        },
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.post("/account/api-keys/{key_id}/revoke")
+async def account_revoke_api_key(request: Request, key_id: str, db: AsyncSession = Depends(get_db)):
+    import uuid
+    from app.models.models import ApiKey
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    try:
+        kid = uuid.UUID(key_id)
+    except ValueError:
+        raise HTTPException(status_code=404)
+    key = (await db.execute(
+        select(ApiKey).where(ApiKey.id == kid, ApiKey.user_id == user.id)
+    )).scalar_one_or_none()
+    if key is None:
+        raise HTTPException(status_code=404)
+    await db.delete(key)
+    await db.commit()
+    response = RedirectResponse("/dashboard/account", status_code=303)
+    response.set_cookie("flash_notice", "API key revoked.", max_age=30, path="/",
+                        samesite="lax", secure=should_secure_cookie())
     return response
 
 
@@ -551,8 +712,8 @@ async def account_change_password(
 
     if not verify_password(current_password, user.password_hash):
         return render("Current password is incorrect.")
-    if len(new_password) < 8:
-        return render("New password must be at least 8 characters.")
+    if len(new_password) < PASSWORD_MIN_LENGTH:
+        return render(f"New password must be at least {PASSWORD_MIN_LENGTH} characters.")
     if new_password != confirm_password:
         return render("New passwords do not match.")
     if new_password == current_password:
@@ -649,8 +810,8 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
     upgraded = request.query_params.get("upgraded") == "1"
     cancelled = request.query_params.get("cancelled") == "1"
 
-    flash_notice = request.cookies.get("flash_notice")
-    flash_error = request.cookies.get("flash_error")
+    flash_notice = _flash(request, "flash_notice")
+    flash_error = _flash(request, "flash_error")
     if upgraded:
         flash_notice = flash_notice or "Subscription activated. Welcome aboard!"
     if cancelled:
@@ -695,7 +856,6 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
                 f"{PLAN_LIMITS[PlanType.PRO].max_projects} sites",
                 f"{PLAN_LIMITS[PlanType.PRO].max_monitors} monitors across all sites",
                 f"{PLAN_LIMITS[PlanType.PRO].min_interval_seconds}-second intervals",
-                "Custom domain",
                 "Branded status pages",
                 "Priority support",
                 "1-year history",
@@ -813,10 +973,10 @@ async def reset_password_submit(
     confirm_password: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    if len(password) < 8:
+    if len(password) < PASSWORD_MIN_LENGTH:
         return templates.TemplateResponse(
             "reset_password.html",
-            {"request": request, "token": token, "invalid": False, "error": "Password must be at least 8 characters."},
+            {"request": request, "token": token, "invalid": False, "error": f"Password must be at least {PASSWORD_MIN_LENGTH} characters."},
             status_code=400,
         )
     if password != confirm_password:
@@ -872,7 +1032,7 @@ async def dashboard_home(request: Request, db: AsyncSession = Depends(get_db)):
     response = templates.TemplateResponse("projects.html", {
         "request": request, "user": user,
         "projects": [{"id": str(p.id), "name": p.name, "slug": p.slug} for p in projects],
-        "flash_error": request.cookies.get("flash_error"),
+        "flash_error": _flash(request, "flash_error"),
     })
     _consume_flash(request, response)
     return response
@@ -992,8 +1152,8 @@ async def project_detail_page(project_id: str, request: Request, db: AsyncSessio
             for a in alerts
         ],
         "incidents": incidents,
-        "flash_error": request.cookies.get("flash_error"),
-        "flash_notice": request.cookies.get("flash_notice"),
+        "flash_error": _flash(request, "flash_error"),
+        "flash_notice": _flash(request, "flash_notice"),
         "min_interval_seconds": PLAN_LIMITS[user.plan].min_interval_seconds,
     })
     _consume_flash(request, response)
@@ -1096,6 +1256,161 @@ async def create_monitor_submit(
     return RedirectResponse(f"/dashboard/projects/{project_id}", status_code=303)
 
 
+# --- Bulk add: paste a list of client sites, get one HTTP monitor each ---
+# (optionally an SSL monitor too). Same validators, SSRF guard, duplicate rule
+# and plan limits as the single form; whatever doesn't fit is reported, not
+# silently dropped. Validation resolves names, so it runs off the event loop.
+
+BULK_SSL_MIN_INTERVAL = 3600   # certificates change on a scale of days
+BULK_STAGGER_SECONDS = 2       # spread first checks so 40 sites don't fire at once
+
+
+def _notice(response, message: str):
+    response.set_cookie("flash_notice", quote(message[:900], safe=""), max_age=30, path="/",
+                        samesite="lax", secure=should_secure_cookie())
+    return response
+
+
+def _bulk_summary(created: list[str], skipped: list[tuple[str, str]]) -> str:
+    parts = []
+    if created:
+        parts.append(f"Added {len(created)} monitor{'' if len(created) == 1 else 's'}.")
+    if skipped:
+        shown = "; ".join(f"{raw}: {why}" for raw, why in skipped[:8])
+        more = f"; and {len(skipped) - 8} more" if len(skipped) > 8 else ""
+        parts.append(f"Skipped {len(skipped)}: {shown}{more}.")
+    return " ".join(parts) or "Nothing to add."
+
+
+@router.post("/projects/{project_id}/monitors/bulk")
+async def bulk_add_monitors(
+    project_id: str, request: Request,
+    sites: str = Form(""),
+    interval_seconds: str = Form(""),
+    timeout_seconds: str = Form("10"),
+    also_ssl: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    from starlette.concurrency import run_in_threadpool
+    from fastapi.responses import JSONResponse
+    from app.services import bulk_add
+
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id, Project.user_id == user.id)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404)
+    back = f"/dashboard/projects/{project_id}"
+
+    try:
+        interval = _parse_int_field(interval_seconds, "Check interval")
+        timeout = _parse_int_field(timeout_seconds, "Timeout")
+        check_interval_limit(user, interval)
+        if timeout >= interval:
+            raise HTTPException(status_code=400, detail="Timeout must be less than the check interval.")
+        if timeout > 60:
+            raise HTTPException(status_code=400, detail="Timeout can't exceed 60 seconds.")
+        parsed = bulk_add.parse(sites)
+        if not parsed:
+            raise HTTPException(status_code=400, detail="Paste at least one site, one per line.")
+        if len(parsed) > bulk_add.MAX_SITES:
+            raise HTTPException(status_code=400,
+                                detail=f"Paste up to {bulk_add.MAX_SITES} sites at a time ({len(parsed)} found).")
+    except HTTPException as e:
+        if _wants_json(request):
+            raise
+        return _redirect_with_flash(back, e.detail)
+
+    existing = (await db.execute(select(Monitor).where(Monitor.project_id == project.id))).scalars().all()
+    names = {m.name for m in existing}
+    http_urls = [m.url for m in existing if m.type == MonitorType.HTTP]
+    ssl_hosts = {(m.target_host or "").lower() for m in existing if m.type == MonitorType.SSL}
+    used = (await db.execute(
+        select(func.count()).select_from(Monitor).join(Project, Monitor.project_id == Project.id)
+        .where(Project.user_id == user.id)
+    )).scalar() or 0
+    room = max(PLAN_LIMITS[user.plan].max_monitors - used, 0)
+
+    def unique_name(base: str) -> str:
+        name, n = base[:MONITOR_NAME_MAX], 2
+        while name in names:
+            suffix = f" ({n})"
+            name, n = base[:MONITOR_NAME_MAX - len(suffix)] + suffix, n + 1
+        names.add(name)
+        return name
+
+    # Plan what to create, in paste order: every site's HTTP monitor first,
+    # then SSL monitors, so a tight plan limit keeps uptime coverage widest.
+    planned: list[tuple[str, dict]] = []
+    skipped: list[tuple[str, str]] = []
+    for s in parsed:
+        if s.error:
+            skipped.append((s.raw[:60], s.error))
+            continue
+        if any(bulk_add.same_url(s.url, u) for u in http_urls):
+            skipped.append((s.name, "already monitored"))
+            continue
+        try:
+            await run_in_threadpool(_validate_monitor_fields, s.name, s.url, interval, timeout, "GET")
+        except HTTPException as e:
+            skipped.append((s.name, e.detail.rstrip(".")))
+            continue
+        http_urls.append(s.url)
+        planned.append(("http", {"site": s}))
+    if also_ssl:
+        for kind, p in list(planned):
+            s = p["site"]
+            if not s.url.startswith("https://") or s.host in ssl_hosts:
+                continue
+            try:
+                await run_in_threadpool(_validate_ssl_fields, s.name, s.host, 443, 14,
+                                        max(interval, BULK_SSL_MIN_INTERVAL), timeout)
+            except HTTPException as e:
+                skipped.append((f"{s.name} SSL", e.detail.rstrip(".")))
+                continue
+            ssl_hosts.add(s.host)
+            planned.append(("ssl", {"site": s}))
+
+    over = planned[room:]
+    planned = planned[:room]
+    for kind, p in over:
+        skipped.append((p["site"].name + (" SSL" if kind == "ssl" else ""),
+                        f"over your {user.plan.value} plan's {PLAN_LIMITS[user.plan].max_monitors}-monitor limit"))
+
+    now = datetime.now(timezone.utc)
+    created: list[str] = []
+    for i, (kind, p) in enumerate(planned):
+        s = p["site"]
+        first = now + timedelta(seconds=min(i * BULK_STAGGER_SECONDS, 120))
+        if kind == "http":
+            m = Monitor(project_id=project.id, name=unique_name(s.name), type=MonitorType.HTTP, url=s.url,
+                        method=HttpMethod.GET, expected_status=200, interval_seconds=interval,
+                        timeout_seconds=timeout, next_check_at=first)
+        else:
+            m = Monitor(project_id=project.id, name=unique_name(f"{s.name} SSL"), type=MonitorType.SSL,
+                        url=f"https://{s.host}:443", method=HttpMethod.GET, expected_status=200,
+                        interval_seconds=max(interval, BULK_SSL_MIN_INTERVAL), timeout_seconds=timeout,
+                        target_host=s.host, target_port=443, warn_days_before_expiry=14,
+                        next_check_at=first)
+        db.add(m)
+        created.append(m.name)
+    if created:
+        await db.commit()
+
+    message = _bulk_summary(created, skipped)
+    if not created:
+        if _wants_json(request):
+            raise HTTPException(status_code=400, detail="Nothing added. " + message)
+        return _redirect_with_flash(back, "Nothing added. " + message)
+    if _wants_json(request):
+        # The modal script reloads the page on success; the cookie carries the summary.
+        return _notice(JSONResponse({"created": len(created), "skipped": len(skipped), "message": message}), message)
+    return _notice(RedirectResponse(back, status_code=303), message)
+
+
 # Resolve a hostname on demand so the new-monitor form can show current
 # answer values for the user to pick from. Auth-gated to avoid turning this
 # into an open DNS-over-HTTP relay.
@@ -1115,6 +1430,8 @@ async def dns_resolve(
     resolver = (resolver or "").strip()
     if not host or "://" in host or "/" in host or "." not in host:
         raise HTTPException(status_code=400, detail="Provide a plain hostname like example.com.")
+    # This lookup runs on the central server: never send it to an internal resolver.
+    _guard_target(target_guard.check_resolver, resolver)
     try:
         rtype = DnsRecordType(record_type)
     except ValueError:
@@ -1179,7 +1496,7 @@ async def create_alert_submit(
         if type == "discord_webhook":
             if not webhook_url.strip():
                 raise HTTPException(status_code=400, detail="Discord webhook URL is required.")
-            config = {"webhook_url": webhook_url.strip()}
+            config = {"webhook_url": _checked_url(webhook_url)}
         elif type == "telegram":
             if not bot_token.strip() or not chat_id.strip():
                 raise HTTPException(status_code=400, detail="Bot token and chat ID are required.")
@@ -1199,7 +1516,7 @@ async def create_alert_submit(
                 if missing:
                     raise HTTPException(status_code=400, detail=f"Custom SMTP requires: {', '.join(missing)}.")
                 config = {
-                    "smtp_host": smtp_host.strip(), "smtp_port": smtp_port,
+                    "smtp_host": _checked_smtp_host(smtp_host), "smtp_port": smtp_port,
                     "smtp_user": smtp_user.strip(), "smtp_pass": smtp_pass,
                     "from_email": from_email.strip(), "to_email": to_clean,
                 }
@@ -1209,11 +1526,11 @@ async def create_alert_submit(
         elif type == "slack":
             if not slack_webhook_url.strip():
                 raise HTTPException(status_code=400, detail="Slack webhook URL is required.")
-            config = {"webhook_url": slack_webhook_url.strip()}
+            config = {"webhook_url": _checked_url(slack_webhook_url)}
         elif type == "webhook":
             if not generic_webhook_url.strip():
                 raise HTTPException(status_code=400, detail="Webhook URL is required.")
-            config = {"url": generic_webhook_url.strip()}
+            config = {"url": _checked_url(generic_webhook_url)}
             if webhook_secret.strip():
                 config["headers"] = {"Authorization": webhook_secret.strip()}
         else:
@@ -1322,7 +1639,7 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
     checks = [
         {
             "checked_at": c.checked_at.isoformat(),
-            "region": c.region.value,
+            "region": c.region,
             "status": c.status.value,
             "status_code": c.status_code,
             "response_time_ms": c.response_time_ms,
@@ -1395,9 +1712,10 @@ async def monitor_detail_page(monitor_id: str, request: Request, db: AsyncSessio
             "timeout_seconds": monitor.timeout_seconds,
         },
         "summary": summary, "checks": checks, "chart_data": chart_data,
+        "region_labels": region_svc.labels(await region_svc.all_regions(db)),
         "latest_cert": latest_cert,
         "latest_dns": latest_dns,
-        "flash_error": request.cookies.get("flash_error"),
+        "flash_error": _flash(request, "flash_error"),
     })
     _consume_flash(request, response)
     return response

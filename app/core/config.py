@@ -47,8 +47,24 @@ class Settings(BaseSettings):
     turnstile_site_key: str = ""
     turnstile_secret_key: str = ""
 
-    # Email (Resend in production, stdout in dev)
-    resend_api_key: str = ""
+    # Email
+    #
+    # Two lanes, deliberately separate:
+    #   * TRANSACTIONAL (this config) — verification, password resets, and
+    #     downtime alerts for checkpulse.dev, sent via Postmark.
+    #   * COLD OUTREACH — sent from trycheckpulse.com by a separate system.
+    #     It must NOT use these credentials: Postmark's terms require
+    #     permission-based lists, and routing unsolicited mail through this
+    #     account would risk a suspension that also kills customer alerts.
+    # Default stays "resend" until the Postmark account clears its pending
+    # approval state. While pending, Postmark rejects any recipient whose
+    # domain differs from the From address, so defaulting to it would fail
+    # every signup from a gmail.com / outlook.com user. Flip to "postmark"
+    # in .env once approved — no redeploy needed.
+    email_provider: str = "resend"             # "postmark" | "resend"
+    postmark_server_token: str = ""
+    postmark_message_stream: str = "outbound"  # transactional stream
+    resend_api_key: str = ""                   # legacy; kept for rollback
     email_from_address: str = "CheckPulse <no-reply@checkpulse.dev>"
     verification_token_ttl_hours: int = 24
 

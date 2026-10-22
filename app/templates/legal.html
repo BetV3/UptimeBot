@@ -5,10 +5,10 @@
 <div class="max-w-3xl mx-auto py-12 px-4">
     <a href="/" class="text-sm text-ink-dim hover:text-ink transition font-mono">&larr; back to home</a>
     <h1 class="font-mono text-3xl font-bold text-ink mt-4 mb-2">{{ title }}</h1>
-    <p class="text-sm text-ink-dim font-mono mb-10">// effective: <strong class="text-warn">2026-05-25</strong></p>
+    <p class="text-sm text-ink-dim font-mono mb-10">// effective: <strong class="text-warn">2026-05-25</strong>{% if doc == "privacy" %} · updated: <strong class="text-warn">2026-10-02</strong> (aggregate page-view counts, no personal data){% endif %}</p>
 
     <div class="bg-ink/5 border border-ink/10 text-ink-dim font-mono text-xs rounded-md px-4 py-3 mb-10">
-        // CheckPulse is operated by an individual sole proprietor. Full entity details and mailing address are available on request — email <a class="text-brand hover:text-brand-hover underline" href="mailto:support@checkpulse.dev">support@checkpulse.dev</a>.
+        // CheckPulse is operated by an individual sole proprietor. Full entity details and mailing address are available on request — email <a class="text-brand hover:text-brand-hover underline" href="mailto:support@trycheckpulse.com">support@trycheckpulse.com</a>.
     </div>
 
     {% if doc == "privacy" %}
@@ -30,8 +30,10 @@
                 <li><strong class="text-ink">Alert channel credentials</strong> — webhook URLs, bot tokens, SMTP host / username / password, and channel IDs, stored as you provide them so we can deliver alerts on your behalf. These are sensitive secrets; treat them like passwords.</li>
                 <li><strong class="text-ink">Check results</strong> — for each scheduled check, we record the timestamp, region, status (up / down), HTTP status code, response time, certificate details (subject, issuer, days remaining) for SSL monitors, and resolved DNS values for DNS monitors.</li>
                 <li><strong class="text-ink">Email metadata</strong> — short-lived verification and password-reset tokens, plus the address we sent each transactional email to (via our email provider's logs).</li>
+                <li><strong class="text-ink">Aggregate page-view counts:</strong> for public pages only, a daily count per page and per traffic source (the referring website's domain, or a campaign tag such as <code>?ref=</code> in the link you followed). Counts are not linked to any person, account, IP address, or device, and are kept for about 13 months.</li>
+                <li><strong class="text-ink">Free site check:</strong> the site addresses you enter at <code>/tools/site-check</code> and their results, kept for 24 hours at a private link and then deleted. They are not linked to you or used for anything else.</li>
             </ul>
-            <p class="mt-3">We do not log IP addresses, user agents, or browsing activity. We do not use analytics or advertising trackers.</p>
+            <p class="mt-3">We do not log IP addresses, user agents, or individual browsing activity, and we set no analytics cookies. We do not use third-party analytics or advertising trackers.</p>
         </section>
 
         <section>
@@ -79,7 +81,7 @@
                 <li><strong class="text-ink">Object / restrict</strong> — to certain processing, subject to law.</li>
                 <li><strong class="text-ink">Lodge a complaint</strong> — with your local supervisory authority.</li>
             </ul>
-            <p class="mt-3">To exercise any of these rights other than self-service deletion, email us at <strong class="text-ink">support@checkpulse.dev</strong>. We respond within 30 days.</p>
+            <p class="mt-3">To exercise any of these rights other than self-service deletion, email us at <strong class="text-ink">support@trycheckpulse.com</strong>. We respond within 30 days.</p>
         </section>
 
         <section>
@@ -94,12 +96,12 @@
 
         <section>
             <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 8. Security</h2>
-            <p>Passwords are hashed with bcrypt. Sub-processor traffic is encrypted in transit (HTTPS / TLS). The database is hosted on managed infrastructure with at-rest encryption. We do not claim to be invulnerable; if you discover a security issue please report it to <strong class="text-ink">support@checkpulse.dev</strong> rather than disclosing it publicly.</p>
+            <p>Passwords are hashed with bcrypt. Sub-processor traffic is encrypted in transit (HTTPS / TLS). The database is hosted on managed infrastructure with at-rest encryption. We do not claim to be invulnerable; if you discover a security issue please report it to <strong class="text-ink">support@trycheckpulse.com</strong> rather than disclosing it publicly.</p>
         </section>
 
         <section>
             <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 9. Children</h2>
-            <p>The Service is not directed at children under 16, and we do not knowingly collect personal data from anyone under 16. If you believe a child has provided us with data, contact <strong class="text-ink">support@checkpulse.dev</strong> and we will delete it.</p>
+            <p>The Service is not directed at children under 16, and we do not knowingly collect personal data from anyone under 16. If you believe a child has provided us with data, contact <strong class="text-ink">support@trycheckpulse.com</strong> and we will delete it.</p>
         </section>
 
         <section>
@@ -111,7 +113,7 @@
             <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 11. Contact</h2>
             <p>
                 <strong class="text-ink">CheckPulse</strong><br>
-                <strong class="text-ink">support@checkpulse.dev</strong>
+                <strong class="text-ink">support@trycheckpulse.com</strong>
             </p>
         </section>
     </div>
@@ -126,7 +128,7 @@
 
         <section>
             <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 1. Account</h2>
-            <p>You must be at least 16 years old and have legal capacity in your jurisdiction to enter into a contract. You are responsible for keeping your password confidential and for everything that happens under your account. Notify us at <strong class="text-ink">support@checkpulse.dev</strong> immediately if you suspect unauthorized access.</p>
+            <p>You must be at least 16 years old and have legal capacity in your jurisdiction to enter into a contract. You are responsible for keeping your password confidential and for everything that happens under your account. Notify us at <strong class="text-ink">support@trycheckpulse.com</strong> immediately if you suspect unauthorized access.</p>
         </section>
 
         <section>
@@ -135,7 +137,7 @@
             <ul class="list-disc list-inside space-y-1 ml-2">
                 <li>Use the Service to launch denial-of-service attacks or to harass any system or person.</li>
                 <li>Configure abusive or excessive check intervals against targets you do not control.</li>
-                <li>Attempt to bypass plan limits, access another user's data, or otherwise probe the Service for vulnerabilities except through a responsible-disclosure email to <strong class="text-ink">support@checkpulse.dev</strong>.</li>
+                <li>Attempt to bypass plan limits, access another user's data, or otherwise probe the Service for vulnerabilities except through a responsible-disclosure email to <strong class="text-ink">support@trycheckpulse.com</strong>.</li>
                 <li>Use the Service to violate any applicable law or any third party's rights.</li>
             </ul>
             <p class="mt-3">We may suspend or terminate accounts that violate these rules.</p>
@@ -157,7 +159,7 @@
 
         <section>
             <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 4. Service availability</h2>
-            <p>We work hard to keep the Service running, but we provide it on a best-effort basis without a guaranteed service level for the Free plan. For paid plans we target <strong class="text-ink">99.9% monthly uptime</strong> for the dashboard and API; if you experience prolonged downtime, contact <strong class="text-ink">support@checkpulse.dev</strong> for a service credit. Scheduled maintenance windows are announced via the status page.</p>
+            <p>We work hard to keep the Service running, but we provide it on a best-effort basis without a guaranteed service level for the Free plan. For paid plans we target <strong class="text-ink">99.9% monthly uptime</strong> for the dashboard and API; if you experience prolonged downtime, contact <strong class="text-ink">support@trycheckpulse.com</strong> for a service credit. Scheduled maintenance windows are announced via the status page.</p>
         </section>
 
         <section>
@@ -204,7 +206,7 @@
             <h2 class="font-mono text-xl text-ink mt-8 mb-3">// 13. Contact</h2>
             <p>
                 <strong class="text-ink">CheckPulse</strong><br>
-                <strong class="text-ink">support@checkpulse.dev</strong>
+                <strong class="text-ink">support@trycheckpulse.com</strong>
             </p>
         </section>
     </div>

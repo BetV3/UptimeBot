@@ -15,7 +15,10 @@ from app.models.models import ApiKey, User
 
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# auto_error=False: with the default, FastAPI rejects any request without an
+# Authorization header BEFORE get_current_user runs, so an X-API-Key request
+# could never reach the key check (found 2026-10-04; keys had never worked).
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -90,7 +93,7 @@ async def _get_user_from_api_key(
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    token: str | None = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
     x_api_key: str | None = Header(default=None),
 ) -> User:
@@ -98,8 +101,16 @@ async def get_current_user(
     if x_api_key:
         user = await _get_user_from_api_key(x_api_key, db)
         if user:
+            await db.commit()  # persist last_used_at
             return user
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     # Fall back to JWT
     user_id = decode_token(token, expected_type="access")

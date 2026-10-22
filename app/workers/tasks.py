@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from redis import Redis
-from sqlalchemy import create_engine, select, text, update
+from sqlalchemy import create_engine, delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -19,8 +19,8 @@ from app.models.models import (
     MonitorStatus,
     PendingCheck,
     Project,
-    CheckRegion,
 )
+from app.services import regions as region_svc
 from app.services.alerts import enqueue_alerts_sync, send_delivery_sync
 from app.workers.celery_app import celery_app
 
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 sync_engine = create_engine(settings.database_url_sync)
 
-REGIONS = [CheckRegion.US, CheckRegion.EU, CheckRegion.ASIA]
+# Regions come from the ``regions`` table (CP-1): see app/services/regions.py.
 
 # Mirror of MAX_ATTEMPTS in app/api/routes/internal.py. Kept in sync manually;
 # if this drifts, a reaped row could be leased once more than intended.
@@ -62,9 +62,13 @@ def schedule_pending_checks():
             )
         ).scalars().all()
 
+        sched = [r.code for r in region_svc.scheduled(region_svc.all_regions_sync(session))]
+        if not sched:
+            logger.error("schedule_pending_checks: no scheduled regions in the regions table")
+
         created = 0
         for monitor in due:
-            for region in REGIONS:
+            for region in sched:
                 # ON CONFLICT DO NOTHING against the unique partial index
                 # (monitor_id, region) WHERE dead = false. If a live row
                 # already exists for this (monitor, region), we skip — the
@@ -144,10 +148,23 @@ def reap_dead_pending_checks():
             .values(dead=True)
         )
 
+        # Public site-check runs nobody came back to finalize: drop their
+        # throwaway monitors (checks and pending_checks cascade). Results the
+        # visitor already saw live in Redis, not here.
+        from app.services.site_check import SWEEP_AFTER, SYSTEM_SLUG
+        sc_pid = session.execute(select(Project.id).where(Project.slug == SYSTEM_SLUG)).scalar_one_or_none()
+        swept = 0
+        if sc_pid is not None:
+            swept = session.execute(
+                delete(Monitor).where(Monitor.project_id == sc_pid,
+                                      Monitor.created_at < datetime.now(timezone.utc) - SWEEP_AFTER)
+            ).rowcount or 0
+
         session.commit()
         return {
             "reaped_exhausted": result_exhausted.rowcount or 0,
             "reaped_orphans": result_orphans.rowcount or 0,
+            "site_check_swept": swept,
         }
 
 
@@ -261,27 +278,41 @@ def finalize_check_result(monitor_id: str):
             session.commit()
             return {"skipped": "monitor_missing"}
 
+        # Public site-check runs use throwaway monitors in one system project.
+        # They report their own results; they must never open incidents.
+        from app.services.site_check import SYSTEM_SLUG
+        owner = session.get(Project, monitor.project_id)
+        if owner is not None and owner.slug == SYSTEM_SLUG:
+            session.commit()
+            return {"skipped": "site_check"}
+
         old_status = monitor.current_status
 
-        down_count = 0
-        total_checked = 0
-        for region in REGIONS:
-            latest = session.execute(
+        # Each voting region's latest result, but only while it is fresh. Before
+        # CP-1 there was no age bound, so a dead worker's last UP voted forever.
+        # Shadow (scheduled, not voting) regions are recorded but never counted.
+        voting_codes = [r.code for r in region_svc.voting(region_svc.all_regions_sync(session))]
+        cutoff = region_svc.fresh_cutoff(monitor.interval_seconds)
+        latest: dict[str, str] = {}
+        for code in voting_codes:
+            row = session.execute(
                 select(Check.status)
-                .where(Check.monitor_id == mid, Check.region == region)
+                .where(Check.monitor_id == mid, Check.region == code, Check.checked_at >= cutoff)
                 .order_by(Check.checked_at.desc())
                 .limit(1)
             ).scalar_one_or_none()
-            if latest is not None:
-                total_checked += 1
-                if latest == CheckStatus.DOWN:
-                    down_count += 1
+            if row is not None:
+                latest[code] = row.value
 
-        if total_checked == 0:
+        verdict, down_count, reported, need = region_svc.consensus(latest, voting_codes)
+        if verdict == "incomplete":
+            # Not enough fresh votes either way: keep the current status rather
+            # than flip on partial data. A monitor with no fresh votes at all
+            # stays as it was (and the worker watchdog says why).
             session.commit()
-            return {"skipped": "no_checks"}
+            return {"skipped": "no_quorum", "reported": reported, "need": need, "down": down_count}
 
-        new_status = MonitorStatus.DOWN if down_count >= 2 else MonitorStatus.UP
+        new_status = MonitorStatus.DOWN if verdict == "down" else MonitorStatus.UP
         monitor.current_status = new_status
 
         now = datetime.now(timezone.utc)

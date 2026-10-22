@@ -23,6 +23,11 @@ from checkers import get_checker
 # orphaned and the lease will expire server-side, letting another worker reclaim.
 HARD_TIMEOUT_SLACK_SECONDS = 10
 
+# Reported in every heartbeat (worker_heartbeats.version), so the central DB
+# shows which regions run which code. 1.1.0 = connect-time SSRF guard
+# (checkers/guard.py: vet + pin every connection and every redirect hop).
+WORKER_VERSION = "1.1.0"
+
 
 def get_config():
     parser = argparse.ArgumentParser(description="CheckPulse check worker")
@@ -98,7 +103,7 @@ def send_heartbeat(client: httpx.Client, api_url: str, region: str, secret: str,
     try:
         client.post(
             f"{api_url}/internal/heartbeat",
-            params={"region": region, "hostname": platform.node(), "version": "1.0.0"},
+            params={"region": region, "hostname": platform.node(), "version": WORKER_VERSION},
             headers=auth_headers(secret, worker_id),
             timeout=5,
         )

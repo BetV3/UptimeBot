@@ -12,6 +12,16 @@ def client():
         yield c
 
 
+@pytest.fixture(autouse=True)
+def no_pinning(monkeypatch):
+    """These tests cover status/retry/redirect/header logic against pytest_httpx
+    mocks keyed by hostname. Make the SSRF guard's vet() return the name
+    itself, so the URL is not rewritten to a pinned IP. The guard and pinning
+    are tested with real sockets in tests/test_target_guard.py."""
+    import worker.checkers.http as http_mod
+    monkeypatch.setattr(http_mod, "vet", lambda host, port=None: host)
+
+
 def _job(**overrides) -> dict:
     base = {
         "pending_check_id": "pc-1",

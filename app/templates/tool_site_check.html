@@ -1,0 +1,135 @@
+{% extends "marketing_base.html" %}
+{% block title %}{% if run %}Site check results{% else %}Free website uptime check from 3 US locations{% endif %} · CheckPulse{% endblock %}
+
+{% block seo %}
+{% with seo_path="/tools/site-check",
+        seo_title="Free multi-site uptime check from 3 US locations",
+        seo_description="Check up to 10 client sites at once from New York, Dallas and San Francisco: response time, blocked locations and SSL expiry. Free, no signup." %}
+{% include "_seo_head.html" %}
+{% endwith %}
+{% if run or error %}<meta name="robots" content="noindex">{% endif %}
+{% if run and not run.done %}<meta http-equiv="refresh" content="4">{% endif %}
+{% endblock %}
+
+{% block page %}
+<div class="max-w-4xl mx-auto pt-6">
+    <p class="font-mono text-xs uppercase tracking-wider text-brand mb-3">// free tool</p>
+    <h1 class="text-3xl sm:text-4xl font-bold text-ink leading-tight">Check your client sites from 3 US locations</h1>
+    <p class="mt-3 text-ink-muted">Paste up to {{ max_sites }} sites. Each one is checked from New York, Dallas and San Francisco by the same workers that run CheckPulse monitoring. You get response time, any location that gets blocked, and days left on the SSL certificate. No signup.</p>
+
+    {% if error %}
+    <div class="mt-6 bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 font-mono" role="alert">&gt; {{ error }}</div>
+    {% endif %}
+
+    {% if run %}
+    <section class="mt-8 bc-card p-6 overflow-x-auto" aria-live="polite">
+        <div class="flex items-center justify-between gap-4 flex-wrap mb-4">
+            <p class="font-mono text-xs uppercase tracking-wider text-ink-dim">// {% if run.done %}results{% else %}checking, this page refreshes itself{% endif %}</p>
+            {% if run.done %}<p class="text-xs text-ink-dim">Private link, kept for 24 hours. Copy it to share these results.</p>{% endif %}
+        </div>
+        {# Phone: one card per site. The table below is for wider screens. #}
+        <div class="sm:hidden space-y-3">
+        {% for row in run.rows %}
+            <div class="border border-bg-surface/70 rounded-md p-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="font-mono text-ink break-all">{{ row.name }}</div>
+                    <div class="text-xs whitespace-nowrap {% if row.verdict in ('up',) %}text-ok{% elif row.verdict in ('slow', 'checking', 'blocked from some locations') %}text-warn{% else %}text-bad{% endif %}">{{ row.verdict }}</div>
+                </div>
+                <dl class="mt-2 space-y-1 text-xs font-mono">
+                    {% for c in row.cells %}
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-ink-dim">{{ run.regions[loop.index0].label }}</dt>
+                        <dd>{% if c.kind == 'pending' %}<span class="text-ink-dim">checking</span>{% elif c.kind == 'no answer' %}<span class="text-ink-dim">no answer</span>{% elif c.kind in ('up', 'slow') %}<span class="{% if c.kind == 'slow' %}text-warn{% else %}text-ok{% endif %}">{{ c.check.status_code }} &middot; {{ c.check.ms }} ms</span>{% elif c.kind == 'blocked' %}<span class="text-warn">blocked ({{ c.check.status_code }})</span>{% elif c.check.status_code %}<span class="text-bad">{{ c.check.status_code }}</span>{% else %}<span class="text-bad">{{ (c.check.error or 'down')[:32] }}</span>{% endif %}</dd>
+                    </div>
+                    {% endfor %}
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-ink-dim">SSL</dt>
+                        <dd>{% if not row.url.startswith('https://') %}<span class="text-bad">no HTTPS</span>{% elif row.ssl is none %}<span class="text-ink-dim">{% if run.done %}not read{% else %}reading{% endif %}</span>{% elif row.ssl.error %}<span class="text-bad">error</span>{% elif row.ssl.days_left is not none and row.ssl.days_left < 0 %}<span class="text-bad">expired</span>{% elif row.ssl.trust_error %}<span class="text-bad">not trusted</span>{% else %}<span class="{% if row.ssl.days_left is not none and row.ssl.days_left <= 14 %}text-warn{% else %}text-ok{% endif %}">{{ row.ssl.days_left }} days</span>{% endif %}</dd>
+                    </div>
+                </dl>
+            </div>
+        {% endfor %}
+        </div>
+        <table class="hidden sm:table w-full text-sm">
+            <thead>
+                <tr class="text-left font-mono text-xs uppercase tracking-wider text-ink-dim">
+                    <th class="py-2 pr-4">Site</th>
+                    {% for r in run.regions %}<th class="py-2 pr-4 whitespace-nowrap">{{ r.label }}</th>{% endfor %}
+                    <th class="py-2 pr-4">SSL</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in run.rows %}
+                <tr class="border-t border-bg-surface/70 align-top">
+                    <td class="py-3 pr-4">
+                        <div class="font-mono text-ink break-all">{{ row.name }}</div>
+                        <div class="text-xs mt-0.5 {% if row.verdict in ('up',) %}text-ok{% elif row.verdict in ('slow', 'checking', 'blocked from some locations') %}text-warn{% else %}text-bad{% endif %}">{{ row.verdict }}</div>
+                    </td>
+                    {% for c in row.cells %}
+                    <td class="py-3 pr-4 whitespace-nowrap font-mono text-xs">
+                        {% if c.kind == 'pending' %}<span class="text-ink-dim">checking</span>
+                        {% elif c.kind == 'no answer' %}<span class="text-ink-dim">no answer</span>
+                        {% elif c.kind in ('up', 'slow') %}<span class="{% if c.kind == 'slow' %}text-warn{% else %}text-ok{% endif %}">{{ c.check.status_code }} &middot; {{ c.check.ms }} ms</span>
+                        {% elif c.kind == 'blocked' %}<span class="text-warn" title="This location's network was refused">blocked ({{ c.check.status_code }})</span>
+                        {% elif c.check.status_code %}<span class="text-bad">{{ c.check.status_code }}</span>
+                        {% else %}<span class="text-bad" title="{{ c.check.error or '' }}">{{ (c.check.error or 'down')[:40] }}</span>{% endif %}
+                    </td>
+                    {% endfor %}
+                    <td class="py-3 pr-4 whitespace-nowrap text-xs">
+                        {% if not row.url.startswith('https://') %}<span class="text-bad">no HTTPS</span>
+                        {% elif row.ssl is none %}<span class="text-ink-dim">{% if run.done %}not read{% else %}reading{% endif %}</span>
+                        {% elif row.ssl.error %}<span class="text-bad" title="{{ row.ssl.error }}">error</span>
+                        {% elif row.ssl.days_left is not none and row.ssl.days_left < 0 %}<span class="text-bad">expired</span>
+                        {% elif row.ssl.trust_error %}<span class="text-bad" title="{{ row.ssl.trust_error }}">not trusted</span>
+                        {% else %}<span class="{% if row.ssl.days_left is not none and row.ssl.days_left <= 14 %}text-warn{% else %}text-ok{% endif %}">{{ row.ssl.days_left }} days</span>{% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p class="mt-4 text-xs text-ink-dim">"Blocked" means the site refused that location's network (401, 403 or 429). Some hosts block data-center networks. Real visitors may be fine, but a monitor that checks from one place would report the site down.</p>
+    </section>
+
+    {% if run.done %}
+    <section class="mt-6 bc-card p-6 border-brand/30">
+        <h2 class="text-lg font-semibold text-ink">Watch these sites every few minutes</h2>
+        <p class="mt-2 text-sm text-ink-muted">This was one check. CheckPulse checks each site from all three locations around the clock, alerts you in Slack, Discord, Telegram or email when a majority agree it is down, and gives each client a status page. In your account, paste this same list into Bulk add.</p>
+        <a href="/dashboard/register?ref=site-check" class="mt-4 bc-btn-primary">Start free</a>
+    </section>
+    {% endif %}
+    {% endif %}
+
+    <form method="post" action="/tools/site-check" class="mt-8 space-y-3">
+        <label for="sites" class="block text-xs font-mono uppercase tracking-wider text-ink-muted">Sites, one per line</label>
+        <textarea id="sites" name="sites" rows="6" required maxlength="5000" class="font-mono text-sm"
+                  autocapitalize="off" spellcheck="false"
+                  placeholder="clientone.com&#10;clienttwo.com&#10;https://clientthree.com/shop">{{ sites_input or '' }}</textarea>
+        {% if turnstile_site_key %}
+        <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="dark"></div>
+        {% endif %}
+        <button type="submit" class="bc-btn-primary justify-center">Check sites</button>
+    </form>
+
+    <section class="mt-14 space-y-8 text-ink-muted leading-relaxed">
+        <div>
+            <h2 class="text-xl font-semibold text-ink">What this checks</h2>
+            <ul class="mt-3 list-disc list-inside space-y-1.5 text-sm">
+                <li><strong class="text-ink">Uptime from 3 US cities:</strong> an HTTP request from New York, Dallas and San Francisco, following redirects, expecting a 200.</li>
+                <li><strong class="text-ink">Response time:</strong> the full request time from each location, so you can see where a site is slow.</li>
+                <li><strong class="text-ink">Blocked locations:</strong> a site that answers one city and refuses another usually has a firewall or host rule blocking data-center networks.</li>
+                <li><strong class="text-ink">SSL certificate:</strong> days until expiry and whether browsers trust it.</li>
+            </ul>
+        </div>
+        <div>
+            <h2 class="text-xl font-semibold text-ink">Limits</h2>
+            <p class="mt-3 text-sm">Up to {{ max_sites }} public sites per check and a few checks per hour per visitor. Results are kept for 24 hours at a private link, then deleted. We do not use the sites you enter for anything else.</p>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if turnstile_site_key and not (run and not run.done) %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endif %}
+{% endblock %}

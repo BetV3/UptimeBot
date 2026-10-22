@@ -30,10 +30,15 @@
             <h2 class="font-mono text-sm uppercase tracking-wider text-ink-muted">// Monitors</h2>
             {% if monitors %}<span class="font-mono text-xs text-ink-dim">[{{ monitors | length }}]</span>{% endif %}
         </div>
+        <div class="flex items-center gap-2">
+        <button onclick="document.getElementById('bulk-add-modal').classList.remove('hidden')" class="bc-btn-secondary">
+            Bulk add
+        </button>
         <button onclick="document.getElementById('new-monitor-modal').classList.remove('hidden')" class="bc-btn-primary">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             Add Monitor
         </button>
+        </div>
     </div>
 
     {% if not monitors %}
@@ -313,6 +318,48 @@
             <div class="flex justify-end gap-3 mt-6">
                 <button type="button" onclick="this.closest('#new-monitor-modal').classList.add('hidden')" class="bc-btn-secondary">Cancel</button>
                 <button type="submit" class="bc-btn-primary">Add Monitor</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bulk Add Modal: paste a list of client sites -->
+<div id="bulk-add-modal" data-modal class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bc-card w-full max-w-lg p-6 shadow-glow-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-5">
+            <h2 class="font-mono text-lg font-bold text-ink">Bulk add sites</h2>
+            <button onclick="document.getElementById('bulk-add-modal').classList.add('hidden')" class="text-ink-dim hover:text-ink" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form method="post" action="/dashboard/projects/{{ project.id }}/monitors/bulk" data-modal-form="bulk-add-modal">
+            <div data-form-error class="hidden mb-4 bg-bad/10 border border-bad/30 text-bad text-sm rounded-md px-4 py-3 font-mono"></div>
+            <div class="space-y-4">
+                <div>
+                    <label for="bulk-sites" class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Sites</label>
+                    <textarea id="bulk-sites" name="sites" rows="8" required class="font-mono text-sm"
+                              placeholder="clientone.com&#10;https://clienttwo.com/shop&#10;clientthree.org"></textarea>
+                    <p class="text-xs text-ink-dim mt-1.5">One site per line (commas work too). Bare domains get https://. Each site becomes an uptime monitor named after it. Sites already monitored here are skipped.</p>
+                </div>
+                <label class="flex items-start gap-2 text-sm text-ink-muted">
+                    <input type="checkbox" name="also_ssl" value="1" class="mt-1">
+                    <span>Also watch each site's SSL certificate (checked hourly, warns 14 days before expiry). Uses one more monitor per site.</span>
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Interval (seconds)</label>
+                        <input type="number" name="interval_seconds" value="{{ min_interval_seconds }}" min="{{ min_interval_seconds }}" required>
+                        <p class="text-xs text-ink-dim mt-1.5">Minimum {{ min_interval_seconds }}s on your current plan.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Timeout (seconds)</label>
+                        <input type="number" name="timeout_seconds" value="10" min="1" max="60" required>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button" onclick="this.closest('#bulk-add-modal').classList.add('hidden')" class="bc-btn-secondary">Cancel</button>
+                <button type="submit" class="bc-btn-primary">Add sites</button>
             </div>
         </form>
     </div>

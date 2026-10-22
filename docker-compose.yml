@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev}
       POSTGRES_DB: uptimebot
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
     # API dispatching a task and the worker picking it up is silent.
     command: redis-server --appendonly yes --appendfsync everysec --dir /data
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -35,7 +35,7 @@ services:
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - .:/code
     env_file:
@@ -107,7 +107,7 @@ services:
     # service will not start without it in prod.
     command: celery -A app.workers.celery_app flower --port=5555 --url_prefix=flower
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     volumes:
       - .:/code
     env_file:
