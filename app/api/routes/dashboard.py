@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import funnel
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.http import external_base_url, should_secure_cookie
@@ -328,6 +329,21 @@ async def _check_duplicate_monitor_name(
         )
 
 
+async def _count_user_projects(db: AsyncSession, user: User) -> int:
+    """How many projects the user owns (used to spot their first one)."""
+    return (await db.execute(
+        select(func.count()).select_from(Project).where(Project.user_id == user.id)
+    )).scalar() or 0
+
+
+async def _count_user_monitors(db: AsyncSession, user: User) -> int:
+    """How many monitors the user owns across all projects."""
+    return (await db.execute(
+        select(func.count()).select_from(Monitor).join(Project, Monitor.project_id == Project.id)
+        .where(Project.user_id == user.id)
+    )).scalar() or 0
+
+
 # --- Auth pages ---
 
 @router.get("/login", response_class=HTMLResponse)
@@ -381,6 +397,10 @@ async def register_page(request: Request):
             "request": request,
             "error": None,
             "turnstile_site_key": turnstile_site_key(),
+            # Short source tag only (site-check, status-page, direct...), carried
+            # in a hidden field so the funnel can attribute account_created.
+            "signup_ref": funnel.signup_source(
+                request.query_params.get("ref"), request.headers.get("referer"), request.url.hostname),
         },
     )
 
@@ -391,30 +411,36 @@ async def register_submit(
     email: str = Form(...),
     password: str = Form(...),
     confirm_password: str = Form(...),
+    ref: str = Form(""),
     cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
     db: AsyncSession = Depends(get_db),
 ):
+    await funnel.record("register_submit")
     # Human check first: this endpoint sends mail to an address the submitter
     # controls only by assertion, so it must not do any work — not even a user
     # lookup, which is an enumeration oracle — before the challenge passes.
     if not await verify_turnstile(cf_turnstile_response, request):
+        await funnel.record("turnstile_failed")
         return templates.TemplateResponse(
             "register.html",
             {
                 "request": request,
                 "error": CHALLENGE_FAILED_MESSAGE,
                 "turnstile_site_key": turnstile_site_key(),
+                "signup_ref": funnel.clean_source(ref),
             },
             status_code=403,
         )
 
     if password != confirm_password:
+        await funnel.record("validation_failed")
         return templates.TemplateResponse(
             "register.html",
             {
                 "request": request,
                 "error": "Passwords do not match",
                 "turnstile_site_key": turnstile_site_key(),
+                "signup_ref": funnel.clean_source(ref),
             },
             status_code=400,
         )
@@ -424,24 +450,28 @@ async def register_submit(
     # 8 server-side, so without this a user could register a 6-character
     # password and then be unable to reset to it.
     if len(password) < PASSWORD_MIN_LENGTH:
+        await funnel.record("validation_failed")
         return templates.TemplateResponse(
             "register.html",
             {
                 "request": request,
                 "error": f"Password must be at least {PASSWORD_MIN_LENGTH} characters.",
                 "turnstile_site_key": turnstile_site_key(),
+                "signup_ref": funnel.clean_source(ref),
             },
             status_code=400,
         )
 
     result = await db.execute(select(User).where(User.email == email))
     if result.scalar_one_or_none():
+        await funnel.record("validation_failed")
         return templates.TemplateResponse(
             "register.html",
             {
                 "request": request,
                 "error": "Email already registered",
                 "turnstile_site_key": turnstile_site_key(),
+                "signup_ref": funnel.clean_source(ref),
             },
             status_code=409,
         )
@@ -467,6 +497,7 @@ async def register_submit(
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    await funnel.record("account_created", source=funnel.clean_source(ref))
 
     if is_production:
         await send_verification_email(user.email, token, base_url=external_base_url(request))
@@ -478,6 +509,7 @@ async def register_submit(
                 "info": None,
                 "error": None,
                 "turnstile_site_key": turnstile_site_key(),
+                "signup_ref": funnel.clean_source(ref),
             },
         )
 
@@ -528,6 +560,7 @@ async def verify_email(
     user.verification_token = None
     user.verification_token_expires_at = None
     await db.commit()
+    await funnel.record("email_verified")
 
     response = RedirectResponse("/dashboard", status_code=303)
     _set_token_cookie(response, create_access_token(str(user.id)))
@@ -1078,12 +1111,15 @@ async def create_project_submit(
     if existing.scalar_one_or_none():
         slug = f"{slug}-{_uuid.uuid4().hex[:6]}"
 
+    is_first = not await _count_user_projects(db, user)
     project = Project(user_id=user.id, name=name_clean, slug=slug)
     db.add(project)
     await db.flush()
     sp = StatusPage(project_id=project.id, display_name=name_clean, is_public=False)
     db.add(sp)
     await db.commit()
+    if is_first:
+        await funnel.record("first_project_created")
 
     return RedirectResponse(f"/dashboard/projects/{project.id}", status_code=303)
 
@@ -1239,6 +1275,7 @@ async def create_monitor_submit(
             raise
         return _redirect_with_flash(f"/dashboard/projects/{project_id}", e.detail)
 
+    is_first = not await _count_user_monitors(db, user)
     monitor = Monitor(
         project_id=project_id, name=name_clean, type=monitor_type, url=url_clean,
         method=http_method, expected_status=expected,
@@ -1253,6 +1290,8 @@ async def create_monitor_submit(
     )
     db.add(monitor)
     await db.commit()
+    if is_first:
+        await funnel.record("first_monitor_created")
     return RedirectResponse(f"/dashboard/projects/{project_id}", status_code=303)
 
 
@@ -1399,6 +1438,8 @@ async def bulk_add_monitors(
         created.append(m.name)
     if created:
         await db.commit()
+        if not used:
+            await funnel.record("first_monitor_created")
 
     message = _bulk_summary(created, skipped)
     if not created:

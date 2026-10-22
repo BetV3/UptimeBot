@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import funnel
 from app.core.database import get_db
 from app.models.models import (
     Check, CheckStatus, DnsMatchMode, DnsRecordType, HttpMethod, Monitor,
@@ -147,6 +148,9 @@ async def create_monitor(
     await _check_duplicate_monitor_name(db, str(project_id), name_clean)
     await check_monitor_limit(current_user, db)
     check_interval_limit(current_user, body.interval_seconds)
+    is_first = not (await db.execute(
+        select(func.count()).select_from(Monitor).join(Project, Monitor.project_id == Project.id)
+        .where(Project.user_id == current_user.id))).scalar()
 
     monitor = Monitor(
         project_id=project_id,
@@ -171,6 +175,8 @@ async def create_monitor(
     db.add(monitor)
     await db.commit()
     await db.refresh(monitor)
+    if is_first:
+        await funnel.record("first_monitor_created")
     return _monitor_to_response(monitor)
 
 

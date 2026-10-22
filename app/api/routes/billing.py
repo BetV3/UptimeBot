@@ -19,6 +19,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import funnel
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.http import external_base_url
@@ -177,6 +178,7 @@ async def create_checkout_session(
         cancel_url=f"{app_base_url}/dashboard/billing?cancelled=1",
         allow_promotion_codes=True,
     )
+    await funnel.record("checkout_started")
     return RedirectResponse(session.url, status_code=303)
 
 

@@ -21,4 +21,4 @@ export APP_ENV=test CP_AGENT_API_TEST=1
 # CP-1: the regions migration must round-trip on a populated schema.
 .venv/bin/alembic downgrade -1 2>&1 | tail -1
 .venv/bin/alembic upgrade head 2>&1 | tail -1
-.venv/bin/python -m pytest -q tests/test_agent_api.py tests/test_target_guard.py tests/test_regions_db.py tests/test_bulk_add_db.py "$@"
+.venv/bin/python -m pytest -q tests/test_agent_api.py tests/test_target_guard.py tests/test_regions_db.py tests/test_bulk_add_db.py tests/test_funnel.py "$@"
