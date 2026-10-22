@@ -300,10 +300,11 @@ def test_no_personal_data_is_stored(client, real, monkeypatch):
     client.post("/dashboard/projects", data={"name": "Secret Client Name"}, follow_redirects=False)
     pid = _sql("select id from projects where user_id=:u", u=uid)[0][0]
 
-    keys = list(real.keys("*"))
+    # Analytics namespaces only: other features keep short-lived functional
+    # state in Redis (sessions, claims), which is not what this rule covers.
+    keys = list(real.keys("cp:funnel:*")) + list(real.keys("cp:pv:*"))
     assert any(k.startswith("cp:funnel:") for k in keys)
-    blob = repr({k: real.hgetall(k) for k in keys if real.type(k) == "hash"})
-    blob += repr(keys)
+    blob = repr({k: real.hgetall(k) for k in keys}) + repr(keys)
     for leak in (email, email.split("@")[0], "eramirez.dev", ip, "UniqueTestAgent", "mail.example.org",
                  str(uid), uid.hex, str(pid), "Secret Client Name", "secret-client-name"):
         assert leak not in blob, leak
