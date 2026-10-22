@@ -16,8 +16,8 @@ router = APIRouter()
 CHECKED = "Oct 2, 2026"
 
 UPTIMEROBOT_ROWS = [
-    ("Down when", "any single region fails 3 retries", "2 of 3 regions (US, EU, Asia) agree"),
-    ("Check regions", "North America, Europe, Asia, Oceania", "US, EU, Asia"),
+    ("Down when", "any single region fails 3 retries", "2 of 3 US locations (NY, Dallas, SF) agree"),
+    ("Check regions", "North America, Europe, Asia, Oceania", "3 US locations: New York, Dallas, San Francisco"),
     ("50 sites at 60s or faster", "Solo 50: $28/mo, 60s", "Pro: $49/mo, 200 monitors, 30s"),
     ("Branded status pages", "3 on Solo, 100 on Team ($46/mo)", "1 per project: 10 on Starter, 50 on Pro"),
     ("Custom domain on status page", "Yes, Solo and up", "No"),

@@ -56,14 +56,14 @@ d.text((72, 150), "Uptime monitoring for", font=f(SANS_B, 58), fill=INK)
 d.text((72, 222), "agencies that manage", font=f(SANS_B, 58), fill=INK)
 d.text((72, 294), "client websites.", font=f(SANS_B, 58), fill=INK)
 
-d.text((72, 396), "Down only when 2 of 3 regions agree.", font=f(SANS_M, 30), fill=MUTED)
+d.text((72, 396), "Down only when 2 of 3 US locations agree.", font=f(SANS_M, 30), fill=MUTED)
 d.text((72, 438), "Branded status page per client.", font=f(SANS_M, 30), fill=MUTED)
 
 # region consensus card
 cx, cy, cw, ch = 780, 150, 348, 300
 d.rounded_rectangle((cx, cy, cx + cw, cy + ch), radius=14, fill=CARD, outline=LINE, width=2)
 d.text((cx + 24, cy + 22), "// consensus check", font=f(MONO, 20), fill=DIM)
-rows = [("US-EAST", "DOWN", BAD), ("EU-WEST", "DOWN", BAD), ("AP-SOUTH", "UP", OK)]
+rows = [("NEW YORK", "DOWN", BAD), ("DALLAS", "DOWN", BAD), ("SAN FRANCISCO", "UP", OK)]
 for i, (region, state, col) in enumerate(rows):
     y = cy + 70 + i * 56
     d.ellipse((cx + 24, y + 6, cx + 38, y + 20), fill=col)
