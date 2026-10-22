@@ -818,7 +818,7 @@
             color: var(--text);
         }
         .footer-logo span { color: var(--primary); }
-        .footer-links { display: flex; gap: 24px; }
+        .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 24px; }
         .footer-links a {
             font-size: 0.8125rem;
             color: var(--text-dim);
@@ -918,6 +918,7 @@
             <div class="nav-links" id="nav-links">
                 <a href="#features">Features</a>
                 <a href="#pricing">Pricing</a>
+                <a href="/tools/site-check">Site check</a>
                 <a href="/docs/getting-started">Docs</a>
                 <a href="/dashboard/login">Login</a>
                 <a href="/dashboard/register" class="btn btn-primary nav-cta">Start Free</a>
@@ -934,9 +935,9 @@
                     <p class="hero-sub">Catch uptime, DNS, SSL, and regional latency issues across client sites before your clients do.</p>
                     <div class="hero-ctas">
                         <a href="/dashboard/register" class="btn btn-primary btn-large">Start Free</a>
-                        <a href="#how-it-works" class="btn btn-outline btn-large">See How It Works</a>
+                        <a href="/tools/site-check" class="btn btn-outline btn-large">Check 10 client sites free</a>
                     </div>
-                    <p class="hero-trust">Free to start. No credit card required.</p>
+                    <p class="hero-trust">Free to start. No credit card required. The site check needs no signup.</p>
                 </div>
                 <div class="terminal">
                     <div class="terminal-bar">
@@ -947,15 +948,15 @@
                     </div>
                     <div class="terminal-body" id="terminal-body">
                         <div class="terminal-line"><span class="cmd">$ checkpulse check --all-sites</span></div>
-                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="ok">&#10003;</span> acme-client.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">142ms</span> &nbsp;<span class="ok">200 OK</span></div>
-                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="ok">&#10003;</span> acme-client.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">198ms</span> &nbsp;<span class="ok">200 OK</span></div>
-                        <div class="terminal-line"><span class="region">[AP-South]</span> <span class="ok">&#10003;</span> acme-client.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">231ms</span> &nbsp;<span class="ok">200 OK</span></div>
-                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="ok">&#10003;</span> studio-portfolio.net &nbsp;<span class="dim">&nbsp;87ms</span> &nbsp;<span class="ok">200 OK</span></div>
-                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="ok">&#10003;</span> studio-portfolio.net &nbsp;<span class="dim">104ms</span> &nbsp;<span class="ok">200 OK</span></div>
-                        <div class="terminal-line"><span class="region">[US-East] </span> <span class="fail">&#10007;</span> boutique-shop.co &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">DNS timeout</span></div>
-                        <div class="terminal-line"><span class="region">[EU-West] </span> <span class="fail">&#10007;</span> boutique-shop.co &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">DNS timeout</span></div>
+                        <div class="terminal-line"><span class="region">[NY]&nbsp;&nbsp;&nbsp;&nbsp;</span> <span class="ok">&#10003;</span> acme-client.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">142ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[Dallas]</span> <span class="ok">&#10003;</span> acme-client.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">198ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[SF]&nbsp;&nbsp;&nbsp;&nbsp;</span> <span class="ok">&#10003;</span> acme-client.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">231ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[NY]&nbsp;&nbsp;&nbsp;&nbsp;</span> <span class="ok">&#10003;</span> studio-portfolio.net &nbsp;<span class="dim">&nbsp;87ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[Dallas]</span> <span class="ok">&#10003;</span> studio-portfolio.net &nbsp;<span class="dim">104ms</span> &nbsp;<span class="ok">200 OK</span></div>
+                        <div class="terminal-line"><span class="region">[NY]&nbsp;&nbsp;&nbsp;&nbsp;</span> <span class="fail">&#10007;</span> boutique-shop.co &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">DNS timeout</span></div>
+                        <div class="terminal-line"><span class="region">[Dallas]</span> <span class="fail">&#10007;</span> boutique-shop.co &nbsp;&nbsp;&nbsp;&nbsp; <span class="dim">&nbsp;&mdash; </span> &nbsp;<span class="fail">DNS timeout</span></div>
                         <div class="terminal-line">&nbsp;</div>
-                        <div class="terminal-line"><span class="warn">&#9888; Incident created:</span> <span class="text">boutique-shop.co DNS failing (2/3 regions)</span></div>
+                        <div class="terminal-line"><span class="warn">&#9888; Incident created:</span> <span class="text">boutique-shop.co DNS failing (2/3 locations)</span></div>
                         <div class="terminal-line"><span class="dim">&nbsp;&nbsp;&#8627; Slack alert sent to #client-ops</span></div>
                         <div class="terminal-line"><span class="dim">&nbsp;&nbsp;&#8627; Status page updated</span></div>
                         <div class="terminal-line cursor-blink"><span class="cmd">$</span></div>
@@ -1027,14 +1028,14 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
                     <h3>Regional latency</h3>
-                    <p>Checks run from the US, Europe, and Asia. Understand whether slowness is global or isolated before escalating the wrong thing.</p>
+                    <p>Checks run from New York, Dallas and San Francisco. See whether slowness is everywhere or one location before escalating the wrong thing.</p>
                 </div>
                 <div class="feature-card fade-in stagger-5">
                     <div class="feature-icon purple">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                     </div>
                     <h3>Smart alerts</h3>
-                    <p>Slack, email, or webhook &mdash; routed per site so the right person sees it. We only alert when 2 of 3 regions confirm the issue, so you don't get paged for a flaky route.</p>
+                    <p>Slack, Discord, Telegram, email or webhook, routed per site so the right person sees it. We only alert when 2 of 3 locations confirm the issue, so you don't get paged for a flaky route.</p>
                 </div>
                 <div class="feature-card fade-in stagger-6">
                     <div class="feature-icon cyan">
@@ -1136,7 +1137,7 @@
                     </div>
                     <div class="trust-platform">
                         <div class="trust-platform-dot"></div>
-                        <span class="trust-platform-text">Checks running from 3 regions &middot; US, EU, Asia</span>
+                        <span class="trust-platform-text">Checks running from 3 US locations &middot; NY, Dallas, SF</span>
                     </div>
                 </div>
             </div>
@@ -1220,7 +1221,7 @@
             <div class="badges fade-in">
                 <div class="badge">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Checks from 3 regions
+                    Checks from 3 US locations
                 </div>
                 <div class="badge">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -1259,6 +1260,9 @@
                 <div class="footer-links">
                     <a href="#features">Features</a>
                     <a href="#pricing">Pricing</a>
+                    <a href="/tools/site-check">Site check</a>
+                    <a href="/tools/ssl-checker">SSL checker</a>
+                    <a href="/vs/uptimerobot">vs UptimeRobot</a>
                     <a href="/docs/getting-started">Docs</a>
                     <a href="/dashboard/login">Login</a>
                     <a href="/legal/privacy">Privacy</a>
