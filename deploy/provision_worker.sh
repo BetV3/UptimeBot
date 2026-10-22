@@ -6,7 +6,7 @@
 # 422 until it is (see app/services/regions.py). The worker secret is read from the prod api
 # container and piped through stdin; it is never printed or passed as an argument.
 set -euo pipefail
-HOST="${1:?ssh alias}" REGION="${2:?region}" WID="${3:?worker id}" API="${4:-https://checkpulse.dev}"
+HOST="${1:?ssh alias}" REGION="${2:?region}" WID="${3:?worker id}" API="${4:-https://api.checkpulse.dev}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SSHCFG="${CP_WORKER_SSH_CONFIG:?set CP_WORKER_SSH_CONFIG to an ssh_config with the worker alias}"
 # Repo is public: the prod host and key come from the environment, never from this file.
