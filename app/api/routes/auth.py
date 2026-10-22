@@ -3,6 +3,7 @@ from slowapi import Limiter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import funnel
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.http import external_base_url
@@ -35,7 +36,9 @@ async def register(request: Request, body: UserRegister, db: AsyncSession = Depe
     # above does not defend this endpoint against the low-and-slow relay
     # abuse it was actually subjected to (~1 request per 100 minutes); only
     # the challenge does. See app/core/turnstile.py.
+    await funnel.record("register_submit")
     if not await verify_turnstile(body.turnstile_token, request):
+        await funnel.record("turnstile_failed")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=CHALLENGE_FAILED_MESSAGE,
@@ -43,6 +46,7 @@ async def register(request: Request, body: UserRegister, db: AsyncSession = Depe
 
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none():
+        await funnel.record("validation_failed")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
     settings = get_settings()
@@ -67,6 +71,7 @@ async def register(request: Request, body: UserRegister, db: AsyncSession = Depe
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    await funnel.record("account_created", source="api")
 
     if is_production:
         await send_verification_email(user.email, token, base_url=external_base_url(request))

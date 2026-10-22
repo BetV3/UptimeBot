@@ -2,9 +2,10 @@ import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import funnel
 from app.core.database import get_db
 from app.models.models import User, Project, StatusPage
 from app.schemas.projects import ProjectCreate, ProjectUpdate, ProjectResponse
@@ -43,6 +44,8 @@ async def create_project(
     current_user: User = Depends(get_current_user),
 ):
     await check_project_limit(current_user, db)
+    is_first = not (await db.execute(
+        select(func.count()).select_from(Project).where(Project.user_id == current_user.id))).scalar()
 
     slug = slugify(body.name)
     # Ensure slug uniqueness by appending short suffix if needed
@@ -60,6 +63,8 @@ async def create_project(
 
     await db.commit()
     await db.refresh(project)
+    if is_first:
+        await funnel.record("first_project_created")
     return ProjectResponse(
         id=str(project.id),
         name=project.name,
