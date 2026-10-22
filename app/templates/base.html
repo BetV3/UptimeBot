@@ -316,14 +316,15 @@
     </main>
 
     <script>
-        // Flash banner: dismiss button + auto-hide after 6s
+        // Flash banner: dismiss button + auto-hide after 6s. Long notices (e.g. a bulk
+        // add listing skipped sites) stay until dismissed: 6s is too short to read them.
         document.querySelectorAll('[data-flash]').forEach(el => {
             const dismiss = () => {
                 el.classList.add('bc-flash--hidden');
                 setTimeout(() => el.remove(), 300);
             };
             el.querySelector('.bc-flash__close')?.addEventListener('click', dismiss);
-            setTimeout(dismiss, 6000);
+            if (el.textContent.trim().length <= 90) setTimeout(dismiss, 6000);
         });
 
         // Modals: close on backdrop click + ESC
