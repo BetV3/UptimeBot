@@ -8,7 +8,7 @@ for where new accounts came from (site-check, status-page, ssl-checker,
 direct, ...). Values are counts. That is all.
 
 What it never stores: email addresses, IP addresses, user agents, user ids,
-project ids, run ids, cookies or full referrer URLs. ``tests/test_funnel.py``
+project ids, run ids, cookies or full referrer URLs. ``tests/test_funnel_db.py``
 pins this, the same way ``tests/test_analytics.py`` pins the page-view rule.
 
 Why: page views say people reach /dashboard/register; they do not say where
