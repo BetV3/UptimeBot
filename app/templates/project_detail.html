@@ -23,6 +23,45 @@
     </div>
 </div>
 
+{% if import_sites %}
+<!-- Sites carried in from the public site check: prefilled bulk add, user confirms -->
+<section id="site-import" class="bc-card p-5 sm:p-6 mb-8 border-brand/40">
+    <p class="font-mono text-xs uppercase tracking-wider text-brand mb-2">// from your site check</p>
+    <h2 class="text-lg font-semibold text-ink">Add the {% if import_sites | length == 1 %}site{% else %}{{ import_sites | length }} sites{% endif %} you just checked</h2>
+    <p class="mt-2 text-sm text-ink-muted">Each site becomes an uptime monitor checked from every location. Edit the list if you like, then confirm.
+    {% if import_room is not none and import_room < import_sites | length %}
+    Your {{ plan_name }} plan has room for {{ import_room }} more monitor{{ '' if import_room == 1 else 's' }}; sites over the limit are listed after you confirm, not added.
+    {% endif %}</p>
+    <form method="post" action="/dashboard/projects/{{ project.id }}/monitors/bulk" class="mt-4 space-y-4">
+        <input type="hidden" name="source" value="site-check">
+        <div>
+            <label for="import-sites" class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Sites</label>
+            <textarea id="import-sites" name="sites" rows="{{ [import_sites | length, 3] | max }}" required class="font-mono text-sm w-full"
+                      autocapitalize="off" spellcheck="false">{{ import_sites | join('\n') }}</textarea>
+        </div>
+        <label class="flex items-start gap-2 text-sm text-ink-muted">
+            <input type="checkbox" name="also_ssl" value="1" class="mt-1">
+            <span>Also watch each site's SSL certificate (hourly, warns 14 days before expiry). Uses one more monitor per site.</span>
+        </label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+                <label for="import-interval" class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Interval (seconds)</label>
+                <input id="import-interval" type="number" name="interval_seconds" value="{{ min_interval_seconds }}" min="{{ min_interval_seconds }}" required>
+                <p class="text-xs text-ink-dim mt-1.5">Minimum {{ min_interval_seconds }}s on your current plan.</p>
+            </div>
+            <div>
+                <label for="import-timeout" class="block text-xs font-mono uppercase tracking-wider text-ink-muted mb-2">Timeout (seconds)</label>
+                <input id="import-timeout" type="number" name="timeout_seconds" value="10" min="1" max="60" required>
+            </div>
+        </div>
+        <button type="submit" class="bc-btn-primary w-full sm:w-auto justify-center">Add {% if import_sites | length == 1 %}this site{% else %}these {{ import_sites | length }} sites{% endif %}</button>
+    </form>
+    <form method="post" action="/dashboard/import/site-check/dismiss" class="mt-3">
+        <button type="submit" class="text-xs text-ink-dim hover:text-ink font-mono">Not now, forget this list</button>
+    </form>
+</section>
+{% endif %}
+
 <!-- Monitors Section -->
 <section class="mb-10">
     <div class="flex items-center justify-between mb-4">
