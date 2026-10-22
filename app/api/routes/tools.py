@@ -142,9 +142,12 @@ async def site_allowed(visitor: str, n_sites: int) -> str | None:
 
 def _site_ctx(request: Request, **kw) -> dict:
     from app.core.turnstile import turnstile_site_key
+    from app.models.models import PlanType
     from app.services import site_check
+    from app.services.plans import PLAN_LIMITS
     ctx = {"request": request, "sites_input": "", "error": None, "run": None, "run_id": None,
-           "max_sites": site_check.MAX_SITES, "turnstile_site_key": turnstile_site_key()}
+           "max_sites": site_check.MAX_SITES, "turnstile_site_key": turnstile_site_key(),
+           "free_limits": PLAN_LIMITS[PlanType.FREE]}
     ctx.update(kw)
     return ctx
 

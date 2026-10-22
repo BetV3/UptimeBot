@@ -93,8 +93,10 @@
     {% if run.done %}
     <section class="mt-6 bc-card p-6 border-brand/30">
         <h2 class="text-lg font-semibold text-ink">Watch these sites every few minutes</h2>
-        <p class="mt-2 text-sm text-ink-muted">This was one check. CheckPulse checks each site from all three locations around the clock, alerts you in Slack, Discord, Telegram or email when a majority agree it is down, and gives each client a status page. In your account, paste this same list into Bulk add.</p>
-        <a href="/dashboard/register?ref=site-check" class="mt-4 bc-btn-primary">Start free</a>
+        <p class="mt-2 text-sm text-ink-muted">This was one check. CheckPulse checks each site from all three locations around the clock, alerts you in Slack, Discord, Telegram or email when a majority agree it is down, and gives each client a status page. Your list comes with you: after you sign up, your first project offers to add these sites, and you confirm before anything is created.</p>
+        {% set n_sites = run.rows | length %}
+        <a href="/dashboard/register?ref=site-check&amp;run={{ run_id }}" class="mt-4 bc-btn-primary w-full sm:w-auto justify-center" rel="nofollow">Monitor {% if n_sites == 1 %}this site{% else %}these {{ n_sites }} sites{% endif %} free</a>
+        <p class="mt-2 text-xs text-ink-dim">The Free plan covers {{ free_limits.max_monitors }} monitors in {{ free_limits.max_projects }} project. Sites over your plan's limit are listed, not added.</p>
     </section>
     {% endif %}
     {% endif %}

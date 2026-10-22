@@ -40,6 +40,8 @@ from app.services.email import (
 )
 from app.services.plans import PLAN_LIMITS, check_project_limit, check_monitor_limit, check_interval_limit
 from app.services import regions as region_svc
+from app.services import site_import
+from app.services.plans import get_limits
 from app.services import target_guard
 from app.services.url_guard import UnsafeUrlError, validate_outbound_url
 
@@ -368,13 +370,17 @@ async def login_submit(
             status_code=403,
         )
 
-    response = RedirectResponse("/dashboard", status_code=303)
+    nxt = "/dashboard/import/site-check" if await site_import.pending(user, request.cookies.get(site_import.COOKIE)) else "/dashboard"
+    response = RedirectResponse(nxt, status_code=303)
     _set_token_cookie(response, create_access_token(str(user.id)))
     return response
 
 
 @router.get("/register", response_class=HTMLResponse)
-async def register_page(request: Request):
+async def register_page(request: Request, db: AsyncSession = Depends(get_db)):
+    carried = await _carry_site_check_run(request, db)
+    if carried is not None:
+        return carried
     return templates.TemplateResponse(
         "register.html",
         {
@@ -469,6 +475,9 @@ async def register_submit(
     await db.refresh(user)
 
     if is_production:
+        # A site-check run carried in from the results page belongs to this new
+        # account now, so it survives the verification link opening elsewhere.
+        await site_import.pending(user, request.cookies.get(site_import.COOKIE))
         await send_verification_email(user.email, token, base_url=external_base_url(request))
         return templates.TemplateResponse(
             "check_email.html",
@@ -482,7 +491,8 @@ async def register_submit(
         )
 
     # Dev mode: log in immediately
-    response = RedirectResponse("/dashboard", status_code=303)
+    nxt = "/dashboard/import/site-check" if await site_import.pending(user, request.cookies.get(site_import.COOKIE)) else "/dashboard"
+    response = RedirectResponse(nxt, status_code=303)
     _set_token_cookie(response, create_access_token(str(user.id)))
     return response
 
@@ -529,7 +539,8 @@ async def verify_email(
     user.verification_token_expires_at = None
     await db.commit()
 
-    response = RedirectResponse("/dashboard", status_code=303)
+    nxt = "/dashboard/import/site-check" if await site_import.pending(user, request.cookies.get(site_import.COOKIE)) else "/dashboard"
+    response = RedirectResponse(nxt, status_code=303)
     _set_token_cookie(response, create_access_token(str(user.id)))
     return response
 
@@ -1028,11 +1039,13 @@ async def dashboard_home(request: Request, db: AsyncSession = Depends(get_db)):
         select(Project).where(Project.user_id == user.id).order_by(Project.created_at.desc())
     )
     projects = result.scalars().all()
+    import_sites = await site_import.pending(user, request.cookies.get(site_import.COOKIE))
 
     response = templates.TemplateResponse("projects.html", {
         "request": request, "user": user,
         "projects": [{"id": str(p.id), "name": p.name, "slug": p.slug} for p in projects],
         "flash_error": _flash(request, "flash_error"),
+        "import_count": len(import_sites) if import_sites else 0,
     })
     _consume_flash(request, response)
     return response
@@ -1134,8 +1147,19 @@ async def project_detail_page(project_id: str, request: Request, db: AsyncSessio
         for inc, name in incidents_result.all()
     ]
 
+    import_sites = await site_import.pending(user, request.cookies.get(site_import.COOKIE))
+    import_room = None
+    if import_sites:
+        used = (await db.execute(
+            select(func.count()).select_from(Monitor).join(Project, Monitor.project_id == Project.id)
+            .where(Project.user_id == user.id)
+        )).scalar() or 0
+        import_room = max(get_limits(user).max_monitors - used, 0)
+
     response = templates.TemplateResponse("project_detail.html", {
         "request": request, "user": user,
+        "import_sites": import_sites,
+        "import_room": import_room,
         "project": {"id": str(project.id), "name": project.name, "slug": project.slug},
         "monitors": [
             {
@@ -1289,6 +1313,7 @@ async def bulk_add_monitors(
     interval_seconds: str = Form(""),
     timeout_seconds: str = Form("10"),
     also_ssl: str = Form(""),
+    source: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     from starlette.concurrency import run_in_threadpool
@@ -1405,10 +1430,91 @@ async def bulk_add_monitors(
         if _wants_json(request):
             raise HTTPException(status_code=400, detail="Nothing added. " + message)
         return _redirect_with_flash(back, "Nothing added. " + message)
+    if source == site_import.SOURCE:
+        # The carried-in site check has been used: stop offering it.
+        await site_import.clear(user.id)
     if _wants_json(request):
         # The modal script reloads the page on success; the cookie carries the summary.
-        return _notice(JSONResponse({"created": len(created), "skipped": len(skipped), "message": message}), message)
-    return _notice(RedirectResponse(back, status_code=303), message)
+        response = JSONResponse({"created": len(created), "skipped": len(skipped), "message": message})
+    else:
+        response = RedirectResponse(back, status_code=303)
+    if source == site_import.SOURCE:
+        site_import.drop_cookie(response, should_secure_cookie())
+    return _notice(response, message)
+
+
+# --- Site check -> monitors (see app/services/site_import.py) ---
+
+async def _carry_site_check_run(request: Request, db: AsyncSession):
+    """Handle /dashboard/register?ref=site-check&run=<id>, or return None to render the form.
+
+    Signed in: bind the run to the account and go straight to the prefilled
+    bulk add. Signed out: keep the run id in an httponly cookie until the run
+    expires and reload the form without it in the URL.
+    """
+    run_id = request.query_params.get("run")
+    if not run_id:
+        return None
+    found = None
+    try:
+        found = await site_import.run_sites(run_id)
+    except Exception as exc:
+        logger.warning("site import: run lookup failed (%s)", type(exc).__name__)
+    user = await _get_user_from_cookie(request, db)
+    if user is not None:
+        if not found:
+            return _redirect_with_flash("/dashboard", "Those site check results have expired (they last 24 hours). Run the check again to bring the list over.")
+        await site_import.bind(user.id, run_id)
+        return RedirectResponse("/dashboard/import/site-check", status_code=303)
+    response = RedirectResponse("/dashboard/register?ref=site-check", status_code=303)
+    if found:
+        site_import.set_cookie(response, run_id, found[1], should_secure_cookie())
+    return response
+
+
+async def _oldest_project(db: AsyncSession, user: User) -> Project | None:
+    """The user's first project (where a carried-in site list is offered)."""
+    return (await db.execute(
+        select(Project).where(Project.user_id == user.id).order_by(Project.created_at.asc()).limit(1)
+    )).scalar_one_or_none()
+
+
+def _forget_run_cookie(request: Request, response):
+    """Drop the run-id cookie if this browser still has one."""
+    if request.cookies.get(site_import.COOKIE):
+        site_import.drop_cookie(response, should_secure_cookie())
+    return response
+
+
+@router.get("/import/site-check")
+async def import_site_check(request: Request, db: AsyncSession = Depends(get_db)):
+    """Open the prefilled bulk add for a carried-in site check (first project)."""
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    sites = await site_import.pending(user, request.cookies.get(site_import.COOKIE))
+    if not sites:
+        return _forget_run_cookie(request, _redirect_with_flash(
+            "/dashboard", "Those site check results have expired (they last 24 hours). Run the check again to bring the list over."))
+    project = await _oldest_project(db, user)
+    if project is None:
+        return RedirectResponse("/dashboard", status_code=303)
+    return RedirectResponse(f"/dashboard/projects/{project.id}#site-import", status_code=303)
+
+
+@router.post("/import/site-check/dismiss")
+async def dismiss_site_check(request: Request, db: AsyncSession = Depends(get_db)):
+    """Stop offering the carried-in site list."""
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    await site_import.clear(user.id)
+    back = request.headers.get("referer") or "/dashboard"
+    if urlparse(back).path.startswith("/dashboard/projects/"):
+        back = urlparse(back).path
+    else:
+        back = "/dashboard"
+    return _forget_run_cookie(request, RedirectResponse(back, status_code=303))
 
 
 # Resolve a hostname on demand so the new-monitor form can show current
