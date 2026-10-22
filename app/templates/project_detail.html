@@ -30,7 +30,7 @@
     <h2 class="text-lg font-semibold text-ink">Add the {% if import_sites | length == 1 %}site{% else %}{{ import_sites | length }} sites{% endif %} you just checked</h2>
     <p class="mt-2 text-sm text-ink-muted">Each site becomes an uptime monitor checked from every location. Edit the list if you like, then confirm.
     {% if import_room is not none and import_room < import_sites | length %}
-    Your {{ plan_name }} plan has room for {{ import_room }} more monitor{{ '' if import_room == 1 else 's' }}; sites over the limit are listed after you confirm, not added.
+    Your account has room for {{ import_room }} more monitor{{ '' if import_room == 1 else 's' }} on its current plan; sites over the limit are listed after you confirm, not added.
     {% endif %}</p>
     <form method="post" action="/dashboard/projects/{{ project.id }}/monitors/bulk" class="mt-4 space-y-4">
         <input type="hidden" name="source" value="site-check">

@@ -1160,7 +1160,6 @@ async def project_detail_page(project_id: str, request: Request, db: AsyncSessio
         "request": request, "user": user,
         "import_sites": import_sites,
         "import_room": import_room,
-        "plan_name": user.plan.value.capitalize(),
         "project": {"id": str(project.id), "name": project.name, "slug": project.slug},
         "monitors": [
             {
