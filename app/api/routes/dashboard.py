@@ -330,49 +330,6 @@ async def _check_duplicate_monitor_name(
         )
 
 
-# --- Site check -> monitors (see app/services/site_import.py) ---
-
-async def _carry_site_check_run(request: Request, db: AsyncSession):
-    """Handle /dashboard/register?ref=site-check&run=<id>, or return None to render the form.
-
-    Signed in: bind the run to the account and go straight to the prefilled
-    bulk add. Signed out: keep the run id in an httponly cookie until the run
-    expires and reload the form without it in the URL.
-    """
-    run_id = request.query_params.get("run")
-    if not run_id:
-        return None
-    found = None
-    try:
-        found = await site_import.run_sites(run_id)
-    except Exception as exc:
-        logger.warning("site import: run lookup failed (%s)", type(exc).__name__)
-    user = await _get_user_from_cookie(request, db)
-    if user is not None:
-        if not found:
-            return _redirect_with_flash("/dashboard", "Those site check results have expired (they last 24 hours). Run the check again to bring the list over.")
-        await site_import.bind(user.id, run_id)
-        return RedirectResponse("/dashboard/import/site-check", status_code=303)
-    response = RedirectResponse("/dashboard/register?ref=site-check", status_code=303)
-    if found:
-        site_import.set_cookie(response, run_id, found[1], should_secure_cookie())
-    return response
-
-
-async def _oldest_project(db: AsyncSession, user: User) -> Project | None:
-    """The user's first project (where a carried-in site list is offered)."""
-    return (await db.execute(
-        select(Project).where(Project.user_id == user.id).order_by(Project.created_at.asc()).limit(1)
-    )).scalar_one_or_none()
-
-
-def _forget_run_cookie(request: Request, response):
-    """Drop the run-id cookie if this browser still has one."""
-    if request.cookies.get(site_import.COOKIE):
-        site_import.drop_cookie(response, should_secure_cookie())
-    return response
-
-
 # --- Auth pages ---
 
 @router.get("/login", response_class=HTMLResponse)
@@ -1485,6 +1442,49 @@ async def bulk_add_monitors(
     if source == site_import.SOURCE:
         site_import.drop_cookie(response, should_secure_cookie())
     return _notice(response, message)
+
+
+# --- Site check -> monitors (see app/services/site_import.py) ---
+
+async def _carry_site_check_run(request: Request, db: AsyncSession):
+    """Handle /dashboard/register?ref=site-check&run=<id>, or return None to render the form.
+
+    Signed in: bind the run to the account and go straight to the prefilled
+    bulk add. Signed out: keep the run id in an httponly cookie until the run
+    expires and reload the form without it in the URL.
+    """
+    run_id = request.query_params.get("run")
+    if not run_id:
+        return None
+    found = None
+    try:
+        found = await site_import.run_sites(run_id)
+    except Exception as exc:
+        logger.warning("site import: run lookup failed (%s)", type(exc).__name__)
+    user = await _get_user_from_cookie(request, db)
+    if user is not None:
+        if not found:
+            return _redirect_with_flash("/dashboard", "Those site check results have expired (they last 24 hours). Run the check again to bring the list over.")
+        await site_import.bind(user.id, run_id)
+        return RedirectResponse("/dashboard/import/site-check", status_code=303)
+    response = RedirectResponse("/dashboard/register?ref=site-check", status_code=303)
+    if found:
+        site_import.set_cookie(response, run_id, found[1], should_secure_cookie())
+    return response
+
+
+async def _oldest_project(db: AsyncSession, user: User) -> Project | None:
+    """The user's first project (where a carried-in site list is offered)."""
+    return (await db.execute(
+        select(Project).where(Project.user_id == user.id).order_by(Project.created_at.asc()).limit(1)
+    )).scalar_one_or_none()
+
+
+def _forget_run_cookie(request: Request, response):
+    """Drop the run-id cookie if this browser still has one."""
+    if request.cookies.get(site_import.COOKIE):
+        site_import.drop_cookie(response, should_secure_cookie())
+    return response
 
 
 @router.get("/import/site-check")
