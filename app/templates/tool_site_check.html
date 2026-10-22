@@ -27,7 +27,30 @@
             <p class="font-mono text-xs uppercase tracking-wider text-ink-dim">// {% if run.done %}results{% else %}checking, this page refreshes itself{% endif %}</p>
             {% if run.done %}<p class="text-xs text-ink-dim">Private link, kept for 24 hours. Copy it to share these results.</p>{% endif %}
         </div>
-        <table class="w-full text-sm">
+        {# Phone: one card per site. The table below is for wider screens. #}
+        <div class="sm:hidden space-y-3">
+        {% for row in run.rows %}
+            <div class="border border-bg-surface/70 rounded-md p-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="font-mono text-ink break-all">{{ row.name }}</div>
+                    <div class="text-xs whitespace-nowrap {% if row.verdict in ('up',) %}text-ok{% elif row.verdict in ('slow', 'checking', 'blocked from some locations') %}text-warn{% else %}text-bad{% endif %}">{{ row.verdict }}</div>
+                </div>
+                <dl class="mt-2 space-y-1 text-xs font-mono">
+                    {% for c in row.cells %}
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-ink-dim">{{ run.regions[loop.index0].label }}</dt>
+                        <dd>{% if c.kind == 'pending' %}<span class="text-ink-dim">checking</span>{% elif c.kind == 'no answer' %}<span class="text-ink-dim">no answer</span>{% elif c.kind in ('up', 'slow') %}<span class="{% if c.kind == 'slow' %}text-warn{% else %}text-ok{% endif %}">{{ c.check.status_code }} &middot; {{ c.check.ms }} ms</span>{% elif c.kind == 'blocked' %}<span class="text-warn">blocked ({{ c.check.status_code }})</span>{% elif c.check.status_code %}<span class="text-bad">{{ c.check.status_code }}</span>{% else %}<span class="text-bad">{{ (c.check.error or 'down')[:32] }}</span>{% endif %}</dd>
+                    </div>
+                    {% endfor %}
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-ink-dim">SSL</dt>
+                        <dd>{% if not row.url.startswith('https://') %}<span class="text-bad">no HTTPS</span>{% elif row.ssl is none %}<span class="text-ink-dim">{% if run.done %}not read{% else %}reading{% endif %}</span>{% elif row.ssl.error %}<span class="text-bad">error</span>{% elif row.ssl.days_left is not none and row.ssl.days_left < 0 %}<span class="text-bad">expired</span>{% elif row.ssl.trust_error %}<span class="text-bad">not trusted</span>{% else %}<span class="{% if row.ssl.days_left is not none and row.ssl.days_left <= 14 %}text-warn{% else %}text-ok{% endif %}">{{ row.ssl.days_left }} days</span>{% endif %}</dd>
+                    </div>
+                </dl>
+            </div>
+        {% endfor %}
+        </div>
+        <table class="hidden sm:table w-full text-sm">
             <thead>
                 <tr class="text-left font-mono text-xs uppercase tracking-wider text-ink-dim">
                     <th class="py-2 pr-4">Site</th>
