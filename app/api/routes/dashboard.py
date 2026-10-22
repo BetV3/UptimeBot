@@ -38,7 +38,11 @@ from app.services.email import (
     send_password_reset_email,
     send_verification_email,
 )
-from app.services.plans import PLAN_LIMITS, check_project_limit, check_monitor_limit, check_interval_limit
+from app.services.plans import (
+    PLAN_LIMITS, TRIAL_DAYS, TRIAL_LIMITS, check_interval_limit, check_monitor_limit,
+    check_project_limit, check_resume_allowed, get_limits, limits_label, trial_active,
+)
+from app.services import trial as trial_svc
 from app.services import regions as region_svc
 from app.services import site_import
 from app.services.plans import get_limits
@@ -49,6 +53,14 @@ router = APIRouter()
 settings = get_settings()
 logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent.parent / "templates"))
+
+
+def _trial_banner_for(request) -> dict | None:
+    """Template helper: the trial banner _get_user_from_cookie left on the request."""
+    return getattr(getattr(request, "state", None), "trial_banner", None)
+
+
+templates.env.globals["trial_banner_for"] = _trial_banner_for
 
 
 # --- Auth helpers ---
@@ -71,7 +83,22 @@ async def _get_user_from_cookie(request: Request, db: AsyncSession) -> User | No
         return None
     if settings.app_env == "production" and not user.email_verified:
         return None
+    request.state.trial_banner = await _trial_banner(db, user)
     return user
+
+
+async def _trial_banner(db: AsyncSession, user: User) -> dict | None:
+    """Pro trial banner for base.html ("N days left" / "N monitors paused"), or None.
+
+    Never breaks a page: any error just means no banner.
+    """
+    try:
+        if not user.trial_used:
+            return None
+        return await db.run_sync(lambda session: trial_svc.banner(session, user))
+    except Exception as exc:
+        logger.warning("trial banner failed (%s)", type(exc).__name__)
+        return None
 
 
 def _set_token_cookie(response: RedirectResponse, token: str):
@@ -397,6 +424,7 @@ async def register_submit(
     email: str = Form(...),
     password: str = Form(...),
     confirm_password: str = Form(...),
+    ref: str = Form(""),
     cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -469,6 +497,9 @@ async def register_submit(
             password_hash=hash_password(password),
             email_verified=True,
         )
+    # Visitors who arrive from the free site check get the Pro trial offered on
+    # their first project screen (the other way in is the billing page).
+    user.trial_offer = _came_from_site_check(request, ref)
 
     db.add(user)
     await db.commit()
@@ -820,6 +851,7 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
 
     upgraded = request.query_params.get("upgraded") == "1"
     cancelled = request.query_params.get("cancelled") == "1"
+    on_trial = trial_active(user)
 
     flash_notice = _flash(request, "flash_notice")
     flash_error = _flash(request, "flash_error")
@@ -871,6 +903,10 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
                 "Priority support",
                 "1-year history",
             ],
+            "trial_note": (
+                f"Try it free for {TRIAL_DAYS} days, no card: {TRIAL_LIMITS.max_projects} sites, "
+                f"{TRIAL_LIMITS.max_monitors} monitors, {TRIAL_LIMITS.min_interval_seconds // 60}-minute checks."
+            ),
         },
     ]
 
@@ -882,8 +918,16 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
             "project_count": project_count,
             "monitor_count": monitor_count,
             "current_plan": user.plan.value,
-            "current_limits": PLAN_LIMITS[user.plan],
+            "current_limits": get_limits(user),
             "tiers": tiers,
+            "on_trial": on_trial,
+            "trial_ends_at": user.trial_ends_at if on_trial else None,
+            "trial_days_left": trial_svc.days_left(user),
+            "trial_eligible": trial_svc.eligible(user),
+            "trial_used": bool(user.trial_used),
+            "trial_days": TRIAL_DAYS,
+            "trial_limits": TRIAL_LIMITS,
+            "free_limits": PLAN_LIMITS[PlanType.FREE],
             "subscription_status": user.subscription_status.value if user.subscription_status else None,
             "current_period_end": user.current_period_end,
             "has_stripe_customer": bool(user.stripe_customer_id),
@@ -896,6 +940,55 @@ async def billing_page(request: Request, db: AsyncSession = Depends(get_db)):
     if request.cookies.get("flash_notice"):
         response.delete_cookie("flash_notice", path="/")
     return response
+
+
+def _came_from_site_check(request: Request, ref: str) -> bool:
+    """True when the signup form was reached through ?ref=site-check."""
+    if (ref or "").strip().lower() == "site-check":
+        return True
+    referer = urlparse(request.headers.get("referer") or "")
+    return referer.path == "/dashboard/register" and "ref=site-check" in (referer.query or "")
+
+
+@router.post("/billing/trial")
+async def start_trial(request: Request, db: AsyncSession = Depends(get_db)):
+    """Start the one 14-day Pro trial (verified email, no card)."""
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    back = request.headers.get("referer") or ""
+    back = urlparse(back).path if urlparse(back).path.startswith("/dashboard") else "/dashboard/billing"
+    # Lock the row and re-read it: two quick clicks must not both pass the
+    # one-trial check. populate_existing matters: this session already loaded
+    # the user before the lock, and without it the stale copy would be reused.
+    locked = (await db.execute(
+        select(User).where(User.id == user.id).with_for_update()
+        .execution_options(populate_existing=True)
+    )).scalar_one()
+    try:
+        ends = trial_svc.start(locked)
+    except trial_svc.TrialError as e:
+        await db.rollback()
+        if _wants_json(request):
+            raise HTTPException(status_code=409, detail=str(e))
+        return _redirect_with_flash(back, str(e))
+    await db.commit()
+    message = (f"Pro trial started: {TRIAL_LIMITS.max_monitors} monitors, "
+               f"{TRIAL_LIMITS.min_interval_seconds}-second checks and branded status pages until "
+               f"{ends.strftime('%b %d')}. No card needed.")
+    return _notice(RedirectResponse(back, status_code=303), message)
+
+
+@router.post("/billing/trial/dismiss")
+async def dismiss_trial_offer(request: Request, db: AsyncSession = Depends(get_db)):
+    """Hide the trial offer on the project screen (it stays on the billing page)."""
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    user.trial_offer = False
+    await db.commit()
+    back = urlparse(request.headers.get("referer") or "").path
+    return RedirectResponse(back if back.startswith("/dashboard/projects/") else "/dashboard", status_code=303)
 
 
 @router.get("/forgot-password", response_class=HTMLResponse)
@@ -1168,6 +1261,7 @@ async def project_detail_page(project_id: str, request: Request, db: AsyncSessio
                 "target_host": m.target_host, "target_port": m.target_port,
                 "dns_record_type": m.dns_record_type.value if m.dns_record_type else None,
                 "current_status": m.current_status.value, "is_active": m.is_active,
+                "paused_reason": m.paused_reason,
             }
             for m in monitors
         ],
@@ -1178,7 +1272,10 @@ async def project_detail_page(project_id: str, request: Request, db: AsyncSessio
         "incidents": incidents,
         "flash_error": _flash(request, "flash_error"),
         "flash_notice": _flash(request, "flash_notice"),
-        "min_interval_seconds": PLAN_LIMITS[user.plan].min_interval_seconds,
+        "min_interval_seconds": get_limits(user).min_interval_seconds,
+        "trial_offer": bool(user.trial_offer) and trial_svc.eligible(user),
+        "trial_days": TRIAL_DAYS,
+        "trial_limits": TRIAL_LIMITS,
     })
     _consume_flash(request, response)
     if request.cookies.get("flash_notice"):
@@ -1357,7 +1454,7 @@ async def bulk_add_monitors(
         select(func.count()).select_from(Monitor).join(Project, Monitor.project_id == Project.id)
         .where(Project.user_id == user.id)
     )).scalar() or 0
-    room = max(PLAN_LIMITS[user.plan].max_monitors - used, 0)
+    room = max(get_limits(user).max_monitors - used, 0)
 
     def unique_name(base: str) -> str:
         name, n = base[:MONITOR_NAME_MAX], 2
@@ -1403,7 +1500,7 @@ async def bulk_add_monitors(
     planned = planned[:room]
     for kind, p in over:
         skipped.append((p["site"].name + (" SSL" if kind == "ssl" else ""),
-                        f"over your {user.plan.value} plan's {PLAN_LIMITS[user.plan].max_monitors}-monitor limit"))
+                        f"over your {limits_label(user)}'s {get_limits(user).max_monitors}-monitor limit"))
 
     now = datetime.now(timezone.utc)
     created: list[str] = []
@@ -1839,6 +1936,7 @@ async def pause_monitor_submit(monitor_id: str, request: Request, db: AsyncSessi
     if not monitor:
         raise HTTPException(status_code=404)
     monitor.is_active = False
+    monitor.paused_reason = None   # the user chose this; an upgrade must not undo it
     await db.commit()
     return RedirectResponse(f"/dashboard/monitors/{monitor_id}", status_code=303)
 
@@ -1854,7 +1952,15 @@ async def resume_monitor_submit(monitor_id: str, request: Request, db: AsyncSess
     monitor = result.scalar_one_or_none()
     if not monitor:
         raise HTTPException(status_code=404)
+    if not monitor.is_active:
+        try:
+            await check_resume_allowed(user, monitor, db)
+        except HTTPException as e:
+            return _redirect_with_flash(f"/dashboard/monitors/{monitor_id}", e.detail)
+        # A monitor paused on a faster plan resumes at this plan's minimum.
+        monitor.interval_seconds = max(monitor.interval_seconds, get_limits(user).min_interval_seconds)
     monitor.is_active = True
+    monitor.paused_reason = None
     monitor.next_check_at = func.now()
     await db.commit()
     return RedirectResponse(f"/dashboard/monitors/{monitor_id}", status_code=303)

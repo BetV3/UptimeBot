@@ -6,6 +6,10 @@ Webhook events handled:
     - customer.subscription.updated    → sync plan + status + period end
     - customer.subscription.deleted    → downgrade to FREE
     - invoice.payment_failed           → mark subscription past_due
+
+A paid plan always wins over the no-card Pro trial: whenever a webhook leaves
+the account on a paid plan, any trial is cleared and monitors paused by a
+plan are resumed up to the paid plan's limits (app/services/trial.py).
 """
 
 from __future__ import annotations
@@ -23,6 +27,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.http import external_base_url
 from app.models.models import PlanType, SubscriptionStatus, User
+from app.services import trial as trial_svc
 from app.services.auth import decode_token
 
 log = logging.getLogger(__name__)
@@ -142,6 +147,10 @@ async def _apply_subscription_to_user(
     elif sub_status in {SubscriptionStatus.CANCELED, SubscriptionStatus.INCOMPLETE_EXPIRED, SubscriptionStatus.UNPAID}:
         user.plan = PlanType.FREE
 
+    await db.flush()
+    changed = await db.run_sync(lambda session: trial_svc.clear_for_paid_plan(session, user))
+    if changed:
+        log.info("paid plan replaced trial limits: %s", changed)
     await db.commit()
 
 

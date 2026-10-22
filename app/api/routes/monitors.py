@@ -14,7 +14,7 @@ from app.models.models import (
 from app.schemas.monitors import LiveCheckRequest, MonitorCreate, MonitorUpdate, MonitorResponse
 from app.services import regions as region_svc
 from app.services.auth import get_current_user
-from app.services.plans import check_monitor_limit, check_interval_limit
+from app.services.plans import check_interval_limit, check_monitor_limit, check_resume_allowed, get_limits
 
 router = APIRouter()
 
@@ -255,6 +255,7 @@ async def pause_monitor(
 ):
     monitor = await _get_user_monitor(monitor_id, current_user, db)
     monitor.is_active = False
+    monitor.paused_reason = None   # the user chose this; an upgrade must not undo it
     await db.commit()
     await db.refresh(monitor)
     return _monitor_to_response(monitor)
@@ -267,7 +268,12 @@ async def resume_monitor(
     current_user: User = Depends(get_current_user),
 ):
     monitor = await _get_user_monitor(monitor_id, current_user, db)
+    if not monitor.is_active:
+        await check_resume_allowed(current_user, monitor, db)
+        # A monitor paused on a faster plan resumes at this plan's minimum.
+        monitor.interval_seconds = max(monitor.interval_seconds, get_limits(current_user).min_interval_seconds)
     monitor.is_active = True
+    monitor.paused_reason = None
     monitor.next_check_at = func.now()
     await db.commit()
     await db.refresh(monitor)

@@ -103,6 +103,13 @@ class User(Base):
         nullable=True,
     )
     current_period_end = Column(DateTime(timezone=True), nullable=True)
+    # 14-day Pro trial, no card (app/services/trial.py). Effective limits come
+    # from app/services/plans.get_limits(), never from ``plan`` alone.
+    trial_ends_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    trial_used = Column(Boolean, nullable=False, default=False, server_default="false")
+    trial_offer = Column(Boolean, nullable=False, default=False, server_default="false")
+    trial_reminder_sent_at = Column(DateTime(timezone=True), nullable=True)
+    trial_expired_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
@@ -150,6 +157,10 @@ class Monitor(Base):
         server_default=DnsMatchMode.ALL.value,
     )
     is_active = Column(Boolean, default=True, nullable=False)
+    # Why a paused monitor is paused: NULL = the user paused it; otherwise the
+    # plan did (PAUSED_TRIAL_ENDED / PAUSED_PLAN_LIMIT in app/services/trial.py),
+    # and an upgrade resumes it.
+    paused_reason = Column(String(32), nullable=True)
     current_status = Column(Enum(MonitorStatus), default=MonitorStatus.UNKNOWN, nullable=False)
     last_checked_at = Column(DateTime(timezone=True), nullable=True)
     next_check_at = Column(DateTime(timezone=True), nullable=True)

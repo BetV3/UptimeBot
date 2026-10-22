@@ -280,8 +280,10 @@
             <div class="flex items-center gap-5">
                 {% if user %}
                 {% if user.plan is defined %}
-                <span class="font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded border {% if user.plan.value == 'pro' %}border-brand/40 text-brand bg-brand/10{% elif user.plan.value == 'starter' %}border-cyan2/40 text-cyan2 bg-cyan2/10{% else %}border-ink-dim/30 text-ink-dim bg-ink-dim/5{% endif %}">
-                    {{ user.plan.value | upper }}
+                {% set _tb = trial_banner_for(request) if (request is defined and trial_banner_for is defined) else none %}
+                {% set on_trial = _tb and _tb.kind == 'active' %}
+                <span class="font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded border {% if user.plan.value == 'pro' or on_trial %}border-brand/40 text-brand bg-brand/10{% elif user.plan.value == 'starter' %}border-cyan2/40 text-cyan2 bg-cyan2/10{% else %}border-ink-dim/30 text-ink-dim bg-ink-dim/5{% endif %}">
+                    {% if on_trial %}PRO TRIAL{% else %}{{ user.plan.value | upper }}{% endif %}
                 </span>
                 {% endif %}
                 <a href="/dashboard/account" class="text-sm text-ink-muted hover:text-ink transition flex items-center gap-2" title="{{ user.email }}">
@@ -296,6 +298,18 @@
     {% endblock %}
 
     <main class="max-w-6xl mx-auto px-6 py-8">
+        {% set trial_banner = trial_banner_for(request) if (request is defined and trial_banner_for is defined) else none %}
+        {% if trial_banner and trial_banner.kind == 'active' %}
+        <div class="mb-6 bg-brand/10 border border-brand/30 text-ink text-sm rounded-md px-4 py-3 font-mono flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2" role="status" data-trial-banner>
+            <span>&gt; Pro trial: {{ trial_banner.days }} day{{ '' if trial_banner.days == 1 else 's' }} left</span>
+            <a href="/dashboard/billing" class="text-brand hover:text-brand-hover underline">Choose a plan</a>
+        </div>
+        {% elif trial_banner and trial_banner.kind == 'ended' %}
+        <div class="mb-6 bg-warn/10 border border-warn/30 text-warn text-sm rounded-md px-4 py-3 font-mono flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2" role="status" data-trial-banner>
+            <span>&gt; Trial ended: {{ trial_banner.paused }} monitor{{ '' if trial_banner.paused == 1 else 's' }} paused. Upgrade to resume.</span>
+            <a href="/dashboard/billing" class="underline">Upgrade</a>
+        </div>
+        {% endif %}
         {% if flash_notice %}
         <div class="bc-flash mb-6 bg-ok/10 border border-ok/30 text-ok text-sm rounded-md px-4 py-3 pr-10 font-mono" data-flash role="status" aria-live="polite">
             &gt; {{ flash_notice }}
