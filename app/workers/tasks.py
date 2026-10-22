@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from redis import Redis
-from sqlalchemy import create_engine, select, text, update
+from sqlalchemy import create_engine, delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -148,10 +148,23 @@ def reap_dead_pending_checks():
             .values(dead=True)
         )
 
+        # Public site-check runs nobody came back to finalize: drop their
+        # throwaway monitors (checks and pending_checks cascade). Results the
+        # visitor already saw live in Redis, not here.
+        from app.services.site_check import SWEEP_AFTER, SYSTEM_SLUG
+        sc_pid = session.execute(select(Project.id).where(Project.slug == SYSTEM_SLUG)).scalar_one_or_none()
+        swept = 0
+        if sc_pid is not None:
+            swept = session.execute(
+                delete(Monitor).where(Monitor.project_id == sc_pid,
+                                      Monitor.created_at < datetime.now(timezone.utc) - SWEEP_AFTER)
+            ).rowcount or 0
+
         session.commit()
         return {
             "reaped_exhausted": result_exhausted.rowcount or 0,
             "reaped_orphans": result_orphans.rowcount or 0,
+            "site_check_swept": swept,
         }
 
 
@@ -264,6 +277,14 @@ def finalize_check_result(monitor_id: str):
         if monitor is None:
             session.commit()
             return {"skipped": "monitor_missing"}
+
+        # Public site-check runs use throwaway monitors in one system project.
+        # They report their own results; they must never open incidents.
+        from app.services.site_check import SYSTEM_SLUG
+        owner = session.get(Project, monitor.project_id)
+        if owner is not None and owner.slug == SYSTEM_SLUG:
+            session.commit()
+            return {"skipped": "site_check"}
 
         old_status = monitor.current_status
 

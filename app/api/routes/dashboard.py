@@ -1256,6 +1256,161 @@ async def create_monitor_submit(
     return RedirectResponse(f"/dashboard/projects/{project_id}", status_code=303)
 
 
+# --- Bulk add: paste a list of client sites, get one HTTP monitor each ---
+# (optionally an SSL monitor too). Same validators, SSRF guard, duplicate rule
+# and plan limits as the single form; whatever doesn't fit is reported, not
+# silently dropped. Validation resolves names, so it runs off the event loop.
+
+BULK_SSL_MIN_INTERVAL = 3600   # certificates change on a scale of days
+BULK_STAGGER_SECONDS = 2       # spread first checks so 40 sites don't fire at once
+
+
+def _notice(response, message: str):
+    response.set_cookie("flash_notice", quote(message[:900], safe=""), max_age=30, path="/",
+                        samesite="lax", secure=should_secure_cookie())
+    return response
+
+
+def _bulk_summary(created: list[str], skipped: list[tuple[str, str]]) -> str:
+    parts = []
+    if created:
+        parts.append(f"Added {len(created)} monitor{'' if len(created) == 1 else 's'}.")
+    if skipped:
+        shown = "; ".join(f"{raw}: {why}" for raw, why in skipped[:8])
+        more = f"; and {len(skipped) - 8} more" if len(skipped) > 8 else ""
+        parts.append(f"Skipped {len(skipped)}: {shown}{more}.")
+    return " ".join(parts) or "Nothing to add."
+
+
+@router.post("/projects/{project_id}/monitors/bulk")
+async def bulk_add_monitors(
+    project_id: str, request: Request,
+    sites: str = Form(""),
+    interval_seconds: str = Form(""),
+    timeout_seconds: str = Form("10"),
+    also_ssl: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    from starlette.concurrency import run_in_threadpool
+    from fastapi.responses import JSONResponse
+    from app.services import bulk_add
+
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse("/dashboard/login", status_code=303)
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id, Project.user_id == user.id)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404)
+    back = f"/dashboard/projects/{project_id}"
+
+    try:
+        interval = _parse_int_field(interval_seconds, "Check interval")
+        timeout = _parse_int_field(timeout_seconds, "Timeout")
+        check_interval_limit(user, interval)
+        if timeout >= interval:
+            raise HTTPException(status_code=400, detail="Timeout must be less than the check interval.")
+        if timeout > 60:
+            raise HTTPException(status_code=400, detail="Timeout can't exceed 60 seconds.")
+        parsed = bulk_add.parse(sites)
+        if not parsed:
+            raise HTTPException(status_code=400, detail="Paste at least one site, one per line.")
+        if len(parsed) > bulk_add.MAX_SITES:
+            raise HTTPException(status_code=400,
+                                detail=f"Paste up to {bulk_add.MAX_SITES} sites at a time ({len(parsed)} found).")
+    except HTTPException as e:
+        if _wants_json(request):
+            raise
+        return _redirect_with_flash(back, e.detail)
+
+    existing = (await db.execute(select(Monitor).where(Monitor.project_id == project.id))).scalars().all()
+    names = {m.name for m in existing}
+    http_urls = [m.url for m in existing if m.type == MonitorType.HTTP]
+    ssl_hosts = {(m.target_host or "").lower() for m in existing if m.type == MonitorType.SSL}
+    used = (await db.execute(
+        select(func.count()).select_from(Monitor).join(Project, Monitor.project_id == Project.id)
+        .where(Project.user_id == user.id)
+    )).scalar() or 0
+    room = max(PLAN_LIMITS[user.plan].max_monitors - used, 0)
+
+    def unique_name(base: str) -> str:
+        name, n = base[:MONITOR_NAME_MAX], 2
+        while name in names:
+            suffix = f" ({n})"
+            name, n = base[:MONITOR_NAME_MAX - len(suffix)] + suffix, n + 1
+        names.add(name)
+        return name
+
+    # Plan what to create, in paste order: every site's HTTP monitor first,
+    # then SSL monitors, so a tight plan limit keeps uptime coverage widest.
+    planned: list[tuple[str, dict]] = []
+    skipped: list[tuple[str, str]] = []
+    for s in parsed:
+        if s.error:
+            skipped.append((s.raw[:60], s.error))
+            continue
+        if any(bulk_add.same_url(s.url, u) for u in http_urls):
+            skipped.append((s.name, "already monitored"))
+            continue
+        try:
+            await run_in_threadpool(_validate_monitor_fields, s.name, s.url, interval, timeout, "GET")
+        except HTTPException as e:
+            skipped.append((s.name, e.detail.rstrip(".")))
+            continue
+        http_urls.append(s.url)
+        planned.append(("http", {"site": s}))
+    if also_ssl:
+        for kind, p in list(planned):
+            s = p["site"]
+            if not s.url.startswith("https://") or s.host in ssl_hosts:
+                continue
+            try:
+                await run_in_threadpool(_validate_ssl_fields, s.name, s.host, 443, 14,
+                                        max(interval, BULK_SSL_MIN_INTERVAL), timeout)
+            except HTTPException as e:
+                skipped.append((f"{s.name} SSL", e.detail.rstrip(".")))
+                continue
+            ssl_hosts.add(s.host)
+            planned.append(("ssl", {"site": s}))
+
+    over = planned[room:]
+    planned = planned[:room]
+    for kind, p in over:
+        skipped.append((p["site"].name + (" SSL" if kind == "ssl" else ""),
+                        f"over your {user.plan.value} plan's {PLAN_LIMITS[user.plan].max_monitors}-monitor limit"))
+
+    now = datetime.now(timezone.utc)
+    created: list[str] = []
+    for i, (kind, p) in enumerate(planned):
+        s = p["site"]
+        first = now + timedelta(seconds=min(i * BULK_STAGGER_SECONDS, 120))
+        if kind == "http":
+            m = Monitor(project_id=project.id, name=unique_name(s.name), type=MonitorType.HTTP, url=s.url,
+                        method=HttpMethod.GET, expected_status=200, interval_seconds=interval,
+                        timeout_seconds=timeout, next_check_at=first)
+        else:
+            m = Monitor(project_id=project.id, name=unique_name(f"{s.name} SSL"), type=MonitorType.SSL,
+                        url=f"https://{s.host}:443", method=HttpMethod.GET, expected_status=200,
+                        interval_seconds=max(interval, BULK_SSL_MIN_INTERVAL), timeout_seconds=timeout,
+                        target_host=s.host, target_port=443, warn_days_before_expiry=14,
+                        next_check_at=first)
+        db.add(m)
+        created.append(m.name)
+    if created:
+        await db.commit()
+
+    message = _bulk_summary(created, skipped)
+    if not created:
+        if _wants_json(request):
+            raise HTTPException(status_code=400, detail="Nothing added. " + message)
+        return _redirect_with_flash(back, "Nothing added. " + message)
+    if _wants_json(request):
+        # The modal script reloads the page on success; the cookie carries the summary.
+        return _notice(JSONResponse({"created": len(created), "skipped": len(skipped), "message": message}), message)
+    return _notice(RedirectResponse(back, status_code=303), message)
+
+
 # Resolve a hostname on demand so the new-monitor form can show current
 # answer values for the user to pick from. Auth-gated to avoid turning this
 # into an open DNS-over-HTTP relay.

@@ -37,6 +37,7 @@ _EXACT = {
     "/legal/terms": "/legal/terms",
     "/dashboard/register": "/dashboard/register",
     "/tools/ssl-checker": "/tools/ssl-checker",
+    "/tools/site-check": "/tools/site-check",
 }
 _VS_RE = re.compile(r"^/vs/([a-z0-9-]{1,40})/?$")
 _STATUS_RE = re.compile(r"^/status/[^/]+/?$")

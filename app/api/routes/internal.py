@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, status
 from sqlalchemy import delete, select, update, text
@@ -171,6 +172,23 @@ async def post_results(
     db: AsyncSession = Depends(get_db),
     x_worker_id: str = Header(default="unknown"),
 ):
+    if not body.results:
+        return {"saved": 0}
+
+    # Drop results for monitors that no longer exist (deleted by their owner, or a
+    # public site-check run that was already finalized while this worker held the
+    # lease). Without this, one stale row fails the FK and the whole batch, other
+    # customers' results included, is lost and re-run.
+    posted = set()
+    for r in body.results:
+        try:
+            posted.add(uuid.UUID(r.monitor_id))
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                detail=f"bad monitor_id: {r.monitor_id[:40]}")
+    alive = {str(m) for m in (await db.execute(
+        select(Monitor.id).where(Monitor.id.in_(list(posted))))).scalars().all()}
+    body.results = [r for r in body.results if str(uuid.UUID(r.monitor_id)) in alive]
     if not body.results:
         return {"saved": 0}
 
