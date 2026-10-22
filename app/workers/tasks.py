@@ -351,6 +351,27 @@ def finalize_check_result(monitor_id: str):
     }
 
 
+@celery_app.task(name="app.workers.tasks.trial_housekeeping")
+def trial_housekeeping():
+    """Hourly: end expired Pro trials, then send due "trial ends in 3 days" emails.
+
+    Expiry pauses monitors over the Free limit (never deletes them) and marks
+    them so an upgrade resumes them; see app/services/trial.py. Each account
+    commits on its own, so one bad row cannot block the rest.
+    """
+    from app.services import mailer, trial
+
+    base = settings.app_url if "localhost" not in settings.app_url else trial.PUBLIC_BASE_URL
+
+    def send(to, subject, text, html):
+        mailer.send_sync(to, subject, text, html, kind="trial reminder")
+
+    with Session(sync_engine) as session:
+        expired = trial.expire_due(session)
+        reminded = trial.send_reminders(session, send, base)
+    return {"expired": expired, "reminded": reminded}
+
+
 # Per-plan check history retention (days). Matches the marketing copy on the
 # landing/docs pages and the Privacy Policy. Keep in sync if you change either.
 CHECK_RETENTION_DAYS = {

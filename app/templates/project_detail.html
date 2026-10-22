@@ -23,6 +23,23 @@
     </div>
 </div>
 
+{% if trial_offer %}
+<!-- Pro trial offer: new accounts that came from the free site check -->
+<section id="trial-offer" class="bc-card p-5 sm:p-6 mb-8 border-brand/40">
+    <p class="font-mono text-xs uppercase tracking-wider text-brand mb-2">// more than 3 sites?</p>
+    <h2 class="text-lg font-semibold text-ink">Try Pro free for {{ trial_days }} days, no card</h2>
+    <p class="mt-2 text-sm text-ink-muted">Up to {{ trial_limits.max_monitors }} monitors in {{ trial_limits.max_projects }} projects, checked every {{ trial_limits.min_interval_seconds }} seconds, with branded status pages. When it ends you are back on Free: extra monitors are paused, never deleted, and upgrading resumes them.</p>
+    <div class="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <form method="post" action="/dashboard/billing/trial">
+            <button type="submit" class="bc-btn-primary w-full sm:w-auto justify-center">Start free trial</button>
+        </form>
+        <form method="post" action="/dashboard/billing/trial/dismiss">
+            <button type="submit" class="text-xs text-ink-dim hover:text-ink font-mono">No thanks, stay on Free</button>
+        </form>
+    </div>
+</section>
+{% endif %}
+
 <!-- Monitors Section -->
 <section class="mb-10">
     <div class="flex items-center justify-between mb-4">
@@ -72,7 +89,7 @@
                         {{ m.current_status }}
                     </span>
                     {% if not m.is_active %}
-                    <span class="bc-pill bc-pill--neutral">Paused</span>
+                    <span class="bc-pill {% if m.paused_reason %}bc-pill--warn{% else %}bc-pill--neutral{% endif %}" {% if m.paused_reason %}title="Paused by your plan. Upgrade to resume."{% endif %}>{% if m.paused_reason %}Paused: plan{% else %}Paused{% endif %}</span>
                     {% endif %}
                 </div>
             </div>

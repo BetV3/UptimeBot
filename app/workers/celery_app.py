@@ -38,6 +38,12 @@ celery_app.conf.update(
             "task": "app.workers.tasks.reap_dead_pending_checks",
             "schedule": 60.0,
         },
+        # End no-card Pro trials that ran out (pause, never delete) and send
+        # the one "ends in 3 days" reminder. Hourly is plenty for day-scale dates.
+        "trial-housekeeping": {
+            "task": "app.workers.tasks.trial_housekeeping",
+            "schedule": crontab(minute=7),
+        },
         "cleanup-old-checks": {
             "task": "app.workers.tasks.cleanup_old_checks",
             "schedule": crontab(hour=3, minute=0),  # Daily at 3:00 AM UTC
