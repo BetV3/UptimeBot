@@ -41,6 +41,7 @@ from app.services.email import (
 from app.services.plans import PLAN_LIMITS, check_project_limit, check_monitor_limit, check_interval_limit
 from app.services import regions as region_svc
 from app.services import site_import
+from app.services.plans import get_limits
 from app.services import target_guard
 from app.services.url_guard import UnsafeUrlError, validate_outbound_url
 
@@ -514,13 +515,12 @@ async def register_submit(
 
     db.add(user)
     await db.commit()
-    # A site-check run carried in from the results page belongs to this new
-    # account now, so it survives the verification link opening elsewhere.
-    if site_import.valid_run_id(request.cookies.get(site_import.COOKIE)):
-        await site_import.bind(user.id, request.cookies[site_import.COOKIE])
     await db.refresh(user)
 
     if is_production:
+        # A site-check run carried in from the results page belongs to this new
+        # account now, so it survives the verification link opening elsewhere.
+        await site_import.pending(user, request.cookies.get(site_import.COOKIE))
         await send_verification_email(user.email, token, base_url=external_base_url(request))
         return templates.TemplateResponse(
             "check_email.html",
@@ -534,7 +534,7 @@ async def register_submit(
         )
 
     # Dev mode: log in immediately
-    nxt = "/dashboard/import/site-check" if await site_import.pending(user) else "/dashboard"
+    nxt = "/dashboard/import/site-check" if await site_import.pending(user, request.cookies.get(site_import.COOKIE)) else "/dashboard"
     response = RedirectResponse(nxt, status_code=303)
     _set_token_cookie(response, create_access_token(str(user.id)))
     return response
@@ -1197,7 +1197,7 @@ async def project_detail_page(project_id: str, request: Request, db: AsyncSessio
             select(func.count()).select_from(Monitor).join(Project, Monitor.project_id == Project.id)
             .where(Project.user_id == user.id)
         )).scalar() or 0
-        import_room = max(PLAN_LIMITS[user.plan].max_monitors - used, 0)
+        import_room = max(get_limits(user).max_monitors - used, 0)
 
     response = templates.TemplateResponse("project_detail.html", {
         "request": request, "user": user,
